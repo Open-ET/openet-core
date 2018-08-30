@@ -1,0 +1,2 @@
+python setup.py sdist
+twine upload dist/refet-0.3.X.tar.gz
