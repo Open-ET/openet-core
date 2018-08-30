@@ -1,2 +1,2 @@
 python setup.py sdist
-twine upload dist/refet-0.3.X.tar.gz
+twine upload dist/openet-0.0.X.tar.gz
