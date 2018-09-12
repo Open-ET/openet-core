@@ -1,3 +1,4 @@
+import calendar
 import logging
 import sys
 
@@ -228,3 +229,23 @@ def add_time_bands(image):
         ee.Date(image.get('system:time_start')))
     return image.addBands([
         image.select([0]).double().multiply(0).add(time_0utc).rename(['time'])])
+
+
+def millis(input_dt):
+    """Convert datetime to milliseconds since epoch
+
+    Parameters
+    ----------
+    input_df : datetime
+
+    Returns
+    -------
+    float
+
+    """
+    # Python 3 (or 2 with future module)
+    return 1000 * int(calendar.timegm(input_dt.timetuple()))
+
+    # Python 2
+    # return 1000 * long(calendar.timegm(input_dt.timetuple()))
+    # return 1000 * long(time.mktime(input_dt.timetuple()))

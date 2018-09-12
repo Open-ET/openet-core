@@ -25,4 +25,4 @@ def test_init():
         ee.Initialize()
 
     # Make a simple EE request
-    logging.debug(ee.Number(1).getInfo())
+    # logging.debug(ee.Number(1).getInfo())
