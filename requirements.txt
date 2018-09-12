@@ -1,3 +1,2 @@
 earthengine-api
 oauth2client
-openet
