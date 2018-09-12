@@ -44,9 +44,9 @@ Each OpenET model should be stored in the "openet" folder (namespace).  The bene
     import openet.common
     import openet.interp
 
-.. |build| image:: https://travis-ci.org/Open-ET/openet.svg?branch=master
+.. |build| image:: https://travis-ci.org/Open-ET/openet-core-beta.svg?branch=master
    :alt: Build status
-   :target: https://travis-ci.org/Open-ET/openet
+   :target: https://travis-ci.org/Open-ET/openet-core-beta
 .. |version| image:: https://badge.fury.io/py/openet.svg
    :alt: Latest version on PyPI
    :target: https://badge.fury.io/py/openet

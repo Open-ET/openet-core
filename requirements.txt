@@ -1,2 +1,2 @@
 earthengine-api
-pytest
+oauth2client
