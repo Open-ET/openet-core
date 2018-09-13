@@ -7,8 +7,8 @@ import ee
 system_properties = ['system:index', 'system:time_start']
 
 
-def interpolate(et_reference_coll, et_fraction_coll,
-                interp_days=32, interp_type='linear'):
+def daily_et(et_reference_coll, et_fraction_coll,
+             interp_days=32, interp_type='linear'):
     """Generate daily ETa collection from ETo and ETf collections
 
     Parameters
@@ -28,8 +28,8 @@ def interpolate(et_reference_coll, et_fraction_coll,
     ee.ImageCollection() of daily ET images
 
     """
-    # Add TIME_0UTC as a separate image band for quality mosaic
-    interp_etf_coll = et_fraction_coll.map(add_time_bands)
+    # Add TIME_0UTC as a separate band to each image for the mosaic
+    interp_etf_coll = et_fraction_coll.map(add_time_band)
 
     # Filters for joining the neighboring Landsat images in time
     # Need to add one extra day since ETo time_start may be offset from ETf
@@ -59,13 +59,15 @@ def interpolate(et_reference_coll, et_fraction_coll,
 
     # Interpolate
     if interp_type.lower() == 'linear':
-        return ee.ImageCollection(et_reference_coll.map(linear_et))
+        interp_et_coll = ee.ImageCollection(et_reference_coll.map(linear_et))
     else:
         logging.error('\nERROR: Invalid interpolation type: {}'.format(
             interp_type))
         sys.exit()
         # raise exception?
         # return ee.ImageCollection([])
+
+    return interp_et_coll
 
 
 def linear_et(image):
@@ -75,12 +77,12 @@ def linear_et(image):
     Parameters
     ----------
     image : ee.Image
-        Input image must have band 'et_reference' and join properties
-        'prev' and 'next'.
+        Function will use the first band in the image as reference ET.
+        Input image must have  join properties 'prev' and 'next'.
 
     Returns
     -------
-    ee.Image of interpolate ET
+    ee.Image of interpolated ET
 
     Notes
     -----
@@ -91,7 +93,7 @@ def linear_et(image):
         next: list of images with bands: etf and time
 
     """
-    et_reference_image = ee.Image(image).select('et_reference')
+    et_reference_image = ee.Image(image).select(0)
 
     time_0utc = date_to_time_0utc(ee.Date(image.get('system:time_start')))
     time_image = ee.Image.constant(time_0utc).double().rename(['time'])
@@ -102,8 +104,9 @@ def linear_et(image):
     next_qm_image = ee.ImageCollection.fromImages(
         ee.List(et_reference_image.get('next'))).mosaic()
 
-    prev_etf_image = ee.Image(prev_qm_image.select('etf')).double()
-    next_etf_image = ee.Image(next_qm_image.select('etf')).double()
+    # Is it safe to assume the bands stay in order?
+    prev_value_image = ee.Image(prev_qm_image.select(0)).double()
+    next_value_image = ee.Image(next_qm_image.select(0)).double()
     prev_time_image = ee.Image(prev_qm_image.select('time')).double()
     next_time_image = ee.Image(next_qm_image.select('time')).double()
 
@@ -115,21 +118,20 @@ def linear_et(image):
         next_time_image, prev_time_image]).mosaic())
     next_time_mosaic = ee.Image(ee.ImageCollection.fromImages([
         prev_time_image, next_time_image]).mosaic())
-    prev_etf_mosaic = ee.Image(ee.ImageCollection.fromImages([
-        next_etf_image, prev_etf_image]).mosaic())
-    next_etf_mosaic = ee.Image(ee.ImageCollection.fromImages([
-        prev_etf_image, next_etf_image]).mosaic())
+    prev_value_mosaic = ee.Image(ee.ImageCollection.fromImages([
+        next_value_image, prev_value_image]).mosaic())
+    next_value_mosaic = ee.Image(ee.ImageCollection.fromImages([
+        prev_value_image, next_value_image]).mosaic())
 
-    # Calculate time ratio of Landsat image between other cloud free
-    #   Landsat images images
+    # Calculate time ratio of the current image between other cloud free images
     time_ratio_image = time_image.subtract(prev_time_mosaic) \
         .divide(next_time_mosaic.subtract(prev_time_mosaic))
 
-    # Interpolate NDVI values to the current image time
-    interp_etf_image = next_etf_mosaic.subtract(prev_etf_mosaic) \
-        .multiply(time_ratio_image).add(prev_etf_mosaic)
+    # Interpolate values to the current image time
+    interp_value_image = next_value_mosaic.subtract(prev_value_mosaic) \
+        .multiply(time_ratio_image).add(prev_value_mosaic)
 
-    return interp_etf_image.multiply(et_reference_image)\
+    return interp_value_image.multiply(et_reference_image)\
         .select([0], ['et']) \
         .copyProperties(image, system_properties)
 
@@ -160,9 +162,9 @@ def aggregate_daily(image_coll, start_date, end_date, agg_type='mean'):
     Notes
     -----
     This function should be used to mosaic Landsat images from same path
-        but different rows
-    Aggregation is currently hardcoded to 'mean'
-    system:time_start of returned images will be 0 UTC (not the image time)
+        but different rows.
+    Aggregation is currently hardcoded to 'mean'.
+    system:time_start of returned images will be 0 UTC (not the image time).
 
     """
     # Build a collection of date "features" to join to
@@ -218,17 +220,27 @@ def date_to_time_0utc(date):
         .divide(1000).floor().multiply(1000)
 
 
-def add_time_bands(image):
+def add_time_band(image):
     """Add TIME_0UTC as a separate image band for quality mosaic
 
-    Mask time band with image mask
+    Parameters
+    ----------
+    image : ee.Image
+
+    Returns
+    -------
+    ee.Image
+
+    Notes
+    -----
+    Mask time band with image mask.
     Intentionally using TIME_0UTC (instead of system:time_start)
         so that joins and interpolation happen evenly per day
     """
-    time_0utc = date_to_time_0utc(
-        ee.Date(image.get('system:time_start')))
+    time_0utc = date_to_time_0utc(ee.Date(image.get('system:time_start')))
     return image.addBands([
-        image.select([0]).double().multiply(0).add(time_0utc).rename(['time'])])
+        image.select([0]).double().multiply(0).add(time_0utc).rename(['time'])
+    ])
 
 
 def millis(input_dt):

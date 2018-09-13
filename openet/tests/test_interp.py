@@ -146,7 +146,7 @@ def test_linear_et_func(etr_value, etr_time, etf_values, etf_times, expected,
     assert abs(output - expected) <= tol
 
 
-def test_interp_et_coll(tol=0.01):
+def test_daily_et_coll(tol=0.01):
     # For now, use one of the test cases from test_linear_et_func()
     etr_value = 10
     etr_time = 1440309600000  # 2015-08-23
@@ -156,22 +156,22 @@ def test_interp_et_coll(tol=0.01):
 
     et_reference_coll = ee.ImageCollection([
         ee.Image.constant(etr_value) \
-            .select([0], ['et_reference']) \
+            .select([0]) \
             .setMulti({
                 'system:time_start': etr_time,
             })
         ])
     et_fraction_coll = ee.ImageCollection([
-        ee.Image.constant(value).select([0], ['etf']) \
+        ee.Image.constant(value).select([0]) \
             .setMulti({
                 'system:time_start': time,
                 'SCENE_ID': 'test',
             })
         for time, value in zip(etf_times, etf_values)])
 
-    eta_coll = ee.ImageCollection(interp.interpolate(
-        et_reference_coll, et_fraction_coll, interp_days=64,
-        interp_type='linear'))
+    eta_coll = ee.ImageCollection(interp.daily_et(
+        et_reference_coll, et_fraction_coll,
+        interp_days=64, interp_type='linear'))
 
     output = ee.Image(eta_coll.first()).reduceRegion(
         reducer=ee.Reducer.mean(),
