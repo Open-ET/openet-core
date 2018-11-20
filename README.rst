@@ -4,12 +4,12 @@ OpenET - Core Functions and Tools
 
 |version| |build|
 
-This repository provides a template/example for other ET model.  This repository is currently structured to compute ET as a simple function of NDVI.
+This repository provides core functions used by the OpenET models.
 
 Installation
 ============
 
-To install the OpenET core python module:
+The OpenET core python module can be installed via pip:
 
 .. code-block:: console
 
@@ -22,19 +22,8 @@ Modules needed to run the model:
 
  * `earthengine-api <https://github.com/google/earthengine-api>`__
 
-Modules needed to run the test suite:
-
- * `pytest <https://docs.pytest.org/en/latest/>`__
-
-Running Testing
-===============
-
-.. code-block:: console
-
-    python -m pytest
-
-Namespace Packages
-==================
+OpenET Namespace Package
+========================
 
 Each OpenET model should be stored in the "openet" folder (namespace).  The benefit of the namespace package is that each ET model can be tracked in separate repositories but called as a "dot" submodule of the main openet module,
 
@@ -50,3 +39,8 @@ Each OpenET model should be stored in the "openet" folder (namespace).  The bene
 .. |version| image:: https://badge.fury.io/py/openet.svg
    :alt: Latest version on PyPI
    :target: https://badge.fury.io/py/openet
+
+Development and Testing
+=======================
+
+Please see the `CONTRIBUTING.rst <CONTRIBUTING.RST>`__.
