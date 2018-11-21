@@ -1,7 +1,7 @@
 import ee
 
 
-def landsat_c1_toa_cloud_mask(input_img):
+def landsat_c1_toa_cloud_mask(input_img, snow_flag=False, cirrus_flag=False):
     """Extract cloud mask from the Landsat Collection 1 TOA BQA band
 
     Parameters
@@ -9,6 +9,11 @@ def landsat_c1_toa_cloud_mask(input_img):
     input_img : ee.Image
         Image from a Landsat Collection 1 TOA collection with a BQA band
         (e.g. LANDSAT/LE07/C01/T1_TOA).
+    snow_flag : bool
+        If true, mask snow pixels (the default is False).
+    cirrus_flag : bool
+        If true, mask cirrus pixels (the default is False).
+        Note, cirrus bits are only set for Landsat 8 (OLI) images.
 
     Returns
     -------
@@ -49,16 +54,17 @@ def landsat_c1_toa_cloud_mask(input_img):
     qa_img = ee.Image(input_img.select(['BQA']))
     cloud_mask = qa_img.rightShift(4).bitwiseAnd(1).neq(0)\
         .And(qa_img.rightShift(5).bitwiseAnd(3).gte(2))\
-        .Or(qa_img.rightShift(7).bitwiseAnd(3).gte(3))\
-        .Or(qa_img.rightShift(9).bitwiseAnd(3).gte(3))
-    # Excluding Cirrus band for now
-    #     .Or(qa_img.rightShift(11).bitwiseAnd(3).gte(3))
+        .Or(qa_img.rightShift(7).bitwiseAnd(3).gte(3))
+    if snow_flag:
+        cloud_mask = cloud_mask.Or(qa_img.rightShift(9).bitwiseAnd(3).gte(3))
+    if cirrus_flag:
+        cloud_mask = cloud_mask.Or(qa_img.rightShift(11).bitwiseAnd(3).gte(3))
 
     # Set cloudy pixels to 0 and clear to 1
     return cloud_mask.Not()
 
 
-def landsat_c1_sr_cloud_mask(input_img):
+def landsat_c1_sr_cloud_mask(input_img, snow_flag=False):
     """Extract cloud mask from the Landsat Collection 1 SR pixel_qa band
 
     Parameters
@@ -66,6 +72,8 @@ def landsat_c1_sr_cloud_mask(input_img):
     img : ee.Image
         Image from a Landsat Collection 1 SR image collection with a pixel_qa
         band (e.g. LANDSAT/LE07/C01/T1_SR).
+    snow_flag : bool
+        If true, mask snow pixels (the default is False).
 
     Returns
     -------
@@ -100,15 +108,15 @@ def landsat_c1_sr_cloud_mask(input_img):
     """
     qa_img = ee.Image(input_img.select(['pixel_qa']))
     cloud_mask = qa_img.rightShift(5).bitwiseAnd(1).neq(0)\
-        .And(qa_img.rightShift(6).bitwiseAnd(3).gte(2))\
-        .Or(qa_img.rightShift(3).bitwiseAnd(1).neq(0))\
-        .Or(qa_img.rightShift(4).bitwiseAnd(1).neq(0))
+        .And(qa_img.rightShift(6).bitwiseAnd(3).gte(2))
+    if snow_flag:
+        cloud_mask = cloud_mask.Or(qa_img.rightShift(4).bitwiseAnd(1).neq(0))
 
     # Set cloudy pixels to 0 and clear to 1
     return cloud_mask.Not()
 
 
-def sentinel_2_toa_cloud_mask(input_img):
+def sentinel2_toa_cloud_mask(input_img):
     """Extract cloud mask from the Sentinel 2 TOA QA60 band
 
     Parameters
