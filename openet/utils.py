@@ -1,3 +1,5 @@
+import calendar
+
 import ee
 
 
@@ -19,3 +21,18 @@ def point_image_value(image, xy, scale=1):
             reducer=ee.Reducer.first(), geometry=ee.Geometry.Point(xy),
             scale=scale)\
         .getInfo()['output']
+
+
+def millis(input_dt):
+    """Convert datetime to milliseconds since epoch
+
+    Parameters
+    ----------
+    input_df : datetime
+
+    Returns
+    -------
+    int
+
+    """
+    return 1000 * int(calendar.timegm(input_dt.timetuple()))

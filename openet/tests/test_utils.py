@@ -1,3 +1,5 @@
+import datetime
+
 import ee
 import pytest
 
@@ -19,3 +21,7 @@ def test_point_image_value(tol=0.001):
     expected = 2364.351
     output = utils.point_image_value(ee.Image('USGS/NED'), [-106.03249, 37.17777])
     assert abs(output - expected) <= tol
+
+
+def test_millis():
+    assert utils.millis(datetime.datetime(2015, 7, 13)) == 1436745600000
