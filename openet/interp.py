@@ -7,34 +7,42 @@ import ee
 system_properties = ['system:index', 'system:time_start']
 
 
-def daily_et(et_reference_coll, et_fraction_coll,
-             interp_days=32, interp_type='linear'):
+def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
     """Generate daily ETa collection from ETo and ETf collections
 
     Parameters
     ----------
-    et_reference_coll : ee.ImageCollection
-        Daily reference ET images.
-    et_fraction_coll : ee.ImageCollection
-        Daily fraction of ET images.
+    target_coll : ee.ImageCollection
+        Source images will be interpolated to each target image time_start.
+        Target images should have a daily time step.  This will typically be
+        the reference ET (ETr) collection.
+    source_coll : ee.ImageCollection
+        Images that will be interpolated to the target image collection.
+        This will typically be the fraction of reference ET (ETrF) collection.
     interp_days : int, optional
         Number of days before and after each image date to include in the
         interpolation (the default is 32).
-    interp_type : {'linear'}, optional
-        Interpolation type (the default is 'linear').
+    interp_method : {'linear'}, optional
+        Interpolation method (the default is 'linear').
 
     Returns
     -------
-    ee.ImageCollection() of daily ET images
+    ee.ImageCollection() of daily interpolated images
+
+    Raises
+    ------
+    ValueError
+        If `interp_method` is not a supported method.
 
     """
     # Add TIME_0UTC as a separate band to each image for the mosaic
-    interp_etf_coll = et_fraction_coll.map(add_time_band)
+    source_mod_coll = source_coll.map(add_time_band)
 
     # Filters for joining the neighboring Landsat images in time
-    # Need to add one extra day since ETo time_start may be offset from ETf
-    # DEADBEEF - Does it need to be added to both filters?
-    # DEADBEEF - Which one should be < / > and which should be <= / >=
+    # Need to add one extra day since target time_start may be offset from source
+    #   (i.e. GRIDMET may be 7 UTC but Landsat is ~18 UTC
+    #   Does it need to be added to both filters?
+    # Which one should be < / > and which should be <= / >=
     # We should probably use TIME_0UTC here instead of system:time_start
     prev_filter = ee.Filter.And(
         ee.Filter.maxDifference(
@@ -50,59 +58,55 @@ def daily_et(et_reference_coll, et_fraction_coll,
             leftField='system:time_start', rightField='system:time_start'))
 
     # Join the neighboring Landsat images in time
-    et_reference_coll = ee.ImageCollection(
+    target_coll = ee.ImageCollection(
         ee.Join.saveAll('prev', 'system:time_start', True).apply(
-            et_reference_coll, interp_etf_coll, prev_filter))
-    et_reference_coll = ee.ImageCollection(
+            target_coll, source_mod_coll, prev_filter))
+    target_coll = ee.ImageCollection(
         ee.Join.saveAll('next', 'system:time_start', False).apply(
-            et_reference_coll, interp_etf_coll, next_filter))
+            target_coll, source_mod_coll, next_filter))
 
-    # Interpolate
-    if interp_type.lower() == 'linear':
-        interp_et_coll = ee.ImageCollection(et_reference_coll.map(linear_et))
+    # Map the interpolation function over the joine image collection
+    if interp_method.lower() == 'linear':
+        interp_coll = ee.ImageCollection(target_coll.map(_linear))
+    # elif interp_type.lower() == 'nearest':
+    #     interp_coll = ee.ImageCollection(target_coll.map(_nearest))
     else:
-        logging.error('\nERROR: Invalid interpolation type: {}'.format(
-            interp_type))
-        sys.exit()
-        # raise exception?
-        # return ee.ImageCollection([])
+        raise ValueError('invalid interpolation method: {}'.format(interp_method))
 
-    return interp_et_coll
+    return interp_coll
 
 
-def linear_et(image):
-    """Linearly interpolate daily ET fraction and multiply by daily
-    reference ET
+def _linear(image):
+    """Linearly interpolate source images to target image time_start
 
     Parameters
     ----------
     image : ee.Image
         Function will use the first band in the image as reference ET.
-        Input image must have  join properties 'prev' and 'next'.
+        Input image must have join properties 'prev' and 'next'.
+        prev: list of images with bands: value and time
+        next: list of images with bands: value and time
 
     Returns
     -------
-    ee.Image of interpolated ET
+    ee.Image of interpolated values with band name 'src'
 
     Notes
     -----
-    Function should be mapped over the daily ETo/ETr collection
-        (i.e. ETo/ETr collection)
-    Image Properties:
-        prev: list of images with bands: etf and time
-        next: list of images with bands: etf and time
+    This function is intended to be mapped over an image collection and can
+    only take one input parameter.
 
     """
-    et_reference_image = ee.Image(image).select(0)
+    target_image = ee.Image(image).select(0)
 
     time_0utc = date_to_time_0utc(ee.Date(image.get('system:time_start')))
     time_image = ee.Image.constant(time_0utc).double().rename(['time'])
 
     # For mosaic, joined images were sorted with closest image in time last
     prev_qm_image = ee.ImageCollection.fromImages(
-        ee.List(et_reference_image.get('prev'))).mosaic()
+        ee.List(target_image.get('prev'))).mosaic()
     next_qm_image = ee.ImageCollection.fromImages(
-        ee.List(et_reference_image.get('next'))).mosaic()
+        ee.List(target_image.get('next'))).mosaic()
 
     # Is it safe to assume the bands stay in order?
     prev_value_image = ee.Image(prev_qm_image.select(0)).double()
@@ -124,17 +128,16 @@ def linear_et(image):
         prev_value_image, next_value_image]).mosaic())
 
     # Calculate time ratio of the current image between other cloud free images
-    time_ratio_image = time_image.subtract(prev_time_mosaic) \
+    time_ratio_image = time_image.subtract(prev_time_mosaic)\
         .divide(next_time_mosaic.subtract(prev_time_mosaic))
 
     # Interpolate values to the current image time
-    interp_value_image = next_value_mosaic.subtract(prev_value_mosaic) \
+    interp_value_image = next_value_mosaic.subtract(prev_value_mosaic)\
         .multiply(time_ratio_image).add(prev_value_mosaic)
 
-    return interp_value_image.multiply(et_reference_image)\
-        .select([0], ['et']) \
+    return interp_value_image.multiply(target_image)\
         .copyProperties(image, system_properties)
-
+        # .select([0], ['et']) \
 
 def aggregate_daily(image_coll, start_date, end_date, agg_type='mean'):
     """Aggregate images by day
@@ -241,23 +244,3 @@ def add_time_band(image):
     return image.addBands([
         image.select([0]).double().multiply(0).add(time_0utc).rename(['time'])
     ])
-
-
-def millis(input_dt):
-    """Convert datetime to milliseconds since epoch
-
-    Parameters
-    ----------
-    input_df : datetime
-
-    Returns
-    -------
-    float
-
-    """
-    # Python 3 (or 2 with future module)
-    return 1000 * int(calendar.timegm(input_dt.timetuple()))
-
-    # Python 2
-    # return 1000 * long(calendar.timegm(input_dt.timetuple()))
-    # return 1000 * long(time.mktime(input_dt.timetuple()))
