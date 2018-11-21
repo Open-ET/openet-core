@@ -6,6 +6,25 @@ OpenET - Core Functions and Tools
 
 This repository provides core functions used by the OpenET models.
 
+Core Components
+===============
+
+Common
+------
+
+The OpenET common module provides functions that are common across many of the OpenET models.  Currently these are limited to cloud masking functions but additional functions will be added as they are identified.
+
+Examples of the cloud masking functions are provided in the "examples" folder.
+
++ `Landsat Collection 1 TOA cloud mask <examples/landsat_toa_cloud_mask.ipynb>`__
++ `Landsat Collection 1 SR cloud mask <examples/landsat_sr_cloud_mask.ipynb>`__
++ `Sentinel 2 TOA cloud mask <examples/sentinel2_toa_cloud_mask.ipynb>`__
+
+Interpolation
+-------------
+
+The OpenET "interp" module provides functions for interpolating the image based ET estimates from the models (primarily from Landsat images) to a daily time step then aggregating to custom time periods (such as monthly or annual).
+
 Installation
 ============
 
@@ -25,13 +44,18 @@ Modules needed to run the model:
 OpenET Namespace Package
 ========================
 
-Each OpenET model should be stored in the "openet" folder (namespace).  The benefit of the namespace package is that each ET model can be tracked in separate repositories but called as a "dot" submodule of the main openet module,
+Each OpenET model will be stored in subfolders of the "openet" folder (namespace).  The benefit of the namespace package is that each ET model can be tracked in separate repositories but called as a "dot" submodule of the main openet module,
 
-.. code-block:: console
+.. code-block:: python
 
-    import openet.api
     import openet.common
     import openet.interp
+    import openet.ssebop
+
+Development and Testing
+=======================
+
+Please see the `CONTRIBUTING.rst <CONTRIBUTING.RST>`__.
 
 .. |build| image:: https://travis-ci.org/Open-ET/openet-core-beta.svg?branch=master
    :alt: Build status
@@ -39,8 +63,3 @@ Each OpenET model should be stored in the "openet" folder (namespace).  The bene
 .. |version| image:: https://badge.fury.io/py/openet.svg
    :alt: Latest version on PyPI
    :target: https://badge.fury.io/py/openet
-
-Development and Testing
-=======================
-
-Please see the `CONTRIBUTING.rst <CONTRIBUTING.RST>`__.
