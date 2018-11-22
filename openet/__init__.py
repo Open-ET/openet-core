@@ -1,5 +1,1 @@
-from . import api
-from . import common
-from . import interp
-
-__version__ = "0.0.4"
+__path__ = __import__('pkgutil').extend_path(__path__, __name__)

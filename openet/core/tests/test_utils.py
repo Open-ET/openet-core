@@ -1,9 +1,9 @@
 import datetime
 
 import ee
-import pytest
+# import pytest
 
-import openet.utils as utils
+import openet.core.utils as utils
 
 
 def test_ee_init():

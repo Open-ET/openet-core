@@ -4,8 +4,8 @@ import logging
 import ee
 import pytest
 
-import openet.interp as interp
-import openet.utils as utils
+import openet.core.interp as interp
+import openet.core.utils as utils
 
 logging.basicConfig(level=logging.DEBUG, format='%(message)s')
 

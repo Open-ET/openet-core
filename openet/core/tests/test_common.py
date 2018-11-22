@@ -1,8 +1,8 @@
 import ee
 import pytest
 
-import openet.common as common
-import openet.utils as utils
+import openet.core.common as common
+import openet.core.utils as utils
 
 
 def test_ee_init():

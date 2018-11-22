@@ -23,7 +23,7 @@ def find_version(*file_paths):
         return version_match.group(1)
     raise RuntimeError('Unable to find version string.')
 
-version = find_version('openet', '__init__.py')
+version = find_version('openet', 'core', '__init__.py')
 
 # Get the long description from the README file
 here = os.path.abspath(os.path.dirname(__file__))
@@ -43,7 +43,7 @@ setup(
     install_requires=['earthengine-api', 'oauth2client'],
     setup_requires=['pytest-runner'],
     tests_require=['pytest'],
-    packages=['openet'],
+    packages=['openet.core'],
     keywords='OpenET Evapotranspiration Earth Engine',
     classifiers = [
         'License :: OSI Approved :: Apache Software License',

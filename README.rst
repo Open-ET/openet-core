@@ -48,8 +48,8 @@ Each OpenET model will be stored in subfolders of the "openet" folder (namespace
 
 .. code-block:: python
 
-    import openet.common
-    import openet.interp
+    import openet.core.common
+    import openet.core.interp
     import openet.ssebop
 
 Development and Testing
