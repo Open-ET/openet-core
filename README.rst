@@ -32,7 +32,7 @@ The OpenET core python module can be installed via pip:
 
 .. code-block:: console
 
-    pip install openet
+    pip install openet-core
 
 Dependencies
 ============
@@ -60,6 +60,6 @@ Please see the `CONTRIBUTING.rst <CONTRIBUTING.RST>`__.
 .. |build| image:: https://travis-ci.org/Open-ET/openet-core-beta.svg?branch=master
    :alt: Build status
    :target: https://travis-ci.org/Open-ET/openet-core-beta
-.. |version| image:: https://badge.fury.io/py/openet.svg
+.. |version| image:: https://badge.fury.io/py/openet-core.svg
    :alt: Latest version on PyPI
-   :target: https://badge.fury.io/py/openet
+   :target: https://badge.fury.io/py/openet-core

@@ -31,7 +31,7 @@ with open(os.path.join(here, 'README.rst')) as f:
     long_description = f.read()
 
 setup(
-    name='openet',
+    name='openet-core',
     version=version,
     description='OpenET Core Components',
     long_description=long_description,
