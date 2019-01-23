@@ -108,9 +108,13 @@ def _linear(image):
     next_qm_image = ee.ImageCollection.fromImages(
         ee.List(target_image.get('next'))).mosaic()
 
-    # Is it safe to assume the bands stay in order?
-    prev_value_image = ee.Image(prev_qm_image.select(0)).double()
-    next_value_image = ee.Image(next_qm_image.select(0)).double()
+    # Interpolate all bands except the "time" band that was added previously
+    bands = ee.List.sequence(0, prev_qm_image.bandNames().length().subtract(2))
+    prev_value_image = ee.Image(prev_qm_image.select(bands)).double()
+    next_value_image = ee.Image(next_qm_image.select(bands)).double()
+    # # Is it safe to assume the bands stay in order?
+    # prev_value_image = ee.Image(prev_qm_image.select(0)).double()
+    # next_value_image = ee.Image(next_qm_image.select(0)).double()
     prev_time_image = ee.Image(prev_qm_image.select('time')).double()
     next_time_image = ee.Image(next_qm_image.select('time')).double()
 
@@ -196,9 +200,8 @@ def aggregate_daily(image_coll, start_date, end_date, agg_type='mean'):
     def aggregate_func(ftr):
         # The composite image time will be 0 UTC (not Landsat time)
         # if agg_type.lower() == 'mean':
-        return ee.Image(
-            ee.ImageCollection.fromImages(ftr.get('join')).mean()
-                .copyProperties(ftr, system_properties + ['DATE']))
+        return ee.ImageCollection.fromImages(ftr.get('join')).mean() \
+            .copyProperties(ftr, system_properties + ['DATE'])
 
     return ee.ImageCollection(join_coll.map(aggregate_func))
 
