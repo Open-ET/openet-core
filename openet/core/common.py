@@ -1,7 +1,9 @@
 import ee
 
 
-def landsat_c1_toa_cloud_mask(input_img, snow_flag=False, cirrus_flag=False):
+def landsat_c1_toa_cloud_mask(input_img, snow_flag=False, cirrus_flag=False,
+                              cloud_confidence=2, shadow_confidence=3,
+                              snow_confidence=3, cirrus_confidence=3):
     """Extract cloud mask from the Landsat Collection 1 TOA BQA band
 
     Parameters
@@ -14,6 +16,16 @@ def landsat_c1_toa_cloud_mask(input_img, snow_flag=False, cirrus_flag=False):
     cirrus_flag : bool
         If true, mask cirrus pixels (the default is False).
         Note, cirrus bits are only set for Landsat 8 (OLI) images.
+    cloud_confidence : int
+        Minimum cloud confidence value (the default is 2).
+    shadow_confidence : int
+        Minimum cloud confidence value (the default is 3).
+    snow_confidence : int
+        Minimum snow confidence value (the default is 3).  Only used if
+        snow_flag is True.
+    cirrus_confidence : int
+        Minimum cirrus confidence value (the default is 3).  Only used if
+        cirrus_flag is True.
 
     Returns
     -------
@@ -51,20 +63,22 @@ def landsat_c1_toa_cloud_mask(input_img, snow_flag=False, cirrus_flag=False):
     https://landsat.usgs.gov/collectionqualityband
 
     """
-    qa_img = ee.Image(input_img.select(['BQA']))
+    qa_img = input_img.select(['BQA'])
     cloud_mask = qa_img.rightShift(4).bitwiseAnd(1).neq(0)\
-        .And(qa_img.rightShift(5).bitwiseAnd(3).gte(2))\
-        .Or(qa_img.rightShift(7).bitwiseAnd(3).gte(3))
+        .And(qa_img.rightShift(5).bitwiseAnd(3).gte(cloud_confidence))\
+        .Or(qa_img.rightShift(7).bitwiseAnd(3).gte(shadow_confidence))
     if snow_flag:
-        cloud_mask = cloud_mask.Or(qa_img.rightShift(9).bitwiseAnd(3).gte(3))
+        cloud_mask = cloud_mask.Or(
+            qa_img.rightShift(9).bitwiseAnd(3).gte(snow_confidence))
     if cirrus_flag:
-        cloud_mask = cloud_mask.Or(qa_img.rightShift(11).bitwiseAnd(3).gte(3))
+        cloud_mask = cloud_mask.Or(
+            qa_img.rightShift(11).bitwiseAnd(3).gte(cirrus_confidence))
 
     # Set cloudy pixels to 0 and clear to 1
     return cloud_mask.Not()
 
 
-def landsat_c1_sr_cloud_mask(input_img, snow_flag=False):
+def landsat_c1_sr_cloud_mask(input_img, cloud_confidence=3, snow_flag=False):
     """Extract cloud mask from the Landsat Collection 1 SR pixel_qa band
 
     Parameters
@@ -72,6 +86,8 @@ def landsat_c1_sr_cloud_mask(input_img, snow_flag=False):
     img : ee.Image
         Image from a Landsat Collection 1 SR image collection with a pixel_qa
         band (e.g. LANDSAT/LE07/C01/T1_SR).
+    cloud_confidence : int
+        Minimum cloud confidence value (the default is 3).
     snow_flag : bool
         If true, mask snow pixels (the default is False).
 
@@ -106,9 +122,10 @@ def landsat_c1_sr_cloud_mask(input_img, snow_flag=False):
     https://landsat.usgs.gov/landsat-surface-reflectance-quality-assessment
 
     """
-    qa_img = ee.Image(input_img.select(['pixel_qa']))
+    qa_img = input_img.select(['pixel_qa'])
     cloud_mask = qa_img.rightShift(5).bitwiseAnd(1).neq(0)\
-        .And(qa_img.rightShift(6).bitwiseAnd(3).gte(2))
+        .And(qa_img.rightShift(6).bitwiseAnd(3).gte(cloud_confidence))\
+        .Or(qa_img.rightShift(3).bitwiseAnd(1).neq(0))
     if snow_flag:
         cloud_mask = cloud_mask.Or(qa_img.rightShift(4).bitwiseAnd(1).neq(0))
 
@@ -143,7 +160,7 @@ def sentinel2_toa_cloud_mask(input_img):
     https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-2-msi/level-1c/cloud-masks
 
     """
-    qa_img = ee.Image(input_img.select(['QA60']))
+    qa_img = input_img.select(['QA60'])
     cloud_mask = qa_img.rightShift(10).bitwiseAnd(1).neq(0)\
         .Or(qa_img.rightShift(11).bitwiseAnd(1).neq(0))
 
