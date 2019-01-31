@@ -33,7 +33,7 @@ def test_ee_init():
 def test_landsat_c1_toa_cloud_mask(img_value, expected):
     input_img = ee.Image.constant(int(img_value, 2)).rename(['BQA'])
     output_img = common.landsat_c1_toa_cloud_mask(input_img)
-    assert utils.constant_image_value(ee.Image(output_img)) == expected
+    assert utils.constant_image_value(ee.Image(output_img))['BQA'] == expected
 
 
 @pytest.mark.parametrize(
@@ -53,7 +53,7 @@ def test_landsat_c1_toa_cloud_mask_snow(img_value, snow, expected):
     if snow is not None:
         input_args['snow_flag'] = snow
     output_img = common.landsat_c1_toa_cloud_mask(**input_args)
-    assert utils.constant_image_value(ee.Image(output_img)) == expected
+    assert utils.constant_image_value(ee.Image(output_img))['BQA'] == expected
 
 
 @pytest.mark.parametrize(
@@ -73,7 +73,7 @@ def test_landsat_c1_toa_cloud_mask_cirrus(img_value, cirrus, expected):
     if cirrus is not None:
         input_args['cirrus_flag'] = cirrus
     output_img = common.landsat_c1_toa_cloud_mask(**input_args)
-    assert utils.constant_image_value(ee.Image(output_img)) == expected
+    assert utils.constant_image_value(ee.Image(output_img))['BQA'] == expected
 
 
 @pytest.mark.parametrize(
@@ -95,7 +95,7 @@ def test_landsat_c1_toa_cloud_mask_cirrus(img_value, cirrus, expected):
 def test_landsat_c1_sr_cloud_mask(img_value, expected):
     input_img = ee.Image.constant(int(img_value, 2)).rename(['pixel_qa'])
     output_img = common.landsat_c1_sr_cloud_mask(input_img)
-    assert utils.constant_image_value(output_img) == expected
+    assert utils.constant_image_value(output_img)['pixel_qa'] == expected
 
 
 @pytest.mark.parametrize(
@@ -112,7 +112,7 @@ def test_landsat_c1_sr_cloud_mask_snow(img_value, snow, expected):
     if snow is not None:
         input_args['snow_flag'] = snow
     output_img = common.landsat_c1_sr_cloud_mask(**input_args)
-    assert utils.constant_image_value(output_img) == expected
+    assert utils.constant_image_value(output_img)['pixel_qa'] == expected
 
 
 @pytest.mark.parametrize(
@@ -126,4 +126,4 @@ def test_landsat_c1_sr_cloud_mask_snow(img_value, snow, expected):
 def test_sentinel2_toa_cloud_mask(img_value, expected):
     input_img = ee.Image.constant(int(img_value, 2)).rename(['QA60'])
     output_img = common.sentinel2_toa_cloud_mask(input_img)
-    assert utils.constant_image_value(ee.Image(output_img)) == expected
+    assert utils.constant_image_value(ee.Image(output_img))['QA60'] == expected

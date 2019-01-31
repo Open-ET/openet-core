@@ -4,8 +4,6 @@ import sys
 
 import ee
 
-system_properties = ['system:index', 'system:time_start']
-
 
 def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
     """Generate daily ETa collection from ETo and ETf collections
@@ -77,15 +75,16 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
 
 
 def _linear(image):
-    """Linearly interpolate source images to target image time_start
+    """Linearly interpolate source images to target image time_start(s)
 
     Parameters
     ----------
-    image : ee.Image
-        Function will use the first band in the image as reference ET.
-        Input image must have join properties 'prev' and 'next'.
-        prev: list of images with bands: value and time
-        next: list of images with bands: value and time
+    image : ee.Image.
+        The first band in the image will be used as the "target" image
+        and will be returned with the output image.
+        Input image must have join properties: 'prev' and 'next'.
+            prev: list of images with bands: value and time
+            next: list of images with bands: value and time
 
     Returns
     -------
@@ -108,7 +107,7 @@ def _linear(image):
     next_qm_image = ee.ImageCollection.fromImages(
         ee.List(target_image.get('next'))).mosaic()
 
-    # Interpolate all bands except the "time" band that was added previously
+    # Interpolate all bands except the "time" band that was added
     bands = ee.List.sequence(0, prev_qm_image.bandNames().length().subtract(2))
     prev_value_image = ee.Image(prev_qm_image.select(bands)).double()
     next_value_image = ee.Image(next_qm_image.select(bands)).double()
@@ -139,9 +138,27 @@ def _linear(image):
     interp_value_image = next_value_mosaic.subtract(prev_value_mosaic)\
         .multiply(time_ratio_image).add(prev_value_mosaic)
 
-    return interp_value_image.multiply(target_image)\
-        .copyProperties(image, system_properties)
-        # .select([0], ['et']) \
+    return interp_value_image\
+        .addBands(target_image)\
+        .set({
+            'system:index': image.get('system:index'),
+            'system:time_start': image.get('system:time_start'),
+            # 'system:time_start': ee.Date(time_0utc),
+        })
+
+    # return interp_value_image.set({
+    #     'system:index': image.get('system:index'),
+    #     'system:time_start': image.get('system:time_start'),
+    #     # 'system:time_start': ee.Date(time_0utc),
+    # })
+
+    # return interp_value_image.multiply(target_image)\
+    #     .set({
+    #         'system:index': image.get('system:index'),
+    #         'system:time_start': image.get('system:time_start'),
+    #         # 'system:time_start': ee.Date(time_0utc),
+    #     })
+    #     # .select([0], ['et'])\
 
 def aggregate_daily(image_coll, start_date, end_date, agg_type='mean'):
     """Aggregate images by day
@@ -200,8 +217,11 @@ def aggregate_daily(image_coll, start_date, end_date, agg_type='mean'):
     def aggregate_func(ftr):
         # The composite image time will be 0 UTC (not Landsat time)
         # if agg_type.lower() == 'mean':
-        return ee.ImageCollection.fromImages(ftr.get('join')).mean() \
-            .copyProperties(ftr, system_properties + ['DATE'])
+        return ee.ImageCollection.fromImages(ftr.get('join')).mean().set({
+            'system:index': ftr.get('system:index'),
+            'system:time_start': ftr.get('system:time_start'),
+            'DATE': ftr.get('DATE'),
+        })
 
     return ee.ImageCollection(join_coll.map(aggregate_func))
 
@@ -222,7 +242,7 @@ def date_to_time_0utc(date):
     Extra operations are needed since update() does not set milliseconds to 0.
 
     """
-    return date.update(hour=0, minute=0, second=0).millis() \
+    return date.update(hour=0, minute=0, second=0).millis()\
         .divide(1000).floor().multiply(1000)
 
 

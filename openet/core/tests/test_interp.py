@@ -34,22 +34,22 @@ def test_ee_init():
     [
         # Test normal interpolation between two images
         [10, 1439618400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
-        [10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222], 1.0],
-        [10, 1440309600000, [0.0, 1.6], [1439660268614, 1441042674222], 8.0],
+        [10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.1],
+        [10, 1440309600000, [0.0, 1.6], [1439660268614, 1441042674222], 0.8],
         # This fails?
-        [10, 1441000800000, [0.0, 1.6], [1439660268614, 1441042674222], 16.0],
+        [10, 1441000800000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
 
         # Test if one side of the range is totally nodata
         [10, 1439704800000, [0.0, None], [1439660268614, 1441042674222], 0.0],
-        [10, 1439704800000, [None, 1.6], [1439660268614, 1441042674222], 16.0],
+        [10, 1439704800000, [None, 1.6], [1439660268614, 1441042674222], 1.6],
 
         # Test with multiple dates
         [10, 1439704800000, [0.0, 1.6, 3.2, 4.8],
-         [1438277862725, 1439660268614, 1441042674222, 1442425082323], 17.0],
+         [1438277862725, 1439660268614, 1441042674222, 1442425082323], 1.7],
         [10, 1439704800000, [0.0, None, 3.2, 4.8],
-         [1438277862725, 1439660268614, 1441042674222, 1442425082323], 17.0],
+         [1438277862725, 1439660268614, 1441042674222, 1442425082323], 1.7],
         [10, 1439704800000, [0.0, 1.6, None, 4.8],
-         [1438277862725, 1439660268614, 1441042674222, 1442425082323], 17.0],
+         [1438277862725, 1439660268614, 1441042674222, 1442425082323], 1.7],
 
         # Test with real data
         [
@@ -58,21 +58,15 @@ def test_ee_init():
             1428645600000,
             [0.0, 0.0, 0.0, 0.329212732, 0.124609835, 0.268005646],
             # 2/14/2015, 3/10/2015, 3/26/2015, 4/11/2015, 5/29/2015, 6/6/2015
-            [1423872000000, 1425945600000, 1427328000000, 1428710400000, 1432857600000, 1433548800000],
-            0.308636806 * 4.8153934
+            [1423872000000, 1425945600000, 1427328000000,
+             1428710400000, 1432857600000, 1433548800000],
+            0.308636806
         ],
     ]
 )
 def test_linear_func(tgt_value, tgt_time, src_values, src_times, expected,
                      tol=0.01):
     """"""
-    # logging.debug('Testing linear interpolator function using constant image')
-    # logging.debug('  Target value:  {}'.format(tgt_value))
-    # logging.debug('  Target times:  {}'.format(tgt_time))
-    # logging.debug('  Source values: {}'.format(src_values))
-    # logging.debug('  Source times:  {}'.format(src_times))
-    # logging.debug('  Output:        {}'.format(expected))
-
     # Compute 0 UTC target time_start
     tgt_time_0utc = utils.millis(
         datetime.datetime.utcfromtimestamp(tgt_time / 1000).date())
@@ -84,7 +78,7 @@ def test_linear_func(tgt_value, tgt_time, src_values, src_times, expected,
         for t in src_times]
     # logging.debug('  Source times:  {}'.format(src_times))
 
-    tgt_img = ee.Image.constant(tgt_value).select([0], ['et_reference']) \
+    tgt_img = ee.Image.constant(tgt_value).select([0], ['tgt'])\
         .set({'system:time_start': tgt_time})
 
     src_prev = []
@@ -130,10 +124,58 @@ def test_linear_func(tgt_value, tgt_time, src_values, src_times, expected,
     # "Join" source images to target image
     tgt_img = tgt_img.set({'prev': prev_images, 'next': next_images})
 
+    output_img = ee.Image(interp._linear(tgt_img))
+    output = utils.constant_image_value(output_img)
+    assert abs(output['src'] - expected) <= tol
+    assert abs(output['tgt'] - tgt_value) <= tol
+
+
+@pytest.mark.parametrize(
+    "tgt_value, tgt_time, src_prev, src_next, src_times, expected",
+    [
+        [10, 1439704800000, [0.0, 0.0], [1.6, 2.0],
+         [1439660268614, 1441042674222], [0.1, 0.125]],
+        [10, 1440309600000, [0.0, 0.0], [1.6, 2.0],
+         [1439660268614, 1441042674222], [0.8, 1.0]],
+    ]
+)
+def test_linear_multiband(tgt_value, tgt_time, src_prev, src_next, src_times,
+                          expected,tol=0.01):
+    """"""
+
+    # Compute 0 UTC target time_start
+    tgt_time_0utc = utils.millis(
+        datetime.datetime.utcfromtimestamp(tgt_time / 1000).date())
+    # logging.debug('  Target time:   {}'.format(tgt_time_0utc))
+
+    # Shift source time stamps to 0 UTC
+    src_times = [
+        utils.millis(datetime.datetime.utcfromtimestamp(t / 1000).date())
+        for t in src_times]
+
+    tgt_img = ee.Image.constant(tgt_value)\
+        .select([0], ['etr'])\
+        .set({'system:time_start': tgt_time})
+
+    prev_images = ee.List([
+        ee.Image([
+            ee.Image.constant(src_prev[0]).double(),
+            ee.Image.constant(src_prev[1]).double(),
+            ee.Image.constant(src_times[0]).double()
+        ]).rename(['etrf', 'etof', 'time'])])
+    next_images = ee.List([
+        ee.Image([
+            ee.Image.constant(src_next[0]).double(),
+            ee.Image.constant(src_next[1]).double(),
+            ee.Image.constant(src_times[1]).double()
+        ]).rename(['etrf', 'etof', 'time'])])
+
+    # "Join" source images to target image
+    tgt_img = tgt_img.set({'prev': prev_images, 'next': next_images})
+
     output = utils.constant_image_value(ee.Image(interp._linear(tgt_img)))
-    # logging.debug('  Target values: {}'.format(expected))
-    # logging.debug('  Output values: {}'.format(output))
-    assert abs(output - expected) <= tol
+    assert abs(output['etrf'] - expected[0]) <= tol
+    assert abs(output['etof'] - expected[1]) <= tol
 
 
 def test_daily_coll(tol=0.01):
@@ -142,17 +184,17 @@ def test_daily_coll(tol=0.01):
     tgt_time = 1440309600000  # 2015-08-23
     src_values = [0.0, 1.6]
     src_times = [1439660268614, 1441042674222]  # 2015-08-15, 2015-08-31
-    expected = 8
+    expected = 0.8
 
     tgt_coll = ee.ImageCollection([
-        ee.Image.constant(tgt_value) \
-            .select([0]) \
+        ee.Image.constant(tgt_value)\
+            .select([0], ['tgt'])\
             .set({
                 'system:time_start': tgt_time,
             })
         ])
     src_coll = ee.ImageCollection([
-        ee.Image.constant(value).select([0]) \
+        ee.Image.constant(value).select([0], ['src'])\
             .set({
                 'system:time_start': time,
                 'SCENE_ID': 'test',
@@ -163,9 +205,8 @@ def test_daily_coll(tol=0.01):
         tgt_coll, src_coll, interp_days=64, interp_method='linear'))
 
     output = utils.constant_image_value(ee.Image(output_coll.first()))
-    # logging.debug('  Target values: {}'.format(expected))
-    # logging.debug('  Output values: {}'.format(output))
-    assert abs(output - expected) <= tol
+    assert abs(output['src'] - expected) <= tol
+    assert abs(output['tgt'] - tgt_value) <= tol
 
 
 @pytest.mark.parametrize(
@@ -210,57 +251,42 @@ def test_aggregate_daily(etf_values, time_values, expected, tol=0.01):
     etf_image = ee.Image(etf_coll.first()).select([0], ['etf'])
 
     output = utils.constant_image_value(etf_image)
-    # logging.debug('  Target values: {}'.format(expected))
-    # logging.debug('  Output values: {}'.format(output))
-    assert abs(output - expected) <= tol
+    print(output)
+    assert abs(output['etf'] - expected) <= tol
 
 
 @pytest.mark.parametrize(
-    "tgt_value, tgt_time, src_prev, src_next, src_times, expected",
+    "src_values, time_values, expected",
     [
-        # Test normal interpolation between two images
-        [10, 1439704800000, [0.0, 0.0], [1.6, 2.0],
-         [1439660268614, 1441042674222], [1.0, 1.25]],
-        [10, 1440309600000, [0.0, 0.0], [1.6, 2.0],
-         [1439660268614, 1441042674222], [8.0, 10.0]],
+        # Test compositing/mosaicing between two images on the same day
+        #     and in the same path, but different rows.
+        # LC80330332015227LGN00 -> 1439660244726
+        # LC80330342015227LGN00 -> 1439660268614
+        [[[10, 20], [20, 30]], [1439660244726, 1439660268614], [15.0, 25.0]],
     ]
 )
-def test_linear_multiband(tgt_value, tgt_time, src_prev, src_next, src_times,
-                          expected,tol=0.01):
-    """"""
+def test_aggregate_daily_multiband(src_values, time_values, expected, tol=0.01):
+    # logging.debug('Testing daily aggregation function using constant images')
+    image_list = []
+    for src, time in zip(src_values, time_values):
+        image = ee.Image.constant(src).double().set({
+                'system:index': ee.Date(time).format('yyyyMMdd'),
+                'system:time_start': time,
+        })
+        image_list.append(image)
 
-    # Compute 0 UTC target time_start
-    tgt_time_0utc = utils.millis(
-        datetime.datetime.utcfromtimestamp(tgt_time / 1000).date())
-    # logging.debug('  Target time:   {}'.format(tgt_time_0utc))
+    # Dates can be ISO Date string or milliseconds since epoch
+    start_date = min(time_values)
+    end_date = max(time_values)
+    # start_date = ee.Date(min(time_values)).format('yyyy-MM-dd')
+    # end_date = ee.Date(max(time_values)).format('yyyy-MM-dd')
 
-    # Shift source time stamps to 0 UTC
-    src_times = [
-        utils.millis(datetime.datetime.utcfromtimestamp(t / 1000).date())
-        for t in src_times]
+    output_coll = interp.aggregate_daily(
+        ee.ImageCollection.fromImages(image_list),
+        start_date, end_date, agg_type='mean')
+    output_image = ee.Image(output_coll.first())\
+        .select([0, 1], ['etrf', 'etof'])
 
-    tgt_img = ee.Image.constant(tgt_value)\
-        .select([0], ['etr']) \
-        .set({'system:time_start': tgt_time})
-
-    prev_images = ee.List([
-        ee.Image([
-            ee.Image.constant(src_prev[0]).double(),
-            ee.Image.constant(src_prev[1]).double(),
-            ee.Image.constant(src_times[0]).double()
-        ]).rename(['etrf', 'etof', 'time'])])
-    next_images = ee.List([
-        ee.Image([
-            ee.Image.constant(src_next[0]).double(),
-            ee.Image.constant(src_next[1]).double(),
-            ee.Image.constant(src_times[1]).double()
-        ]).rename(['etrf', 'etof', 'time'])])
-
-    # "Join" source images to target image
-    tgt_img = tgt_img.set({'prev': prev_images, 'next': next_images})
-
-    output = utils.constant_image_value(
-        ee.Image(interp._linear(tgt_img)), bands=['etrf', 'etof'])
-    print(output)
-    assert abs(output[0] - expected[0]) <= tol
-    assert abs(output[1] - expected[1]) <= tol
+    output = utils.constant_image_value(output_image)
+    assert abs(output['etrf'] - expected[0]) <= tol
+    assert abs(output['etof'] - expected[1]) <= tol
