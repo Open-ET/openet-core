@@ -26,5 +26,10 @@ dist/
 privatekey.json
 privatekey.b64
 
+# Coverage
+.codecov.yml
+.coveralls.yml
+coverage.xml
+
 # Miscellaneous files
 notes.txt

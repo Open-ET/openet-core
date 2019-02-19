@@ -1,0 +1,14 @@
+name: openet
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - codecov
+  - coverage
+  - earthengine-api
+  - jupyter
+  - jupyterlab
+  - oauth2client
+  - pytest>=4.3.0
+  - pytest-cov
+  - python=3.6

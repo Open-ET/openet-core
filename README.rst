@@ -2,7 +2,9 @@
 OpenET - Core Functions and Tools
 =================================
 
-|version| |build|
+|version| |build| |codecov|
+
+**WARNING: This code is in development, is being provided without support, and is subject to change at any time without notification**
 
 This repository provides core functions used by the OpenET models.
 
@@ -55,7 +57,7 @@ Each OpenET model will be stored in subfolders of the "openet" folder (namespace
 Development and Testing
 =======================
 
-Please see the `CONTRIBUTING.rst <CONTRIBUTING.RST>`__.
+Please see the `CONTRIBUTING.rst <CONTRIBUTING.rst>`__.
 
 .. |build| image:: https://travis-ci.org/Open-ET/openet-core-beta.svg?branch=master
    :alt: Build status
@@ -63,3 +65,6 @@ Please see the `CONTRIBUTING.rst <CONTRIBUTING.RST>`__.
 .. |version| image:: https://badge.fury.io/py/openet-core.svg
    :alt: Latest version on PyPI
    :target: https://badge.fury.io/py/openet-core
+.. |codecov| image:: https://codecov.io/gh/Open-ET/openet-core-beta/branch/master/graphs/badge.svg
+   :alt: Coverage Status
+   :target: https://codecov.io/gh/Open-ET/openet-core-beta

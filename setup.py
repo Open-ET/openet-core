@@ -42,7 +42,7 @@ setup(
     download_url='https://github.com/Open-ET/openet-core-beta/archive/v{}.tar.gz'.format(version),
     install_requires=['earthengine-api', 'oauth2client'],
     setup_requires=['pytest-runner'],
-    tests_require=['pytest'],
+    tests_require=['pytest', 'pytest-cov'],
     packages=['openet.core'],
     keywords='OpenET Evapotranspiration Earth Engine',
     classifiers = [
