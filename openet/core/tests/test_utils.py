@@ -1,13 +1,12 @@
 import datetime
 
 import ee
-# import pytest
 
 import openet.core.utils as utils
 
 
-def test_ee_init():
-    assert ee.Number(1).getInfo() == 1
+def test_getinfo():
+    assert utils.getinfo(ee.Number(1)) == 1
 
 
 def test_constant_image_value(tol=0.000001):
