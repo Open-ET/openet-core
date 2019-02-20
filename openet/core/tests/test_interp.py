@@ -1,5 +1,6 @@
 import datetime
 import logging
+import pprint
 
 import ee
 import pytest
@@ -64,9 +65,10 @@ def test_ee_init():
         ],
     ]
 )
-def test_linear_func(tgt_value, tgt_time, src_values, src_times, expected,
-                     tol=0.01):
-    """"""
+def test_linear_single_band(tgt_value, tgt_time, src_values, src_times,
+                            expected, tol=0.01):
+    """Test linear interpolation using single band constant images"""
+
     # Compute 0 UTC target time_start
     tgt_time_0utc = utils.millis(
         datetime.datetime.utcfromtimestamp(tgt_time / 1000).date())
@@ -139,9 +141,9 @@ def test_linear_func(tgt_value, tgt_time, src_values, src_times, expected,
          [1439660268614, 1441042674222], [0.8, 1.0]],
     ]
 )
-def test_linear_multiband(tgt_value, tgt_time, src_prev, src_next, src_times,
-                          expected,tol=0.01):
-    """"""
+def test_linear_multi_band(tgt_value, tgt_time, src_prev, src_next, src_times,
+                           expected, tol=0.01):
+    """Test linear interpolation using multi-band constant images"""
 
     # Compute 0 UTC target time_start
     tgt_time_0utc = utils.millis(
@@ -178,7 +180,9 @@ def test_linear_multiband(tgt_value, tgt_time, src_prev, src_next, src_times,
     assert abs(output['etof'] - expected[1]) <= tol
 
 
-def test_daily_coll(tol=0.01):
+def test_daily_collection(tol=0.01):
+    """Test the daily method for collections of constant images"""
+
     # For now, use one of the test cases from test_linear_func()
     tgt_value = 10
     tgt_time = 1440309600000  # 2015-08-23
@@ -210,6 +214,54 @@ def test_daily_coll(tol=0.01):
 
 
 @pytest.mark.parametrize(
+    "tgt_value, tgt_time, src_values, src_times, expected",
+    [
+        # [10, 1439618400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+        [10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.1],
+        [10, 1439791200000, [0.0, 1.6], [1439660268614, 1441042674222], 0.2],
+        [10, 1439877600000, [0.0, 1.6], [1439660268614, 1441042674222], 0.3],
+        [10, 1439964000000, [0.0, 1.6], [1439660268614, 1441042674222], 0.4],
+        [10, 1440050400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.5],
+        [10, 1440136800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.6],
+        [10, 1440223200000, [0.0, 1.6], [1439660268614, 1441042674222], 0.7],
+        [10, 1440309600000, [0.0, 1.6], [1439660268614, 1441042674222], 0.8],
+        [10, 1440396000000, [0.0, 1.6], [1439660268614, 1441042674222], 0.9],
+        [10, 1440482400000, [0.0, 1.6], [1439660268614, 1441042674222], 1.0],
+        [10, 1440568800000, [0.0, 1.6], [1439660268614, 1441042674222], 1.1],
+        [10, 1440655200000, [0.0, 1.6], [1439660268614, 1441042674222], 1.2],
+        [10, 1440741600000, [0.0, 1.6], [1439660268614, 1441042674222], 1.3],
+        [10, 1440828000000, [0.0, 1.6], [1439660268614, 1441042674222], 1.4],
+        [10, 1440914400000, [0.0, 1.6], [1439660268614, 1441042674222], 1.5],
+        # [10, 1441000800000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+    ]
+)
+def test_daily_small_interp_days(tgt_value, tgt_time, src_values, src_times,
+                                 expected, tol=0.01):
+    """Test the daily method for small interp_days values"""
+    tgt_coll = ee.ImageCollection([
+        ee.Image.constant(tgt_value)\
+            .select([0], ['tgt'])\
+            .set({
+                'system:time_start': tgt_time,
+            })
+        ])
+    src_coll = ee.ImageCollection([
+        ee.Image.constant(value).select([0], ['src'])\
+            .set({
+                'system:time_start': time,
+                'SCENE_ID': 'test',
+            })
+        for time, value in zip(src_times, src_values)])
+
+    output_coll = ee.ImageCollection(interp.daily(
+        tgt_coll, src_coll, interp_days=10, interp_method='linear'))
+
+    output = utils.constant_image_value(ee.Image(output_coll.first()))
+    assert abs(output['src'] - expected) <= tol
+    assert abs(output['tgt'] - tgt_value) <= tol
+
+
+@pytest.mark.parametrize(
     #
     "etf_values, time_values, expected",
     [
@@ -223,8 +275,9 @@ def test_daily_coll(tol=0.01):
         [[10.0, None], [1439660244726, 1439660268614], 10.0],
     ]
 )
-def test_aggregate_daily(etf_values, time_values, expected, tol=0.01):
-    # logging.debug('Testing daily aggregation function using constant images')
+def test_aggregate_daily_single_band(etf_values, time_values, expected,
+                                     tol=0.01):
+    """Test daily aggregation function for single-band constant images"""
     image_list = []
     for etf, time in zip(etf_values, time_values):
         if etf is not None:
@@ -265,8 +318,9 @@ def test_aggregate_daily(etf_values, time_values, expected, tol=0.01):
         [[[10, 20], [20, 30]], [1439660244726, 1439660268614], [15.0, 25.0]],
     ]
 )
-def test_aggregate_daily_multiband(src_values, time_values, expected, tol=0.01):
-    # logging.debug('Testing daily aggregation function using constant images')
+def test_aggregate_daily_multi_band(src_values, time_values, expected,
+                                    tol=0.01):
+    """Test daily aggregation function for multi-band constant images"""
     image_list = []
     for src, time in zip(src_values, time_values):
         image = ee.Image.constant(src).double().set({
@@ -290,3 +344,65 @@ def test_aggregate_daily_multiband(src_values, time_values, expected, tol=0.01):
     output = utils.constant_image_value(output_image)
     assert abs(output['etrf'] - expected[0]) <= tol
     assert abs(output['etof'] - expected[1]) <= tol
+
+
+# def test_linear_values():
+#     """Test the daily interpolation using real images"""
+#
+#     interp_days = 4
+#
+#     target_coll = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\
+#         .filterDate('2017-07-01', '2017-08-01')\
+#         .select(['etr'])
+#     source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
+#         .filterDate('2017-06-30', '2017-08-01')\
+#         .filterBounds(ee.Geometry.Point(-121.9, 39))\
+#         .select(['B1'])
+#     # pprint.pprint(list(target_coll.aggregate_histogram('system:index').getInfo().keys()))
+#     # pprint.pprint(list(source_coll.aggregate_histogram('system:index').getInfo().keys()))
+#
+#     # Add TIME_0UTC as a separate band to each image for the mosaic
+#     source_mod_coll = source_coll.map(interp.add_time_band)
+#
+#     # Filters for joining the neighboring Landsat images in time
+#     prev_filter = ee.Filter.And(
+#         ee.Filter.maxDifference(
+#             difference=(interp_days + 1) * 24 * 60 * 60 * 1000,
+#             leftField='system:time_start', rightField='system:time_start'),
+#         ee.Filter.greaterThan(
+#             leftField='system:time_start', rightField='system:time_start'))
+#     next_filter = ee.Filter.And(
+#         ee.Filter.maxDifference(
+#             difference=(interp_days + 1) * 24 * 60 * 60 * 1000.0,
+#             leftField='system:time_start', rightField='system:time_start'),
+#         ee.Filter.lessThanOrEquals(
+#             leftField='system:time_start', rightField='system:time_start'))
+#
+#     # Join the neighboring Landsat images in time
+#     target_coll = ee.ImageCollection(
+#         ee.Join.saveAll('prev', 'system:time_start', True).apply(
+#             target_coll, source_mod_coll, prev_filter))
+#     target_coll = ee.ImageCollection(
+#         ee.Join.saveAll('next', 'system:time_start', False).apply(
+#             target_coll, source_mod_coll, next_filter))
+#
+#     target_img = ee.Image(target_coll.first())
+#     pprint.pprint(target_img.getInfo())
+#
+#     # output = interp._linear(target_coll, source_coll, interp_days=4)
+#     # pprint.pprint(output.aggregate_histogram('system:index').getInfo())
+
+
+# def test_daily_values():
+#     """Test the daily interpolation using real images"""
+#     target_coll = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\
+#         .filterDate('2017-06-30', '2017-08-01')
+#     source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
+#         .filterDate('2017-06-30', '2017-08-01')\
+#         .filterBounds(ee.Geometry.Point(-121.9, 39))
+#     # pprint.pprint(list(target_coll.aggregate_histogram('system:index').getInfo().keys()))
+#     # pprint.pprint(list(source_coll.aggregate_histogram('system:index').getInfo().keys()))
+#
+#     output = interp.daily(target_coll, source_coll, interp_days=4)
+#     pprint.pprint(output.aggregate_histogram('system:index').getInfo())
+

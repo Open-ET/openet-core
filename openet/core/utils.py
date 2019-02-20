@@ -11,12 +11,18 @@ def getinfo(ee_obj, n=4):
     for i in range(1, n):
         try:
             output = ee_obj.getInfo()
-        except Exception as e:
-            logging.info('    Resending query ({}/10)'.format(i))
-            logging.debug('    {}'.format(e))
-            sleep(i ** 2)
+        except ee.ee_exception.EEException as e:
+            if 'Earth Engine memory capacity exceeded' in str(e):
+                logging.info('    Resending query ({}/10)'.format(i))
+                logging.debug('    {}'.format(e))
+                sleep(i ** 2)
+            else:
+                raise e
+
         if output:
             break
+
+    # output = ee_obj.getInfo()
     return output
 
 
