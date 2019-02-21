@@ -1,8 +1,7 @@
-import calendar
-import logging
-import sys
-
 import ee
+
+from . import utils
+# import openet.core.utils as utils
 
 
 def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
@@ -33,38 +32,117 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
         If `interp_method` is not a supported method.
 
     """
-    # Add TIME_0UTC as a separate band to each image for the mosaic
-    source_mod_coll = source_coll.map(add_time_band)
 
-    # Filters for joining the neighboring Landsat images in time
-    # Need to add one extra day since target time_start may be offset from source
-    #   (i.e. GRIDMET may be 7 UTC but Landsat is ~18 UTC
-    #   Does it need to be added to both filters?
-    # Which one should be < / > and which should be <= / >=
-    # We should probably use TIME_0UTC here instead of system:time_start
-    prev_filter = ee.Filter.And(
-        ee.Filter.maxDifference(
-            difference=(interp_days + 1) * 24 * 60 * 60 * 1000,
-            leftField='system:time_start', rightField='system:time_start'),
-        ee.Filter.greaterThan(
-            leftField='system:time_start', rightField='system:time_start'))
-    next_filter = ee.Filter.And(
-        ee.Filter.maxDifference(
-            difference=(interp_days + 1) * 24 * 60 * 60 * 1000.0,
-            leftField='system:time_start', rightField='system:time_start'),
-        ee.Filter.lessThanOrEquals(
-            leftField='system:time_start', rightField='system:time_start'))
+    # # DEADBEEF - This module is assuming that the time band is already in
+    # #   the source collection
+    # def add_utc0_time_band(image):
+    #     date_0utc = utils.date_0utc(ee.Date(image.get('system:time_start')))
+    #     return image.addBands([
+    #         image.select([0]).double().multiply(0).add(date_0utc.millis())\
+    #             .rename(['time'])])
+    # source_coll = ee.ImageCollection(source_coll.map(add_utc0_time_band))
 
-    # Join the neighboring Landsat images in time
-    target_coll = ee.ImageCollection(
-        ee.Join.saveAll('prev', 'system:time_start', True).apply(
-            target_coll, source_mod_coll, prev_filter))
-    target_coll = ee.ImageCollection(
-        ee.Join.saveAll('next', 'system:time_start', False).apply(
-            target_coll, source_mod_coll, next_filter))
-
-    # Map the interpolation function over the joine image collection
     if interp_method.lower() == 'linear':
+        def _linear(image):
+            """Linearly interpolate source images to target image time_start(s)
+
+            Parameters
+            ----------
+            image : ee.Image.
+                The first band in the image will be used as the "target" image
+                and will be returned with the output image.
+
+            Returns
+            -------
+            ee.Image of interpolated values with band name 'src'
+
+            Notes
+            -----
+            The source collection images must have a time band.
+            This function is intended to be mapped over an image collection and
+                can only take one input parameter.
+
+            """
+            target_image = ee.Image(image).select(0)
+            target_date = ee.Date(image.get('system:time_start'))
+
+            # All filtering will be done based on 0 UTC dates
+            utc0_date = utils.date_0utc(target_date)
+            # utc0_time = target_date.update(hour=0, minute=0, second=0)\
+            #     .millis().divide(1000).floor().multiply(1000)
+            time_image = ee.Image.constant(utc0_date.millis()).double()
+
+            # Build nodata images/masks that can be placed at the front/back of
+            #   of the qm image collections in case the collections are empty.
+            bands = source_coll.first().bandNames()
+            prev_qm_mask = ee.Image.constant(ee.List.repeat(1, bands.length()))\
+                .double().rename(bands).updateMask(0)\
+                .set({
+                    'system:time_start': utc0_date.advance(
+                        -interp_days - 1, 'day').millis()})
+            next_qm_mask = ee.Image.constant(ee.List.repeat(1, bands.length()))\
+                .double().rename(bands).updateMask(0)\
+                .set({
+                    'system:time_start': utc0_date.advance(
+                        interp_days + 2, 'day').millis()})
+
+            # Build separate collections for before and after the target date
+            prev_qm_coll = source_coll.filterDate(
+                    utc0_date.advance(-interp_days, 'day'), utc0_date)\
+                .merge(ee.ImageCollection(prev_qm_mask))
+            next_qm_coll = source_coll.filterDate(
+                    utc0_date, utc0_date.advance(interp_days + 1, 'day'))\
+                .merge(ee.ImageCollection(next_qm_mask))
+
+            # Flatten the previous/next collections to single images
+            # The closest image in time should be on "top"
+            prev_qm_image = prev_qm_coll.mosaic()
+            next_qm_image = next_qm_coll.sort('system:time_start', False).mosaic()
+
+            # DEADBEEF - It might be easier to interpolate all bands instead of
+            #   separating the value and time bands
+            # prev_value_image = ee.Image(prev_qm_image).double()
+            # next_value_image = ee.Image(next_qm_image).double()
+
+            # Interpolate all bands except the "time" band
+            prev_bands = prev_qm_image.bandNames()\
+                .filter(ee.Filter.notEquals('item', 'time'))
+            next_bands = next_qm_image.bandNames() \
+                .filter(ee.Filter.notEquals('item', 'time'))
+            prev_value_image = ee.Image(prev_qm_image.select(prev_bands)).double()
+            next_value_image = ee.Image(next_qm_image.select(next_bands)).double()
+            prev_time_image = ee.Image(prev_qm_image.select('time')).double()
+            next_time_image = ee.Image(next_qm_image.select('time')).double()
+
+            # Fill masked values with values from the opposite image
+            # Something like this is needed to ensure there are always two
+            #   values to interpolate between
+            # For data gaps, this will cause a flat line instead of a ramp
+            prev_time_mosaic = ee.Image(ee.ImageCollection.fromImages([
+                next_time_image, prev_time_image]).mosaic())
+            next_time_mosaic = ee.Image(ee.ImageCollection.fromImages([
+                prev_time_image, next_time_image]).mosaic())
+            prev_value_mosaic = ee.Image(ee.ImageCollection.fromImages([
+                next_value_image, prev_value_image]).mosaic())
+            next_value_mosaic = ee.Image(ee.ImageCollection.fromImages([
+                prev_value_image, next_value_image]).mosaic())
+
+            # Calculate time ratio of the current image between other cloud free images
+            time_ratio_image = time_image.subtract(prev_time_mosaic) \
+                .divide(next_time_mosaic.subtract(prev_time_mosaic))
+
+            # Interpolate values to the current image time
+            interp_value_image = next_value_mosaic.subtract(prev_value_mosaic) \
+                .multiply(time_ratio_image).add(prev_value_mosaic)
+
+            return interp_value_image \
+                .addBands(target_image) \
+                .set({
+                    'system:index': image.get('system:index'),
+                    'system:time_start': image.get('system:time_start'),
+                    # 'system:time_start': utc0_time,
+            })
+
         interp_coll = ee.ImageCollection(target_coll.map(_linear))
     # elif interp_type.lower() == 'nearest':
     #     interp_coll = ee.ImageCollection(target_coll.map(_nearest))
@@ -73,92 +151,6 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
 
     return interp_coll
 
-
-def _linear(image):
-    """Linearly interpolate source images to target image time_start(s)
-
-    Parameters
-    ----------
-    image : ee.Image.
-        The first band in the image will be used as the "target" image
-        and will be returned with the output image.
-        Input image must have join properties: 'prev' and 'next'.
-            prev: list of images with bands: value and time
-            next: list of images with bands: value and time
-
-    Returns
-    -------
-    ee.Image of interpolated values with band name 'src'
-
-    Notes
-    -----
-    This function is intended to be mapped over an image collection and can
-    only take one input parameter.
-
-    """
-    target_image = ee.Image(image).select(0)
-
-    time_0utc = date_to_time_0utc(ee.Date(image.get('system:time_start')))
-    time_image = ee.Image.constant(time_0utc).double().rename(['time'])
-
-    # For mosaic, joined images were sorted with closest image in time last
-    prev_qm_image = ee.ImageCollection.fromImages(
-        ee.List(target_image.get('prev'))).mosaic()
-    next_qm_image = ee.ImageCollection.fromImages(
-        ee.List(target_image.get('next'))).mosaic()
-
-    # Interpolate all bands except the "time" band that was added
-    bands = ee.List.sequence(0, prev_qm_image.bandNames().length().subtract(2))
-    prev_value_image = ee.Image(prev_qm_image.select(bands)).double()
-    next_value_image = ee.Image(next_qm_image.select(bands)).double()
-    # # Is it safe to assume the bands stay in order?
-    # prev_value_image = ee.Image(prev_qm_image.select(0)).double()
-    # next_value_image = ee.Image(next_qm_image.select(0)).double()
-    prev_time_image = ee.Image(prev_qm_image.select('time')).double()
-    next_time_image = ee.Image(next_qm_image.select('time')).double()
-
-    # Fill masked values with values from the opposite image
-    # Something like this is needed to ensure there are always two images
-    #   to interpolate between
-    # For large data gaps, this will cause a flat line instead of a ramp
-    prev_time_mosaic = ee.Image(ee.ImageCollection.fromImages([
-        next_time_image, prev_time_image]).mosaic())
-    next_time_mosaic = ee.Image(ee.ImageCollection.fromImages([
-        prev_time_image, next_time_image]).mosaic())
-    prev_value_mosaic = ee.Image(ee.ImageCollection.fromImages([
-        next_value_image, prev_value_image]).mosaic())
-    next_value_mosaic = ee.Image(ee.ImageCollection.fromImages([
-        prev_value_image, next_value_image]).mosaic())
-
-    # Calculate time ratio of the current image between other cloud free images
-    time_ratio_image = time_image.subtract(prev_time_mosaic)\
-        .divide(next_time_mosaic.subtract(prev_time_mosaic))
-
-    # Interpolate values to the current image time
-    interp_value_image = next_value_mosaic.subtract(prev_value_mosaic)\
-        .multiply(time_ratio_image).add(prev_value_mosaic)
-
-    return interp_value_image\
-        .addBands(target_image)\
-        .set({
-            'system:index': image.get('system:index'),
-            'system:time_start': image.get('system:time_start'),
-            # 'system:time_start': ee.Date(time_0utc),
-        })
-
-    # return interp_value_image.set({
-    #     'system:index': image.get('system:index'),
-    #     'system:time_start': image.get('system:time_start'),
-    #     # 'system:time_start': ee.Date(time_0utc),
-    # })
-
-    # return interp_value_image.multiply(target_image)\
-    #     .set({
-    #         'system:index': image.get('system:index'),
-    #         'system:time_start': image.get('system:time_start'),
-    #         # 'system:time_start': ee.Date(time_0utc),
-    #     })
-    #     # .select([0], ['et'])\
 
 def aggregate_daily(image_coll, start_date, end_date, agg_type='mean'):
     """Aggregate images by day
@@ -224,46 +216,3 @@ def aggregate_daily(image_coll, start_date, end_date, agg_type='mean'):
         })
 
     return ee.ImageCollection(join_coll.map(aggregate_func))
-
-
-def date_to_time_0utc(date):
-    """Get the 0 UTC time_start for a date
-
-    Parameters
-    ----------
-    date : ee.Date
-
-    Returns
-    -------
-    ee.Number
-
-    Notes
-    -----
-    Extra operations are needed since update() does not set milliseconds to 0.
-
-    """
-    return date.update(hour=0, minute=0, second=0).millis()\
-        .divide(1000).floor().multiply(1000)
-
-
-def add_time_band(image):
-    """Add TIME_0UTC as a separate image band for quality mosaic
-
-    Parameters
-    ----------
-    image : ee.Image
-
-    Returns
-    -------
-    ee.Image
-
-    Notes
-    -----
-    Mask time band with image mask.
-    Intentionally using TIME_0UTC (instead of system:time_start)
-        so that joins and interpolation happen evenly per day
-    """
-    time_0utc = date_to_time_0utc(ee.Date(image.get('system:time_start')))
-    return image.addBands([
-        image.select([0]).double().multiply(0).add(time_0utc).rename(['time'])
-    ])

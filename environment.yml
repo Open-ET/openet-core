@@ -9,6 +9,8 @@ dependencies:
   - jupyter
   - jupyterlab
   - oauth2client
+  - numpy
+  - pandas
   - pytest>=4.3.0
   - pytest-cov
   - python=3.6

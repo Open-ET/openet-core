@@ -34,7 +34,7 @@ def test_ee_init():
     "tgt_value, tgt_time, src_values, src_times, expected",
     [
         # Test normal interpolation between two images
-        [10, 1439618400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+        # [10, 1439618400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
         [10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.1],
         [10, 1440309600000, [0.0, 1.6], [1439660268614, 1441042674222], 0.8],
         # This fails?
@@ -65,148 +65,34 @@ def test_ee_init():
         ],
     ]
 )
-def test_linear_single_band(tgt_value, tgt_time, src_values, src_times,
-                            expected, tol=0.01):
-    """Test linear interpolation using single band constant images"""
-
-    # Compute 0 UTC target time_start
-    tgt_time_0utc = utils.millis(
-        datetime.datetime.utcfromtimestamp(tgt_time / 1000).date())
-    # logging.debug('  Target time:   {}'.format(tgt_time_0utc))
-
-    # Shift source time stamps to 0 UTC
-    src_times = [
-        utils.millis(datetime.datetime.utcfromtimestamp(t / 1000).date())
-        for t in src_times]
-    # logging.debug('  Source times:  {}'.format(src_times))
-
-    tgt_img = ee.Image.constant(tgt_value).select([0], ['tgt'])\
-        .set({'system:time_start': tgt_time})
-
-    src_prev = []
-    src_next = []
-    for src_t, src_v in sorted(zip(src_times, src_values)):
-        if src_t <= tgt_time:
-            src_prev.append([src_v, src_t])
-        else:
-            src_next.append([src_v, src_t])
-    # Need filler values if there aren't any values/times
-    if not src_prev:
-        src_prev.append([None, 1])
-    if not src_next:
-        src_next.append([None, 1])
-
-    # Mosaic grabs the last image in the join, so reverse sort the
-    #   next images so that the closest image in time is last
-    src_next = src_next[::-1]
-
-    prev_images = ee.List([
-        ee.Image([
-            ee.Image.constant(src_v).double(),
-            ee.Image.constant(src_t).double()
-        ]).select([0, 1], ['src', 'time'])
-        if src_v is not None else
-        ee.Image([
-            ee.Image.constant(1).double(),
-            ee.Image.constant(src_t).double()
-        ]).select([0, 1], ['src', 'time']).updateMask(0)
-        for src_v, src_t in src_prev])
-    next_images = ee.List([
-        ee.Image([
-            ee.Image.constant(src_v).double(),
-            ee.Image.constant(src_t).double()
-        ]).select([0, 1], ['src', 'time'])
-        if src_v is not None else
-        ee.Image([
-            ee.Image.constant(1).double(),
-            ee.Image.constant(src_t).double()
-        ]).select([0, 1], ['src', 'time']).updateMask(0)
-        for src_v, src_t in src_next])
-
-    # "Join" source images to target image
-    tgt_img = tgt_img.set({'prev': prev_images, 'next': next_images})
-
-    output_img = ee.Image(interp._linear(tgt_img))
-    output = utils.constant_image_value(output_img)
-    assert abs(output['src'] - expected) <= tol
-    assert abs(output['tgt'] - tgt_value) <= tol
-
-
-@pytest.mark.parametrize(
-    "tgt_value, tgt_time, src_prev, src_next, src_times, expected",
-    [
-        [10, 1439704800000, [0.0, 0.0], [1.6, 2.0],
-         [1439660268614, 1441042674222], [0.1, 0.125]],
-        [10, 1440309600000, [0.0, 0.0], [1.6, 2.0],
-         [1439660268614, 1441042674222], [0.8, 1.0]],
-    ]
-)
-def test_linear_multi_band(tgt_value, tgt_time, src_prev, src_next, src_times,
-                           expected, tol=0.01):
-    """Test linear interpolation using multi-band constant images"""
-
-    # Compute 0 UTC target time_start
-    tgt_time_0utc = utils.millis(
-        datetime.datetime.utcfromtimestamp(tgt_time / 1000).date())
-    # logging.debug('  Target time:   {}'.format(tgt_time_0utc))
-
-    # Shift source time stamps to 0 UTC
-    src_times = [
-        utils.millis(datetime.datetime.utcfromtimestamp(t / 1000).date())
-        for t in src_times]
-
-    tgt_img = ee.Image.constant(tgt_value)\
-        .select([0], ['etr'])\
-        .set({'system:time_start': tgt_time})
-
-    prev_images = ee.List([
-        ee.Image([
-            ee.Image.constant(src_prev[0]).double(),
-            ee.Image.constant(src_prev[1]).double(),
-            ee.Image.constant(src_times[0]).double()
-        ]).rename(['etrf', 'etof', 'time'])])
-    next_images = ee.List([
-        ee.Image([
-            ee.Image.constant(src_next[0]).double(),
-            ee.Image.constant(src_next[1]).double(),
-            ee.Image.constant(src_times[1]).double()
-        ]).rename(['etrf', 'etof', 'time'])])
-
-    # "Join" source images to target image
-    tgt_img = tgt_img.set({'prev': prev_images, 'next': next_images})
-
-    output = utils.constant_image_value(ee.Image(interp._linear(tgt_img)))
-    assert abs(output['etrf'] - expected[0]) <= tol
-    assert abs(output['etof'] - expected[1]) <= tol
-
-
-def test_daily_collection(tol=0.01):
+def test_daily_collection(tgt_value, tgt_time, src_values, src_times,
+                          expected, tol=0.01):
     """Test the daily method for collections of constant images"""
-
-    # For now, use one of the test cases from test_linear_func()
-    tgt_value = 10
-    tgt_time = 1440309600000  # 2015-08-23
-    src_values = [0.0, 1.6]
-    src_times = [1439660268614, 1441042674222]  # 2015-08-15, 2015-08-31
-    expected = 0.8
-
     tgt_coll = ee.ImageCollection([
-        ee.Image.constant(tgt_value)\
-            .select([0], ['tgt'])\
-            .set({
-                'system:time_start': tgt_time,
-            })
-        ])
-    src_coll = ee.ImageCollection([
-        ee.Image.constant(value).select([0], ['src'])\
-            .set({
-                'system:time_start': time,
-                'SCENE_ID': 'test',
-            })
-        for time, value in zip(src_times, src_values)])
+        ee.Image.constant(tgt_value).rename(['tgt'])\
+            .set({'system:time_start': tgt_time})])
 
-    output_coll = ee.ImageCollection(interp.daily(
-        tgt_coll, src_coll, interp_days=64, interp_method='linear'))
+    src_images = []
+    for src, time in zip(src_values, src_times):
+        date_0utc = utils.date_0utc(ee.Date(time))
+        time_0utc = date_0utc.millis()
+        if src is not None:
+            image = ee.Image.constant([src, time_0utc]).double() \
+                .rename(['src', 'time']) \
+                .set({
+                    'system:index': ee.Date(time).format('yyyyMMdd'),
+                    'system:time_start': time})
+        else:
+            image = ee.Image.constant([1, time_0utc]).double().updateMask(0) \
+                .rename(['src', 'time']) \
+                .set({
+                    'system:index': ee.Date(time).format('yyyyMMdd'),
+                    'system:time_start': time})
+        src_images.append(image)
+    src_coll = ee.ImageCollection.fromImages(src_images)
+
+    output_coll = interp.daily(
+        tgt_coll, src_coll, interp_days=32, interp_method='linear')
 
     output = utils.constant_image_value(ee.Image(output_coll.first()))
     assert abs(output['src'] - expected) <= tol
@@ -214,51 +100,71 @@ def test_daily_collection(tol=0.01):
 
 
 @pytest.mark.parametrize(
-    "tgt_value, tgt_time, src_values, src_times, expected",
+    "interp_days, tgt_value, tgt_time, src_values, src_times, expected",
     [
-        # [10, 1439618400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
-        [10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.1],
-        [10, 1439791200000, [0.0, 1.6], [1439660268614, 1441042674222], 0.2],
-        [10, 1439877600000, [0.0, 1.6], [1439660268614, 1441042674222], 0.3],
-        [10, 1439964000000, [0.0, 1.6], [1439660268614, 1441042674222], 0.4],
-        [10, 1440050400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.5],
-        [10, 1440136800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.6],
-        [10, 1440223200000, [0.0, 1.6], [1439660268614, 1441042674222], 0.7],
-        [10, 1440309600000, [0.0, 1.6], [1439660268614, 1441042674222], 0.8],
-        [10, 1440396000000, [0.0, 1.6], [1439660268614, 1441042674222], 0.9],
-        [10, 1440482400000, [0.0, 1.6], [1439660268614, 1441042674222], 1.0],
-        [10, 1440568800000, [0.0, 1.6], [1439660268614, 1441042674222], 1.1],
-        [10, 1440655200000, [0.0, 1.6], [1439660268614, 1441042674222], 1.2],
-        [10, 1440741600000, [0.0, 1.6], [1439660268614, 1441042674222], 1.3],
-        [10, 1440828000000, [0.0, 1.6], [1439660268614, 1441042674222], 1.4],
-        [10, 1440914400000, [0.0, 1.6], [1439660268614, 1441042674222], 1.5],
-        # [10, 1441000800000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+        # Commented out half the tests that seemed redundant
+        [4, 10, 1439618400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+        [4, 10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+        [4, 10, 1439791200000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+        [4, 10, 1439877600000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+        [4, 10, 1439964000000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+        [4, 10, 1440050400000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+        [4, 10, 1440136800000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+        [4, 10, 1440223200000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+        [4, 10, 1440309600000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+        [4, 10, 1440396000000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+        [4, 10, 1440482400000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+        [4, 10, 1440568800000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+        [4, 10, 1440655200000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+        [4, 10, 1440741600000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+        [4, 10, 1440828000000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+        [4, 10, 1440914400000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+        [4, 10, 1441000800000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+        [10, 10, 1439618400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+        [10, 10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+        [10, 10, 1439791200000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+        [10, 10, 1439877600000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+        [10, 10, 1439964000000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+        [10, 10, 1440050400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+        [10, 10, 1440136800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.6],
+        [10, 10, 1440223200000, [0.0, 1.6], [1439660268614, 1441042674222], 0.7],
+        [10, 10, 1440309600000, [0.0, 1.6], [1439660268614, 1441042674222], 0.8],
+        [10, 10, 1440396000000, [0.0, 1.6], [1439660268614, 1441042674222], 0.9],
+        [10, 10, 1440482400000, [0.0, 1.6], [1439660268614, 1441042674222], 1.0],
+        [10, 10, 1440568800000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+        [10, 10, 1440655200000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+        [10, 10, 1440741600000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+        [10, 10, 1440828000000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+        [10, 10, 1440914400000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+        [10, 10, 1441000800000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
     ]
 )
-def test_daily_small_interp_days(tgt_value, tgt_time, src_values, src_times,
-                                 expected, tol=0.01):
+def test_daily_interp_days(interp_days, tgt_value, tgt_time, src_values,
+                           src_times, expected, tol=0.01):
     """Test the daily method for small interp_days values"""
     tgt_coll = ee.ImageCollection([
-        ee.Image.constant(tgt_value)\
-            .select([0], ['tgt'])\
-            .set({
-                'system:time_start': tgt_time,
-            })
-        ])
+        ee.Image.constant(tgt_value).rename(['tgt'])\
+            .set({'system:time_start': tgt_time,
+                  'system:index': datetime.datetime.utcfromtimestamp(
+                      tgt_time / 1000.0).strftime('%Y-%m-%d')})])
     src_coll = ee.ImageCollection([
-        ee.Image.constant(value).select([0], ['src'])\
-            .set({
-                'system:time_start': time,
-                'SCENE_ID': 'test',
-            })
+        ee.Image.constant([value, utils.date_0utc(ee.Date(time)).millis()])\
+            .double().rename(['src', 'time'])\
+            .set({'system:time_start': time,
+                  'system:index': datetime.datetime.utcfromtimestamp(
+                      time / 1000.0).strftime('%Y-%m-%d')})
         for time, value in zip(src_times, src_values)])
 
     output_coll = ee.ImageCollection(interp.daily(
-        tgt_coll, src_coll, interp_days=10, interp_method='linear'))
+        tgt_coll, src_coll, interp_days=interp_days, interp_method='linear'))
 
     output = utils.constant_image_value(ee.Image(output_coll.first()))
-    assert abs(output['src'] - expected) <= tol
-    assert abs(output['tgt'] - tgt_value) <= tol
+    if expected is None:
+        assert output['src'] is None
+        assert abs(output['tgt'] - tgt_value) <= tol
+    else:
+        assert abs(output['src'] - expected) <= tol
+        assert abs(output['tgt'] - tgt_value) <= tol
 
 
 @pytest.mark.parametrize(
@@ -270,7 +176,8 @@ def test_daily_small_interp_days(tgt_value, tgt_time, src_values, src_times,
         # LC80330332015227LGN00 -> 1439660244726
         # LC80330342015227LGN00 -> 1439660268614
         [[10.0, 20.0], [1439660244726, 1439660268614], 15.0],
-        [[20.0, 10.0], [1439660268614, 1439660244726], 15.0],
+        [[10.0, 20.0], [1439660268614, 1439660244726], 15.0],
+        [[20.0, 10.0], [1439660244726, 1439660268614], 15.0],
         [[None, 20.0], [1439660244726, 1439660268614], 20.0],
         [[10.0, None], [1439660244726, 1439660268614], 10.0],
     ]
@@ -279,33 +186,41 @@ def test_aggregate_daily_single_band(etf_values, time_values, expected,
                                      tol=0.01):
     """Test daily aggregation function for single-band constant images"""
     image_list = []
+    time_list = []
     for etf, time in zip(etf_values, time_values):
+        date_0utc = utils.date_0utc(ee.Date(time))
+        time_0utc = date_0utc.millis()
         if etf is not None:
-            image = ee.Image.constant(etf).double().set({
+            image = ee.Image.constant([etf, time_0utc]).double()\
+                .rename(['etf', 'time'])\
+                .set({
                     'system:index': ee.Date(time).format('yyyyMMdd'),
-                    'system:time_start': time,
-            })
+                    'system:time_start': time})
         else:
-            image = ee.Image.constant(1).double().updateMask(0).set({
+            image = ee.Image.constant(1).double().updateMask(0)\
+                .addBands(ee.Image.constant(time_0utc).double())\
+                .rename(['etf', 'time'])\
+                .set({
                     'system:index': ee.Date(time).format('yyyyMMdd'),
-                    'system:time_start': time,
-                })
+                    'system:time_start': time})
         image_list.append(image)
+        time_list.append(time_0utc.getInfo())
 
     # Dates can be ISO Date string or milliseconds since epoch
-    start_date = min(time_values)
-    end_date = max(time_values)
-    # start_date = ee.Date(min(time_values)).format('yyyy-MM-dd')
-    # end_date = ee.Date(max(time_values)).format('yyyy-MM-dd')
+    # Use the date strings to get 0 UTC dates and better match model calls
+    start_date = ee.Date(min(time_values)).format('yyyy-MM-dd')
+    end_date = ee.Date(max(time_values)).advance(1, 'day').format('yyyy-MM-dd')
+    # start_date = min(time_values)
+    # end_date = max(time_values)
 
     etf_coll = interp.aggregate_daily(
         ee.ImageCollection.fromImages(image_list),
         start_date, end_date, agg_type='mean')
-    etf_image = ee.Image(etf_coll.first()).select([0], ['etf'])
+    etf_image = ee.Image(etf_coll.first())
 
     output = utils.constant_image_value(etf_image)
-    print(output)
     assert abs(output['etf'] - expected) <= tol
+    assert output['time'] == 0.5 * sum(time_list)
 
 
 @pytest.mark.parametrize(
@@ -322,87 +237,140 @@ def test_aggregate_daily_multi_band(src_values, time_values, expected,
                                     tol=0.01):
     """Test daily aggregation function for multi-band constant images"""
     image_list = []
+    time_list = []
     for src, time in zip(src_values, time_values):
-        image = ee.Image.constant(src).double().set({
+        time_0utc = utils.date_0utc(ee.Date(time)).millis()
+        image = ee.Image.constant(src + [time_0utc])\
+            .rename(['etrf', 'etof', 'time']).double()\
+            .set({
                 'system:index': ee.Date(time).format('yyyyMMdd'),
-                'system:time_start': time,
-        })
+                'system:time_start': time})
         image_list.append(image)
+        time_list.append(time_0utc.getInfo())
 
     # Dates can be ISO Date string or milliseconds since epoch
-    start_date = min(time_values)
-    end_date = max(time_values)
-    # start_date = ee.Date(min(time_values)).format('yyyy-MM-dd')
-    # end_date = ee.Date(max(time_values)).format('yyyy-MM-dd')
+    # Use the date strings to get 0 UTC dates and better match model calls
+    start_date = ee.Date(min(time_values)).format('yyyy-MM-dd')
+    end_date = ee.Date(max(time_values)).advance(1, 'day').format(
+        'yyyy-MM-dd')
+    # start_date = min(time_values)
+    # end_date = max(time_values)
 
     output_coll = interp.aggregate_daily(
         ee.ImageCollection.fromImages(image_list),
         start_date, end_date, agg_type='mean')
     output_image = ee.Image(output_coll.first())\
-        .select([0, 1], ['etrf', 'etof'])
+        .select([0, 1, 2], ['etrf', 'etof', 'time'])
 
     output = utils.constant_image_value(output_image)
     assert abs(output['etrf'] - expected[0]) <= tol
     assert abs(output['etof'] - expected[1]) <= tol
+    assert output['time'] == 0.5 * sum(time_list)
 
 
-# def test_linear_values():
+# def test_daily_values_collection_a():
 #     """Test the daily interpolation using real images"""
-#
-#     interp_days = 4
-#
 #     target_coll = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\
-#         .filterDate('2017-07-01', '2017-08-01')\
+#         .filterDate('2017-06-30', '2017-08-02')\
 #         .select(['etr'])
 #     source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
-#         .filterDate('2017-06-30', '2017-08-01')\
+#         .filterDate('2017-06-30', '2017-08-02')\
 #         .filterBounds(ee.Geometry.Point(-121.9, 39))\
 #         .select(['B1'])
-#     # pprint.pprint(list(target_coll.aggregate_histogram('system:index').getInfo().keys()))
-#     # pprint.pprint(list(source_coll.aggregate_histogram('system:index').getInfo().keys()))
 #
-#     # Add TIME_0UTC as a separate band to each image for the mosaic
-#     source_mod_coll = source_coll.map(interp.add_time_band)
+#     def add_time_band(image):
+#         date_0utc = utils.date_0utc(ee.Date(image.get('system:time_start')))
+#         return image.addBands([
+#             image.select([0]).double().multiply(0).add(date_0utc.millis())\
+#                 .rename(['time'])])
+#     source_coll = ee.ImageCollection(source_coll.map(add_time_band))
 #
-#     # Filters for joining the neighboring Landsat images in time
-#     prev_filter = ee.Filter.And(
-#         ee.Filter.maxDifference(
-#             difference=(interp_days + 1) * 24 * 60 * 60 * 1000,
-#             leftField='system:time_start', rightField='system:time_start'),
-#         ee.Filter.greaterThan(
-#             leftField='system:time_start', rightField='system:time_start'))
-#     next_filter = ee.Filter.And(
-#         ee.Filter.maxDifference(
-#             difference=(interp_days + 1) * 24 * 60 * 60 * 1000.0,
-#             leftField='system:time_start', rightField='system:time_start'),
-#         ee.Filter.lessThanOrEquals(
-#             leftField='system:time_start', rightField='system:time_start'))
+#     # print('\nTARGET')
+#     # target_info = utils.point_coll_value(
+#     #     target_coll, xy=(-121.5265, 38.7399), scale=30)
+#     # pprint.pprint(target_info)
 #
-#     # Join the neighboring Landsat images in time
-#     target_coll = ee.ImageCollection(
-#         ee.Join.saveAll('prev', 'system:time_start', True).apply(
-#             target_coll, source_mod_coll, prev_filter))
-#     target_coll = ee.ImageCollection(
-#         ee.Join.saveAll('next', 'system:time_start', False).apply(
-#             target_coll, source_mod_coll, next_filter))
+#     print('\nSOURCE')
+#     source_info = utils.point_coll_value(
+#         source_coll, xy=(-121.5265, 38.7399), scale=30)
+#     pprint.pprint(source_info)
 #
-#     target_img = ee.Image(target_coll.first())
-#     pprint.pprint(target_img.getInfo())
+#     print('\nOUTPUT')
+#     output = utils.point_coll_value(
+#         interp.daily(target_coll, source_coll, interp_days=32),
+#         xy=(-121.5265, 38.7399), scale=30)
+#     pprint.pprint(output['B1'])
 #
-#     # output = interp._linear(target_coll, source_coll, interp_days=4)
-#     # pprint.pprint(output.aggregate_histogram('system:index').getInfo())
-
-
-# def test_daily_values():
-#     """Test the daily interpolation using real images"""
+#     assert True
+#
+#
+# def test_daily_values_collection_b():
+#     """Test the daily interpolation for short interp_days values"""
 #     target_coll = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\
-#         .filterDate('2017-06-30', '2017-08-01')
+#         .filterDate('2017-06-30', '2017-08-02')\
+#         .select(['etr'])
 #     source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
-#         .filterDate('2017-06-30', '2017-08-01')\
-#         .filterBounds(ee.Geometry.Point(-121.9, 39))
-#     # pprint.pprint(list(target_coll.aggregate_histogram('system:index').getInfo().keys()))
-#     # pprint.pprint(list(source_coll.aggregate_histogram('system:index').getInfo().keys()))
+#         .filterDate('2017-06-30', '2017-08-02')\
+#         .filterBounds(ee.Geometry.Point(-121.9, 39))\
+#         .select(['B1'])
 #
-#     output = interp.daily(target_coll, source_coll, interp_days=4)
-#     pprint.pprint(output.aggregate_histogram('system:index').getInfo())
-
+#     def add_time_band(image):
+#         date_0utc = utils.date_0utc(ee.Date(image.get('system:time_start')))
+#         return image.addBands([
+#             image.select([0]).double().multiply(0).add(date_0utc.millis())\
+#                 .rename(['time'])])
+#     source_coll = ee.ImageCollection(source_coll.map(add_time_band))
+#
+#     # print('\nTARGET')
+#     # target_info = utils.point_coll_value(
+#     #     target_coll, xy=(-121.5265, 38.7399), scale=30)
+#     # pprint.pprint(target_info)
+#
+#     print('\nSOURCE')
+#     source_info = utils.point_coll_value(
+#         source_coll, xy=(-121.5265, 38.7399), scale=30)
+#     pprint.pprint(source_info)
+#
+#     print('\nOUTPUT')
+#     output = utils.point_coll_value(
+#         interp.daily(target_coll, source_coll, interp_days=4),
+#         xy=(-121.5265, 38.7399), scale=30)
+#     pprint.pprint(output['B1'])
+#
+#     assert True
+#
+#
+# def test_daily_values_collection_c():
+#     """Test if the daily interpolation holds the last known value"""
+#     target_coll = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\
+#         .filterDate('2017-07-01', '2017-08-05')\
+#         .select(['etr'])
+#     source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
+#         .filterDate('2017-06-30', '2017-07-17')\
+#         .filterBounds(ee.Geometry.Point(-121.9, 39))\
+#         .select(['B1'])
+#
+#     def add_time_band(image):
+#         date_0utc = utils.date_0utc(ee.Date(image.get('system:time_start')))
+#         return image.addBands([
+#             image.select([0]).double().multiply(0).add(date_0utc.millis())\
+#                 .rename(['time'])])
+#     source_coll = ee.ImageCollection(source_coll.map(add_time_band))
+#
+#     # print('\nTARGET')
+#     # target_info = utils.point_coll_value(
+#     #     target_coll, xy=(-121.5265, 38.7399), scale=30)
+#     # pprint.pprint(target_info)
+#
+#     print('\nSOURCE')
+#     source_info = utils.point_coll_value(
+#         source_coll, xy=(-121.5265, 38.7399), scale=30)
+#     pprint.pprint(source_info)
+#
+#     print('\nOUTPUT')
+#     output = utils.point_coll_value(
+#         interp.daily(target_coll, source_coll, interp_days=16),
+#         xy=(-121.5265, 38.7399), scale=30)
+#     pprint.pprint(output['B1'])
+#
+#     assert True
