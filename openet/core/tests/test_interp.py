@@ -182,8 +182,8 @@ def test_daily_interp_days(interp_days, tgt_value, tgt_time, src_values,
         [[10.0, None], [1439660244726, 1439660268614], 10.0],
     ]
 )
-def test_aggregate_daily_single_band(etf_values, time_values, expected,
-                                     tol=0.01):
+def test_aggregate_daily_values_single_band(etf_values, time_values, expected,
+                                            tol=0.01):
     """Test daily aggregation function for single-band constant images"""
     image_list = []
     time_list = []
@@ -233,8 +233,8 @@ def test_aggregate_daily_single_band(etf_values, time_values, expected,
         [[[10, 20], [20, 30]], [1439660244726, 1439660268614], [15.0, 25.0]],
     ]
 )
-def test_aggregate_daily_multi_band(src_values, time_values, expected,
-                                    tol=0.01):
+def test_aggregate_daily_values_multi_band(src_values, time_values, expected,
+                                           tol=0.01):
     """Test daily aggregation function for multi-band constant images"""
     image_list = []
     time_list = []
@@ -266,6 +266,41 @@ def test_aggregate_daily_multi_band(src_values, time_values, expected,
     assert abs(output['etrf'] - expected[0]) <= tol
     assert abs(output['etof'] - expected[1]) <= tol
     assert output['time'] == 0.5 * sum(time_list)
+
+
+def test_aggregate_daily_properties():
+    """Test daily aggregation image properties"""
+    source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
+        .filterDate('2017-06-30', '2017-08-02')\
+        .filterBounds(ee.Geometry.Point(-121.9, 39))
+    output = utils.getinfo(interp.aggregate_daily(source_coll).first())
+    assert set(output['properties'].keys()) == set([
+        'DATE', 'system:index', 'system:time_start'])
+    assert output['properties']['DATE'] == '2017-06-30'
+
+
+def test_aggregate_daily_date_filtering():
+    """Test daily aggregation start/end date filtering"""
+    source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
+        .filterDate('2017-01-01', '2018-01-01')\
+        .filterBounds(ee.Geometry.Point(-121.9, 39))\
+        .select(['B1'])
+
+    # First test if both start and end date are set
+    output = utils.getinfo(interp.aggregate_daily(
+        source_coll, '2017-06-30', '2017-08-02').aggregate_array('DATE'))
+    assert min(output) == '2017-06-30'
+    assert max(output) < '2017-08-02'
+
+    # Then test if only start_date is set
+    output = utils.getinfo(interp.aggregate_daily(
+        source_coll, start_date='2017-06-30').aggregate_array('DATE'))
+    assert min(output) == '2017-06-30'
+
+    # Then test if only end_date is set
+    output = utils.getinfo(interp.aggregate_daily(
+        source_coll, end_date='2017-08-02').aggregate_array('DATE'))
+    assert max(output) < '2017-08-02'
 
 
 # def test_daily_values_collection_a():
