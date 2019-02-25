@@ -34,7 +34,8 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
     """
 
     # # DEADBEEF - This module is assuming that the time band is already in
-    # #   the source collection
+    # #   the source collection.
+    # # Uncomment the following to add a time band here instead.
     # def add_utc0_time_band(image):
     #     date_0utc = utils.date_0utc(ee.Date(image.get('system:time_start')))
     #     return image.addBands([
@@ -63,7 +64,7 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
                 can only take one input parameter.
 
             """
-            target_image = ee.Image(image).select(0)
+            target_image = ee.Image(image).select(0).double()
             target_date = ee.Date(image.get('system:time_start'))
 
             # All filtering will be done based on 0 UTC dates
@@ -96,7 +97,9 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
 
             # Flatten the previous/next collections to single images
             # The closest image in time should be on "top"
-            prev_qm_image = prev_qm_coll.mosaic()
+            # CGM - Is the previous collection already sorted?
+            # prev_qm_image = prev_qm_coll.mosaic()
+            prev_qm_image = prev_qm_coll.sort('system:time_start', True).mosaic()
             next_qm_image = next_qm_coll.sort('system:time_start', False).mosaic()
 
             # DEADBEEF - It might be easier to interpolate all bands instead of
@@ -135,6 +138,9 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
             interp_value_image = next_value_mosaic.subtract(prev_value_mosaic) \
                 .multiply(time_ratio_image).add(prev_value_mosaic)
 
+            # CGM
+            # Should/can the target image be mapped to the interpolated image?
+            # Is there a clean way of computing ET here?
             return interp_value_image \
                 .addBands(target_image) \
                 .set({
@@ -144,7 +150,7 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
             })
 
         interp_coll = ee.ImageCollection(target_coll.map(_linear))
-    # elif interp_type.lower() == 'nearest':
+    # elif interp_method.lower() == 'nearest':
     #     interp_coll = ee.ImageCollection(target_coll.map(_nearest))
     else:
         raise ValueError('invalid interpolation method: {}'.format(interp_method))
@@ -191,14 +197,14 @@ def aggregate_daily(image_coll, start_date, end_date, agg_type='mean'):
         24 * 3600 * 1000)
     def set_date(time):
         return ee.Feature(None, {
-            'system:index': ee.Date(time).format('yyyy-MM-dd'),
+            'system:index': ee.Date(time).format('yyyyMMdd'),
             'system:time_start': ee.Number(time).int64(),
             'DATE': ee.Date(time).format('yyyy-MM-dd')})
 
     # Add a date property to the image collection
     def set_image_date(img):
-        return ee.Image(img.set(
-            'DATE', ee.Date(img.get('system:time_start')).format('yyyy-MM-dd')))
+        return ee.Image(img.set({
+            'DATE': ee.Date(img.get('system:time_start')).format('yyyy-MM-dd')}))
 
     join_coll = ee.FeatureCollection(
         ee.Join.saveAll('join').apply(
@@ -208,8 +214,10 @@ def aggregate_daily(image_coll, start_date, end_date, agg_type='mean'):
 
     def aggregate_func(ftr):
         # The composite image time will be 0 UTC (not Landsat time)
+        agg_coll = ee.ImageCollection.fromImages(ftr.get('join'))
         # if agg_type.lower() == 'mean':
-        return ee.ImageCollection.fromImages(ftr.get('join')).mean().set({
+        agg_img = agg_coll.mean()
+        return agg_img.set({
             'system:index': ftr.get('system:index'),
             'system:time_start': ftr.get('system:time_start'),
             'DATE': ftr.get('DATE'),

@@ -6,6 +6,7 @@ dependencies:
   - codecov
   - coverage
   - earthengine-api
+  - gdal
   - jupyter
   - jupyterlab
   - oauth2client
