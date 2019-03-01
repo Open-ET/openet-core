@@ -221,7 +221,7 @@ def aggregate_daily(image_coll, start_date=None, end_date=None,
         return agg_img.set({
             'system:index': start_date.format('yyyyMMdd'),
             'system:time_start': start_date.millis(),
-            'DATE': start_date.format('yyyy-MM-dd'),
+            'date': start_date.format('yyyy-MM-dd'),
         })
 
     return ee.ImageCollection(date_list.map(aggregate_func))
@@ -295,18 +295,18 @@ def aggregate_daily_with_joins(image_coll, start_date, end_date,
         return ee.Feature(None, {
             'system:index': ee.Date(time).format('yyyyMMdd'),
             'system:time_start': ee.Number(time).int64(),
-            'DATE': ee.Date(time).format('yyyy-MM-dd')})
+            'date': ee.Date(time).format('yyyy-MM-dd')})
 
     # Add a date property to the image collection
     def set_image_date(img):
         return ee.Image(img.set({
-            'DATE': ee.Date(img.get('system:time_start')).format('yyyy-MM-dd')}))
+            'date': ee.Date(img.get('system:time_start')).format('yyyy-MM-dd')}))
 
     join_coll = ee.FeatureCollection(
         ee.Join.saveAll('join').apply(
             ee.FeatureCollection(date_list.map(set_date)),
             ee.ImageCollection(image_coll.map(set_image_date)),
-            ee.Filter.equals(leftField='DATE', rightField='DATE')))
+            ee.Filter.equals(leftField='date', rightField='date')))
 
     def aggregate_func(ftr):
         # The composite image time will be 0 UTC (not Landsat time)
@@ -320,7 +320,7 @@ def aggregate_daily_with_joins(image_coll, start_date, end_date,
         return agg_img.set({
             'system:index': ftr.get('system:index'),
             'system:time_start': ftr.get('system:time_start'),
-            'DATE': ftr.get('DATE'),
+            'date': ftr.get('date'),
         })
 
     return ee.ImageCollection(join_coll.map(aggregate_func))

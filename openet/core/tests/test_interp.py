@@ -275,8 +275,8 @@ def test_aggregate_daily_properties():
         .filterBounds(ee.Geometry.Point(-121.9, 39))
     output = utils.getinfo(interp.aggregate_daily(source_coll).first())
     assert set(output['properties'].keys()) == set([
-        'DATE', 'system:index', 'system:time_start'])
-    assert output['properties']['DATE'] == '2017-06-30'
+        'date', 'system:index', 'system:time_start'])
+    assert output['properties']['date'] == '2017-06-30'
 
 
 def test_aggregate_daily_date_filtering():
@@ -288,18 +288,18 @@ def test_aggregate_daily_date_filtering():
 
     # First test if both start and end date are set
     output = utils.getinfo(interp.aggregate_daily(
-        source_coll, '2017-06-30', '2017-08-02').aggregate_array('DATE'))
+        source_coll, '2017-06-30', '2017-08-02').aggregate_array('date'))
     assert min(output) == '2017-06-30'
     assert max(output) < '2017-08-02'
 
     # Then test if only start_date is set
     output = utils.getinfo(interp.aggregate_daily(
-        source_coll, start_date='2017-06-30').aggregate_array('DATE'))
+        source_coll, start_date='2017-06-30').aggregate_array('date'))
     assert min(output) == '2017-06-30'
 
     # Then test if only end_date is set
     output = utils.getinfo(interp.aggregate_daily(
-        source_coll, end_date='2017-08-02').aggregate_array('DATE'))
+        source_coll, end_date='2017-08-02').aggregate_array('date'))
     assert max(output) < '2017-08-02'
 
 
