@@ -12,6 +12,9 @@ dependencies:
   - oauth2client
   - numpy
   - pandas
+  - pip
   - pytest>=4.3.0
   - pytest-cov
   - python=3.6
+  - pip:
+    - openet-core

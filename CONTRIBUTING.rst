@@ -2,7 +2,7 @@
 Contributing to OpenET
 ======================
 
-Thank you for your interesting in support the OpenET project.
+Thank you for your interest in support the OpenET project.
 
 Versioning
 ==========
@@ -25,26 +25,19 @@ Development
 Conda Environment
 -----------------
 
-For local application, development, and testing, the user is strongly encouraged to create a dedicated "openet" conda environment.
+For local application, development, and testing, the user is strongly encouraged to use the "openet" conda environment defined in the provided environment.yml.
 
 Create the conda environment:
 
 .. code-block:: console
 
-    conda create --name openet python=3.6
+    conda env create -f environment.yml
 
 Activate the environment:
 
 .. code-block:: console
 
     conda activate openet
-
-Install additional Python modules using conda (and pip for modules not currently available via conda):
-
-.. code-block:: console
-
-    conda install earthengine-api oauth2client pytest
-    pip install openet-core
 
 Updating OpenET Module
 ----------------------
