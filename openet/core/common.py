@@ -135,13 +135,13 @@ def landsat_c1_sr_cloud_mask(input_img, cloud_confidence=3, snow_flag=False):
     return cloud_mask.Not()
 
 
-def sentinel2_cloud_mask(input_img):
-    """Extract cloud mask from the Sentinel 2 TOA/SR QA60 band
+def sentinel2_toa_cloud_mask(input_img):
+    """Extract cloud mask from the Sentinel 2 TOA QA60 band
 
     Parameters
     ----------
     input_img : ee.Image
-        Image from the COPERNICUS/S2 or S2_SR collection with a QA60 band.
+        Image from the COPERNICUS/S2 collection with a QA60 band.
 
     Returns
     -------
@@ -155,6 +155,8 @@ def sentinel2_cloud_mask(input_img):
     Bits
         10: Opaque clouds present
         11: Cirrus clouds present
+
+    The Sentinel 2 TOA and SR cloud masks functions are currently identical
 
     References
     ----------
@@ -170,11 +172,48 @@ def sentinel2_cloud_mask(input_img):
     return cloud_mask.Not()
 
 
-def sentinel2_toa_cloud_mask(input_img):
-    # This function will be removed as of version 0.1
-    warnings.warn(
-        "common.sentinel2_toa_cloud_mask() is deprecated, "
-        "use common.sentinel2_cloud_mask() instead",
-        DeprecationWarning
-    )
-    return sentinel2_cloud_mask(input_img)
+def sentinel2_sr_cloud_mask(input_img):
+    """Extract cloud mask from the Sentinel 2 SR QA60 band
+
+    Parameters
+    ----------
+    input_img : ee.Image
+        Image from the COPERNICUS/S2_SR collection with a QA60 band.
+
+    Returns
+    -------
+    ee.Image
+
+    Notes
+    -----
+    Output image is structured to be applied directly with updateMask()
+        i.e. 0 is cloud, 1 is cloud free
+
+    Bits
+        10: Opaque clouds present
+        11: Cirrus clouds present
+
+    The Sentinel 2 TOA and SR cloud masks functions are currently identical
+
+    References
+    ----------
+    https://sentinel.esa.int/documents/247904/685211/Sentinel-2_User_Handbook
+    https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-2-msi/level-1c/cloud-masks
+
+    """
+    qa_img = input_img.select(['QA60'])
+    cloud_mask = qa_img.rightShift(10).bitwiseAnd(1).neq(0)\
+        .Or(qa_img.rightShift(11).bitwiseAnd(1).neq(0))
+
+    # Set cloudy pixels to 0 and clear to 1
+    return cloud_mask.Not()
+
+
+# def sentinel2_toa_cloud_mask(input_img):
+#     # This function will be removed as of version 0.1
+#     warnings.warn(
+#         "common.sentinel2_toa_cloud_mask() is deprecated, "
+#         "use common.sentinel2_cloud_mask() instead",
+#         DeprecationWarning
+#     )
+#     return sentinel2_cloud_mask(input_img)

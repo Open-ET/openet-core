@@ -123,15 +123,30 @@ def test_landsat_c1_sr_cloud_mask_snow(img_value, snow, expected):
         ['0000100000000000', 0],
     ]
 )
-def test_sentinel2_cloud_mask(img_value, expected):
+def test_sentinel2_toa_cloud_mask(img_value, expected):
     input_img = ee.Image.constant(int(img_value, 2)).rename(['QA60'])
-    output_img = common.sentinel2_cloud_mask(input_img)
+    output_img = common.sentinel2_toa_cloud_mask(input_img)
     assert utils.constant_image_value(ee.Image(output_img))['QA60'] == expected
 
 
-def test_sentinel2_toa_cloud_mask_deprecation():
-    """Test that sentinel2_toa_cloud_mask returns a deprecation warning"""
-    with pytest.deprecated_call():
-        input_img = ee.Image.constant(int('0000010000000000', 2)).rename(['QA60'])
-        output_img = common.sentinel2_toa_cloud_mask(input_img)
-        assert utils.constant_image_value(ee.Image(output_img))['QA60'] == 0
+@pytest.mark.parametrize(
+    "img_value, expected",
+    [
+        ['0000000000000000', 1],
+        ['0000010000000000', 0],
+        ['0000100000000000', 0],
+    ]
+)
+def test_sentinel2_sr_cloud_mask(img_value, expected):
+    input_img = ee.Image.constant(int(img_value, 2)).rename(['QA60'])
+    output_img = common.sentinel2_sr_cloud_mask(input_img)
+    assert utils.constant_image_value(ee.Image(output_img))['QA60'] == expected
+
+
+# def test_sentinel2_toa_cloud_mask_deprecation():
+#     """Test that sentinel2_toa_cloud_mask returns a deprecation warning"""
+#     with pytest.deprecated_call():
+#         input_img = ee.Image.constant(int('0000010000000000', 2)).rename(['QA60'])
+#         output_img = common.sentinel2_toa_cloud_mask(input_img)
+#         assert utils.constant_image_value(ee.Image(output_img))['QA60'] == 0
+
