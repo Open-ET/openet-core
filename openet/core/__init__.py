@@ -3,4 +3,4 @@ from . import common
 from . import interp
 from . import utils
 
-__version__ = "0.0.9"
+__version__ = "0.0.10"

@@ -1,3 +1,5 @@
+import warnings
+
 import ee
 
 
@@ -133,13 +135,13 @@ def landsat_c1_sr_cloud_mask(input_img, cloud_confidence=3, snow_flag=False):
     return cloud_mask.Not()
 
 
-def sentinel2_toa_cloud_mask(input_img):
-    """Extract cloud mask from the Sentinel 2 TOA QA60 band
+def sentinel2_cloud_mask(input_img):
+    """Extract cloud mask from the Sentinel 2 TOA/SR QA60 band
 
     Parameters
     ----------
     input_img : ee.Image
-        Image from the COPERNICUS/S2 collection with a QA60 band.
+        Image from the COPERNICUS/S2 or S2_SR collection with a QA60 band.
 
     Returns
     -------
@@ -166,3 +168,13 @@ def sentinel2_toa_cloud_mask(input_img):
 
     # Set cloudy pixels to 0 and clear to 1
     return cloud_mask.Not()
+
+
+def sentinel2_toa_cloud_mask(input_img):
+    # This function will be removed as of version 0.1
+    warnings.warn(
+        "common.sentinel2_toa_cloud_mask() is deprecated, "
+        "use common.sentinel2_cloud_mask() instead",
+        DeprecationWarning
+    )
+    return sentinel2_cloud_mask(input_img)
