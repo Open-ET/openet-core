@@ -33,3 +33,4 @@ coverage.xml
 
 # Miscellaneous files
 notes.txt
+*.DS_Store
