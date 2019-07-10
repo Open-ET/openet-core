@@ -4,7 +4,7 @@ from . import utils
 # import openet.core.utils as utils
 
 
-def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
+def daily(target_coll, source_coll, interp_days=32, interp_method='linear', use_joins=False):
     """Generate daily ETa collection from ETo and ETf collections
 
     Parameters
@@ -21,6 +21,8 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
         interpolation (the default is 32).
     interp_method : {'linear'}, optional
         Interpolation method (the default is 'linear').
+    use_joins : bool, optional
+        Set use_joins to True for more efficient memory use during interpolation.
 
     Returns
     -------
@@ -57,30 +59,31 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
         )
     )
 
-    # Join the neighboring Landsat images in time
-    target_coll = ee.ImageCollection(
-        ee.Join.saveAll(
-            matchesKey='prev',
-            ordering='system:time_start',
-            ascending=True
-        ).apply(
-            primary=target_coll,
-            secondary=source_coll,
-            condition=prev_filter
+    if use_joins:
+        # Join the neighboring Landsat images in time
+        target_coll = ee.ImageCollection(
+            ee.Join.saveAll(
+                matchesKey='prev',
+                ordering='system:time_start',
+                ascending=True
+            ).apply(
+                primary=target_coll,
+                secondary=source_coll,
+                condition=prev_filter
+            )
         )
-    )
 
-    target_coll = ee.ImageCollection(
-        ee.Join.saveAll(
-            matchesKey='next',
-            ordering='system:time_start',
-            ascending=False
-        ).apply(
-            primary=target_coll,
-            secondary=source_coll,
-            condition=next_filter
+        target_coll = ee.ImageCollection(
+            ee.Join.saveAll(
+                matchesKey='next',
+                ordering='system:time_start',
+                ascending=False
+            ).apply(
+                primary=target_coll,
+                secondary=source_coll,
+                condition=next_filter
+            )
         )
-    )
 
     # # DEADBEEF - This module is assuming that the time band is already in
     # #   the source collection.
@@ -136,16 +139,33 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear'):
                     'system:time_start': utc0_date.advance(
                         interp_days + 2, 'day').millis()})
 
-            # Build separate mosaics for before and after the target date
-            prev_qm_image = ee.ImageCollection.fromImages(ee.List(ee.Image(image).get('prev')))\
-                .merge(ee.ImageCollection(prev_qm_mask))\
-                .sort('system:time_start', True)\
-                .mosaic()
 
-            next_qm_image = ee.ImageCollection.fromImages(ee.List(ee.Image(image).get('next')))\
-                .merge(ee.ImageCollection(next_qm_mask))\
-                .sort('system:time_start', False)\
-                .mosaic()
+            if use_joins:
+                # Build separate mosaics for before and after the target date
+                prev_qm_image = ee.ImageCollection.fromImages(ee.List(ee.Image(image).get('prev')))\
+                    .merge(ee.ImageCollection(prev_qm_mask))\
+                    .sort('system:time_start', True)\
+                    .mosaic()
+
+                next_qm_image = ee.ImageCollection.fromImages(ee.List(ee.Image(image).get('next')))\
+                    .merge(ee.ImageCollection(next_qm_mask))\
+                    .sort('system:time_start', False)\
+                    .mosaic()
+            else:
+                # Build separate collections for before and after the target date
+                prev_qm_coll = source_coll.filterDate(
+                        utc0_date.advance(-interp_days, 'day'), utc0_date)\
+                    .merge(ee.ImageCollection(prev_qm_mask))
+                next_qm_coll = source_coll.filterDate(
+                        utc0_date, utc0_date.advance(interp_days + 1, 'day'))\
+                    .merge(ee.ImageCollection(next_qm_mask))
+
+                # Flatten the previous/next collections to single images
+                # The closest image in time should be on "top"
+                # CGM - Is the previous collection already sorted?
+                # prev_qm_image = prev_qm_coll.mosaic()
+                prev_qm_image = prev_qm_coll.sort('system:time_start', True).mosaic()
+                next_qm_image = next_qm_coll.sort('system:time_start', False).mosaic()
 
             # DEADBEEF - It might be easier to interpolate all bands instead of
             #   separating the value and time bands
