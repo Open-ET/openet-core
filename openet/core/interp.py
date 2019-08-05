@@ -4,7 +4,8 @@ from . import utils
 # import openet.core.utils as utils
 
 
-def daily(target_coll, source_coll, interp_days=32, interp_method='linear', use_joins=False):
+def daily(target_coll, source_coll, interp_days=32, interp_method='linear',
+          use_joins=False):
     """Generate daily ETa collection from ETo and ETf collections
 
     Parameters
@@ -22,7 +23,13 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear', use_
     interp_method : {'linear'}, optional
         Interpolation method (the default is 'linear').
     use_joins : bool, optional
-        Set use_joins to True for more efficient memory use during interpolation.
+        If True, the source collection will be joined to the target collection
+        before mapping/interpolation and the source images will be extracted
+        from the join properties ('prev' and 'next').
+        Setting use_joins=True should be more memory efficient.
+        If False, the source images will be built by filtering the source
+        collection separately for each image in the target collection
+        (inside the mapped function).
 
     Returns
     -------
@@ -139,25 +146,25 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear', use_
                     'system:time_start': utc0_date.advance(
                         interp_days + 2, 'day').millis()})
 
-
             if use_joins:
                 # Build separate mosaics for before and after the target date
-                prev_qm_image = ee.ImageCollection.fromImages(ee.List(ee.Image(image).get('prev')))\
+                prev_qm_image = ee.ImageCollection\
+                    .fromImages(ee.List(ee.Image(image).get('prev')))\
                     .merge(ee.ImageCollection(prev_qm_mask))\
                     .sort('system:time_start', True)\
                     .mosaic()
-
-                next_qm_image = ee.ImageCollection.fromImages(ee.List(ee.Image(image).get('next')))\
+                next_qm_image = ee.ImageCollection\
+                    .fromImages(ee.List(ee.Image(image).get('next')))\
                     .merge(ee.ImageCollection(next_qm_mask))\
                     .sort('system:time_start', False)\
                     .mosaic()
             else:
                 # Build separate collections for before and after the target date
-                prev_qm_coll = source_coll.filterDate(
-                        utc0_date.advance(-interp_days, 'day'), utc0_date)\
+                prev_qm_coll = source_coll\
+                    .filterDate(utc0_date.advance(-interp_days, 'day'), utc0_date)\
                     .merge(ee.ImageCollection(prev_qm_mask))
-                next_qm_coll = source_coll.filterDate(
-                        utc0_date, utc0_date.advance(interp_days + 1, 'day'))\
+                next_qm_coll = source_coll\
+                    .filterDate(utc0_date, utc0_date.advance(interp_days + 1, 'day'))\
                     .merge(ee.ImageCollection(next_qm_mask))
 
                 # Flatten the previous/next collections to single images
