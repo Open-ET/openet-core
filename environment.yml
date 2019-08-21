@@ -1,11 +1,11 @@
 name: openet
 channels:
-  - conda-forge
   - defaults
+  - conda-forge
 dependencies:
   - codecov
   - coverage
-  - earthengine-api
+  - earthengine-api>=0.1.185
   - gdal
   - jupyter
   - jupyterlab
@@ -15,6 +15,7 @@ dependencies:
   - pip
   - pytest>=4.3.0
   - pytest-cov
+  - pytest-runner
   - python=3.6
   - python-dateutil
   - pip:

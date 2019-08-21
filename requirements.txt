@@ -1,2 +1,1 @@
-earthengine-api
-oauth2client
+earthengine-api>=0.1.185
