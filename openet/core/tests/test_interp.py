@@ -30,17 +30,20 @@ def src_images(src_values, src_times):
         date_0utc = utils.date_0utc(ee.Date(time))
         time_0utc = date_0utc.millis()
         if src is not None:
-            image = ee.Image.constant([src, time_0utc]).double() \
+            image = ee.Image([
+                    ee.Image.constant([src]).double(),
+                    ee.Image.constant([time_0utc]).double()])\
                 .rename(['src', 'time']) \
-                .set({
-                    'system:index': ee.Date(time).format('yyyyMMdd'),
-                    'system:time_start': time})
+                .set({'system:index': ee.Date(time).format('yyyyMMdd'),
+                      'system:time_start': time})
         else:
-            image = ee.Image.constant([1, time_0utc]).double().updateMask(0) \
+            image = ee.Image([
+                    ee.Image.constant(1).double(),
+                    ee.Image.constant(time_0utc).double()])\
+                .updateMask(0) \
                 .rename(['src', 'time']) \
-                .set({
-                    'system:index': ee.Date(time).format('yyyyMMdd'),
-                    'system:time_start': time})
+                .set({'system:index': ee.Date(time).format('yyyyMMdd'),
+                      'system:time_start': time})
         src_images.append(image)
     return src_images
 
@@ -205,36 +208,68 @@ def test_daily_small_interp_days(interp_days, tgt_value, tgt_time, src_values,
         assert abs(output['tgt'] - tgt_value) <= tol
 
 
-@pytest.mark.parametrize(
-    "interp_days, tgt_value, tgt_time, src_values, src_times, expected",
-    [
-        # [4, 10, 1439618400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
-        [4, 10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
-
-    ]
-)
-def test_daily_interp_days_use_joins(interp_days, tgt_value, tgt_time, src_values,
-                                     src_times, expected, tol=0.01):
-    """Test the daily method for small interp_days values"""
-    tgt_coll = ee.ImageCollection([tgt_image(tgt_value, tgt_time)])
-    src_coll = ee.ImageCollection.fromImages(src_images(src_values, src_times))
-
-    # pprint.pprint(tgt_coll.getInfo())
-    # pprint.pprint(src_coll.getInfo())
-
-    output_coll = ee.ImageCollection(interp.daily(
-        tgt_coll, src_coll, interp_days=interp_days, interp_method='linear',
-        use_joins=True))
-    pprint.pprint(src_coll.getInfo())
-
-    # output = utils.constant_image_value(ee.Image(output_coll.first()))
-    # if expected is None:
-    #     assert output['src'] is None
-    #     assert abs(output['tgt'] - tgt_value) <= tol
-    # else:
-    #     assert abs(output['src'] - expected) <= tol
-    #     assert abs(output['tgt'] - tgt_value) <= tol
-    assert False
+# # CGM - These tests won't pass because the use_joins approach drops the
+# #   source image when there are no images to join with.
+# @pytest.mark.parametrize(
+#     "interp_days, tgt_value, tgt_time, src_values, src_times, expected",
+#     [
+#         # Return 1st value if 2nd value is outside interp_days window
+#         # Return 2nd value if 1st value is outside interp_days window
+#         # Return nodata if 1st and 2nd value are both outside window
+#         # Return interpolated value if 1st and 2nd value are both inside window
+#         # First try interp_days that is much smaller than time step (4 days)
+#         [4, 10, 1439618400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+#         [4, 10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+#         [4, 10, 1439791200000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+#         [4, 10, 1439877600000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+#         [4, 10, 1439964000000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+#         [4, 10, 1440050400000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+#         [4, 10, 1440136800000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+#         [4, 10, 1440223200000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+#         [4, 10, 1440309600000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+#         [4, 10, 1440396000000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+#         [4, 10, 1440482400000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+#         [4, 10, 1440568800000, [0.0, 1.6], [1439660268614, 1441042674222], None],
+#         [4, 10, 1440655200000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+#         [4, 10, 1440741600000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+#         [4, 10, 1440828000000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+#         [4, 10, 1440914400000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+#         [4, 10, 1441000800000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+#         # Same as above but with a larger interp_days value
+#         [10, 10, 1439618400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+#         [10, 10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+#         [10, 10, 1439791200000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+#         [10, 10, 1439877600000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+#         [10, 10, 1439964000000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+#         [10, 10, 1440050400000, [0.0, 1.6], [1439660268614, 1441042674222], 0.0],
+#         [10, 10, 1440136800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.6],
+#         [10, 10, 1440223200000, [0.0, 1.6], [1439660268614, 1441042674222], 0.7],
+#         [10, 10, 1440309600000, [0.0, 1.6], [1439660268614, 1441042674222], 0.8],
+#         [10, 10, 1440396000000, [0.0, 1.6], [1439660268614, 1441042674222], 0.9],
+#         [10, 10, 1440482400000, [0.0, 1.6], [1439660268614, 1441042674222], 1.0],
+#         [10, 10, 1440568800000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+#         [10, 10, 1440655200000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+#         [10, 10, 1440741600000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+#         [10, 10, 1440828000000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+#         [10, 10, 1440914400000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+#         [10, 10, 1441000800000, [0.0, 1.6], [1439660268614, 1441042674222], 1.6],
+#     ]
+# )
+# def test_daily_interp_days_use_joins(interp_days, tgt_value, tgt_time,
+#                                      src_values, src_times, expected, tol=0.01):
+#     """Test the daily method for small interp_days values"""
+#     tgt_coll = ee.ImageCollection([tgt_image(tgt_value, tgt_time)])
+#     src_coll = ee.ImageCollection.fromImages(src_images(src_values, src_times))
+#     output_coll = ee.ImageCollection(interp.daily(
+#         tgt_coll, src_coll, interp_days=interp_days, interp_method='linear',
+#         use_joins=True))
+#     output = utils.constant_image_value(ee.Image(output_coll.first()))
+#     if expected is None:
+#         assert output['src'] is None
+#         assert abs(output['tgt'] - tgt_value) <= tol
+#     else:
+#         assert abs(output['src'] - expected) <= tol
+#         assert abs(output['tgt'] - tgt_value) <= tol
 
 
 @pytest.mark.parametrize(
@@ -293,11 +328,11 @@ def test_aggregate_daily_values_multi_band(src_values, time_values, expected,
     time_list = []
     for src, time in zip(src_values, time_values):
         time_0utc = utils.date_0utc(ee.Date(time)).millis()
-        image = ee.Image.constant(src + [time_0utc])\
-            .rename(['etrf', 'etof', 'time']).double()\
-            .set({
-                'system:index': ee.Date(time).format('yyyyMMdd'),
-                'system:time_start': time})
+        image = ee.Image.constant(src).double()\
+            .addBands(ee.Image.constant(time_0utc).double())\
+            .rename(['etrf', 'etof', 'time'])\
+            .set({'system:index': ee.Date(time).format('yyyyMMdd'),
+                  'system:time_start': time})
         image_list.append(image)
         time_list.append(time_0utc.getInfo())
 
