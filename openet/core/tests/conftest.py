@@ -15,14 +15,13 @@ def test_init():
     if 'EE_PRIVATE_KEY_B64' in os.environ:
         print('Writing privatekey.json from environmental variable ...')
         content = base64.b64decode(os.environ['EE_PRIVATE_KEY_B64']).decode('ascii')
-        EE_PRIVATE_KEY_FILE = 'privatekey.json'
-        with open(EE_PRIVATE_KEY_FILE, 'w') as f:
+        EE_KEY_FILE = 'privatekey.json'
+        with open(EE_KEY_FILE, 'w') as f:
             f.write(content)
-        EE_CREDENTIALS = ee.ServiceAccountCredentials(
-            '', key_file=EE_PRIVATE_KEY_FILE)
-        ee.Initialize(EE_CREDENTIALS)
+        ee.Initialize(ee.ServiceAccountCredentials('test', key_file=EE_KEY_FILE),
+                      use_cloud_api=False)
     else:
-        ee.Initialize()
+        ee.Initialize(use_cloud_api=False)
 
     # Make a simple EE request
     # logging.debug(ee.Number(1).getInfo())

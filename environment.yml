@@ -5,11 +5,10 @@ channels:
 dependencies:
   - codecov
   - coverage
-  - earthengine-api>=0.1.185
+  - earthengine-api>=0.1.204
   - gdal
   - jupyter
   - jupyterlab
-  - oauth2client
   - numpy
   - pandas
   - pip
