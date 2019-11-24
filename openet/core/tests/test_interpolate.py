@@ -5,7 +5,7 @@ import pprint
 import ee
 import pytest
 
-import openet.core.interp as interp
+import openet.core.interpolate as interp
 import openet.core.utils as utils
 
 logging.basicConfig(level=logging.DEBUG, format='%(message)s')

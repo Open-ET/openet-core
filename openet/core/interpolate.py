@@ -646,7 +646,7 @@ def aggregate_daily_with_joins(image_coll, start_date, end_date,
 #         if 'count' in variables:
 #             count_img = aggregate_coll \
 #                 .filterDate(agg_start_date, agg_end_date) \
-#                 .select(['mask']).count().rename('count').uint8()
+#                 .select(['mask']).sum().rename('count').uint8()
 #             image_list.append(count_img)
 #
 #         return ee.Image(image_list) \
