@@ -208,8 +208,10 @@ def test_daily_small_interp_days(interp_days, tgt_value, tgt_time, src_values,
         assert abs(output['tgt'] - tgt_value) <= tol
 
 
-# # CGM - These tests won't pass because the use_joins approach drops the
-# #   source image when there are no images to join with.
+"""
+These tests won't pass because the use_joins approach drops the source image 
+when there are no images to join with.
+"""
 # @pytest.mark.parametrize(
 #     "interp_days, tgt_value, tgt_time, src_values, src_times, expected",
 #     [
@@ -391,6 +393,9 @@ def test_aggregate_daily_date_filtering():
     assert max(output) < '2017-08-02'
 
 
+"""
+This test is commented out since the function is commented out interpolate.py
+"""
 # def test_from_scene_et_fraction_values():
 #     img = ee.Image('LANDSAT/LC08/C01/T1_TOA/LC08_044033_20170716') \
 #         .select(['B2']).double().multiply(0)
@@ -439,7 +444,11 @@ def test_aggregate_daily_date_filtering():
 #     assert output['count']['2017-07-01'] == 3
 
 
-# DEADBEEF
+"""
+These tests were attempts at making "full" interpolation calls.
+They could be removed but are being left in case we want to explore this again 
+at some point in the future.
+"""
 # def test_daily_values_collection_a():
 #     """Test the daily interpolation using real images"""
 #     target_coll = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\

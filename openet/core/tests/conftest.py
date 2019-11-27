@@ -9,6 +9,7 @@ import pytest
 @pytest.fixture(scope="session", autouse=True)
 def test_init():
     logging.basicConfig(level=logging.DEBUG, format='%(message)s')
+    logging.getLogger('googleapiclient').setLevel(logging.ERROR)
     logging.debug('Test Setup')
 
     # On Travis-CI authenticate using private key environment variable
@@ -19,9 +20,9 @@ def test_init():
         with open(EE_KEY_FILE, 'w') as f:
             f.write(content)
         ee.Initialize(ee.ServiceAccountCredentials('test', key_file=EE_KEY_FILE),
-                      use_cloud_api=False)
+                      use_cloud_api=True)
     else:
-        ee.Initialize(use_cloud_api=False)
+        ee.Initialize(use_cloud_api=True)
 
     # Make a simple EE request
     # logging.debug(ee.Number(1).getInfo())

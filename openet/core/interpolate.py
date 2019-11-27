@@ -303,105 +303,10 @@ def aggregate_daily(image_coll, start_date=None, end_date=None,
     return ee.ImageCollection(date_list.map(aggregate_func))
 
 
-# DEADBEEF - This function is no longer being used
-# @deprecated
-def aggregate_daily_with_joins(image_coll, start_date, end_date,
-                               agg_type='mean'):
-    """Aggregate images by day (using joins)
-
-    The primary purpose of this function is to join separate Landsat images
-    from the same path into a single daily image.
-
-    Parameters
-    ----------
-    image_coll : ee.ImageCollection
-        Input image collection.
-    start_date :  date, number, string
-        Start date.
-        Needs to be an EE readable date (i.e. ISO Date string or milliseconds).
-    end_date :  date, number, string
-        End date.
-        Needs to be an EE readable date (i.e. ISO Date string or milliseconds).
-    agg_type : {'mean'}, optional
-        Aggregation type (the default is 'mean').
-        Currently only a 'mean' aggregation type is supported.
-
-    Returns
-    -------
-    ee.ImageCollection()
-
-    Notes
-    -----
-    This function should be used to mosaic Landsat images from same path
-        but different rows.
-    system:time_start of returned images will be 0 UTC (not the image time).
-
-    """
-    # Build a collection of time "features" to join to
-    # "Flatten" dates to 0 UTC time
-    if start_date and end_date:
-        date_list = ee.List.sequence(
-            ee.Date(start_date).millis(), ee.Date(end_date).millis(),
-            24 * 3600 * 1000)
-    # elif start_date:
-    #    end_date = ee.Date(ee.Image(image_coll.limit(
-    #        1, 'system:time_start', False).first()).get('system:time_start')
-    #    end_date = ee.Date(end_date.format('yyyy-MM-dd')).advance(1, 'day')
-    #    # end_date = ee.Date.fromYMD(end_date.get('year'), end_date.get('month'),
-    #    #                            end_date.get('day')).advance(1, 'day')
-    #    date_list = ee.List.sequence(
-    #        ee.Date(start_date).millis(), end_date.millis(), 24 * 3600 * 1000)
-    # elif end_date:
-    #    start_date = ee.Date(start_date.format('yyyy-MM-dd')).advance(1, 'day')
-    #    # start_date = ee.Date.fromYMD(
-    #    #     start_date.get('year'), start_date.get('month'),
-    #    #     start_date.get('day')).advance(1, 'day')
-    #    date_list = ee.List.sequence(
-    #        start_date.millis(), ee.Date(end_date).millis(), 24 * 3600 * 1000)
-    # else:
-    #    start_date = ee.Date(start_date.format('yyyy-MM-dd')).advance(1, 'day')
-    #    end_date = ee.Date(ee.Image(image_coll.limit(
-    #        1, 'system:time_start', False).first()).get('system:time_start')
-    #    end_date = ee.Date(end_date.format('yyyy-MM-dd')).advance(1, 'day')
-    #    date_list = ee.List.sequence(
-    #        ee.Date(start_date).millis(), ee.Date(end_date).millis(),
-    #        24 * 3600 * 1000)
-
-    def set_date(time):
-        return ee.Feature(None, {
-            'system:index': ee.Date(time).format('yyyyMMdd'),
-            'system:time_start': ee.Number(time).int64(),
-            'date': ee.Date(time).format('yyyy-MM-dd')})
-
-    # Add a date property to the image collection
-    def set_image_date(img):
-        return ee.Image(img.set({
-            'date': ee.Date(img.get('system:time_start')).format('yyyy-MM-dd')}))
-
-    join_coll = ee.FeatureCollection(
-        ee.Join.saveAll('join').apply(
-            ee.FeatureCollection(date_list.map(set_date)),
-            ee.ImageCollection(image_coll.map(set_image_date)),
-            ee.Filter.equals(leftField='date', rightField='date')))
-
-    def aggregate_func(ftr):
-        # The composite image time will be 0 UTC (not Landsat time)
-        agg_coll = ee.ImageCollection.fromImages(ftr.get('join'))
-
-        # if agg_type.lower() == 'mean':
-        agg_img = agg_coll.mean()
-        # elif agg_type.lower() == 'median':
-        #     agg_img = agg_coll.median()
-
-        return agg_img.set({
-            'system:index': ftr.get('system:index'),
-            'system:time_start': ftr.get('system:time_start'),
-            'date': ftr.get('date'),
-        })
-
-    return ee.ImageCollection(join_coll.map(aggregate_func))
-
-
+"""
+This function is currently being defined in the model.interpolate modules but  
+could be defined here if we find that it is the same for all the models.
+"""
 # def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
 #                            model_args, t_interval='custom',
 #                            interp_method='linear', interp_days=32,
@@ -710,3 +615,101 @@ def aggregate_daily_with_joins(image_coll, start_date, end_date,
 #         return ee.ImageCollection(aggregate_image(
 #             agg_start_date=start_date, agg_end_date=end_date,
 #             date_format='YYYYMMdd'))
+
+
+# @deprecated
+# def aggregate_daily_with_joins(image_coll, start_date, end_date,
+#                                agg_type='mean'):
+#     """Aggregate images by day (using joins)
+#
+#     The primary purpose of this function is to join separate Landsat images
+#     from the same path into a single daily image.
+#
+#     Parameters
+#     ----------
+#     image_coll : ee.ImageCollection
+#         Input image collection.
+#     start_date :  date, number, string
+#         Start date.
+#         Needs to be an EE readable date (i.e. ISO Date string or milliseconds).
+#     end_date :  date, number, string
+#         End date.
+#         Needs to be an EE readable date (i.e. ISO Date string or milliseconds).
+#     agg_type : {'mean'}, optional
+#         Aggregation type (the default is 'mean').
+#         Currently only a 'mean' aggregation type is supported.
+#
+#     Returns
+#     -------
+#     ee.ImageCollection()
+#
+#     Notes
+#     -----
+#     This function should be used to mosaic Landsat images from same path
+#         but different rows.
+#     system:time_start of returned images will be 0 UTC (not the image time).
+#
+#     """
+#     # Build a collection of time "features" to join to
+#     # "Flatten" dates to 0 UTC time
+#     if start_date and end_date:
+#         date_list = ee.List.sequence(
+#             ee.Date(start_date).millis(), ee.Date(end_date).millis(),
+#             24 * 3600 * 1000)
+#     # elif start_date:
+#     #    end_date = ee.Date(ee.Image(image_coll.limit(
+#     #        1, 'system:time_start', False).first()).get('system:time_start')
+#     #    end_date = ee.Date(end_date.format('yyyy-MM-dd')).advance(1, 'day')
+#     #    # end_date = ee.Date.fromYMD(end_date.get('year'), end_date.get('month'),
+#     #    #                            end_date.get('day')).advance(1, 'day')
+#     #    date_list = ee.List.sequence(
+#     #        ee.Date(start_date).millis(), end_date.millis(), 24 * 3600 * 1000)
+#     # elif end_date:
+#     #    start_date = ee.Date(start_date.format('yyyy-MM-dd')).advance(1, 'day')
+#     #    # start_date = ee.Date.fromYMD(
+#     #    #     start_date.get('year'), start_date.get('month'),
+#     #    #     start_date.get('day')).advance(1, 'day')
+#     #    date_list = ee.List.sequence(
+#     #        start_date.millis(), ee.Date(end_date).millis(), 24 * 3600 * 1000)
+#     # else:
+#     #    start_date = ee.Date(start_date.format('yyyy-MM-dd')).advance(1, 'day')
+#     #    end_date = ee.Date(ee.Image(image_coll.limit(
+#     #        1, 'system:time_start', False).first()).get('system:time_start')
+#     #    end_date = ee.Date(end_date.format('yyyy-MM-dd')).advance(1, 'day')
+#     #    date_list = ee.List.sequence(
+#     #        ee.Date(start_date).millis(), ee.Date(end_date).millis(),
+#     #        24 * 3600 * 1000)
+#
+#     def set_date(time):
+#         return ee.Feature(None, {
+#             'system:index': ee.Date(time).format('yyyyMMdd'),
+#             'system:time_start': ee.Number(time).int64(),
+#             'date': ee.Date(time).format('yyyy-MM-dd')})
+#
+#     # Add a date property to the image collection
+#     def set_image_date(img):
+#         return ee.Image(img.set({
+#             'date': ee.Date(img.get('system:time_start')).format('yyyy-MM-dd')}))
+#
+#     join_coll = ee.FeatureCollection(
+#         ee.Join.saveAll('join').apply(
+#             ee.FeatureCollection(date_list.map(set_date)),
+#             ee.ImageCollection(image_coll.map(set_image_date)),
+#             ee.Filter.equals(leftField='date', rightField='date')))
+#
+#     def aggregate_func(ftr):
+#         # The composite image time will be 0 UTC (not Landsat time)
+#         agg_coll = ee.ImageCollection.fromImages(ftr.get('join'))
+#
+#         # if agg_type.lower() == 'mean':
+#         agg_img = agg_coll.mean()
+#         # elif agg_type.lower() == 'median':
+#         #     agg_img = agg_coll.median()
+#
+#         return agg_img.set({
+#             'system:index': ftr.get('system:index'),
+#             'system:time_start': ftr.get('system:time_start'),
+#             'date': ftr.get('date'),
+#         })
+#
+#     return ee.ImageCollection(join_coll.map(aggregate_func))
