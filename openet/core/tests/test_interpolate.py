@@ -5,7 +5,7 @@ import pprint
 import ee
 import pytest
 
-import openet.core.interp as interp
+import openet.core.interpolate as interp
 import openet.core.utils as utils
 
 logging.basicConfig(level=logging.DEBUG, format='%(message)s')
@@ -208,8 +208,10 @@ def test_daily_small_interp_days(interp_days, tgt_value, tgt_time, src_values,
         assert abs(output['tgt'] - tgt_value) <= tol
 
 
-# # CGM - These tests won't pass because the use_joins approach drops the
-# #   source image when there are no images to join with.
+"""
+These tests won't pass because the use_joins approach drops the source image 
+when there are no images to join with.
+"""
 # @pytest.mark.parametrize(
 #     "interp_days, tgt_value, tgt_time, src_values, src_times, expected",
 #     [
@@ -362,8 +364,8 @@ def test_aggregate_daily_properties():
         .filterDate('2017-06-30', '2017-08-02')\
         .filterBounds(ee.Geometry.Point(-121.9, 39))
     output = utils.getinfo(interp.aggregate_daily(source_coll).first())
-    assert set(output['properties'].keys()) == set([
-        'date', 'system:index', 'system:time_start'])
+    assert set(output['properties'].keys()) == {
+        'date', 'system:index', 'system:time_start'}
     assert output['properties']['date'] == '2017-06-30'
 
 
@@ -391,6 +393,62 @@ def test_aggregate_daily_date_filtering():
     assert max(output) < '2017-08-02'
 
 
+"""
+This test is commented out since the function is commented out interpolate.py
+"""
+# def test_from_scene_et_fraction_values():
+#     img = ee.Image('LANDSAT/LC08/C01/T1_TOA/LC08_044033_20170716') \
+#         .select(['B2']).double().multiply(0)
+#     mask = img.add(1).updateMask(1).uint8()
+#
+#     time1 = ee.Number(ee.Date.fromYMD(2017, 7, 8).millis())
+#     time2 = ee.Number(ee.Date.fromYMD(2017, 7, 16).millis())
+#     time3 = ee.Number(ee.Date.fromYMD(2017, 7, 24).millis())
+#
+#     # Mask and time bands currently get added on to the scene collection
+#     #   and images are unscaled just before interpolating
+#     scene_coll = ee.ImageCollection([
+#         ee.Image([img.add(0.4), img.add(0.5), img.add(time1), mask]) \
+#             .rename(['et_fraction', 'ndvi', 'time', 'mask']) \
+#             .set({'system:index': 'LE07_044033_20170708',
+#                   'system:time_start': time1}),
+#         ee.Image([img.add(0.4), img.add(0.5), img.add(time2), mask]) \
+#             .rename(['et_fraction', 'ndvi', 'time', 'mask']) \
+#             .set({'system:index': 'LC08_044033_20170716',
+#                   'system:time_start': time2}),
+#         ee.Image([img.add(0.4), img.add(0.5), img.add(time3), mask]) \
+#             .rename(['et_fraction', 'ndvi', 'time', 'mask']) \
+#             .set({'system:index': 'LE07_044033_20170724',
+#                   'system:time_start': time3}),
+#         ])
+#     # pprint.pprint(utils.getinfo(scene_coll))
+#
+#     etf_coll = interp.from_scene_et_fraction(
+#         scene_coll,
+#         start_date='2017-07-01', end_date='2017-07-31',
+#         variables=['et', 'et_reference', 'et_fraction', 'ndvi', 'count'],
+#         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+#                     'et_reference_band': 'etr'},
+#         t_interval='monthly', interp_method='linear', interp_days=32)
+#     # pprint.pprint(utils.getinfo(etf_coll))
+#
+#     TEST_POINT = (-121.5265, 38.7399)
+#     output = utils.point_coll_value(etf_coll, TEST_POINT, scale=10)
+#     # pprint.pprint(output)
+#
+#     tol = 0.000001
+#     assert abs(output['ndvi']['2017-07-01'] - 0.5) <= tol
+#     assert abs(output['et_fraction']['2017-07-01'] - 0.4) <= tol
+#     assert abs(output['et_reference']['2017-07-01'] - 303.62255859375) <= tol
+#     assert abs(output['et']['2017-07-01'] - (303.62255859375 * 0.4)) <= tol
+#     assert output['count']['2017-07-01'] == 3
+
+
+"""
+These tests were attempts at making "full" interpolation calls.
+They could be removed but are being left in case we want to explore this again 
+at some point in the future.
+"""
 # def test_daily_values_collection_a():
 #     """Test the daily interpolation using real images"""
 #     target_coll = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\
