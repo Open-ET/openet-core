@@ -25,7 +25,7 @@ Examples of the cloud masking functions are provided in the "examples" folder.
 Interpolation
 -------------
 
-The OpenET "interp" module provides functions for interpolating the image based ET estimates from the models (primarily from Landsat images) to a daily time step then aggregating to custom time periods (such as monthly or annual).
+The OpenET "interpolate" module provides functions for interpolating the image based ET estimates from the models (primarily from Landsat images) to a daily time step then aggregating to custom time periods (such as monthly or annual).
 
 Installation
 ============
@@ -51,7 +51,7 @@ Each OpenET model will be stored in subfolders of the "openet" folder (namespace
 .. code-block:: python
 
     import openet.core.common
-    import openet.core.interp
+    import openet.core.interpolate
     import openet.ssebop
 
 Development and Testing
