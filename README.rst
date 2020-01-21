@@ -59,9 +59,9 @@ Development and Testing
 
 Please see the `CONTRIBUTING.rst <CONTRIBUTING.rst>`__.
 
-.. |build| image:: https://travis-ci.org/Open-ET/openet-core-beta.svg?branch=master
+.. |build| image:: https://github.com/Open-ET/openet-core-beta/workflows/build/badge.svg
    :alt: Build status
-   :target: https://travis-ci.org/Open-ET/openet-core-beta
+   :target: https://github.com/Open-ET/openet-core-beta
 .. |version| image:: https://badge.fury.io/py/openet-core.svg
    :alt: Latest version on PyPI
    :target: https://badge.fury.io/py/openet-core
