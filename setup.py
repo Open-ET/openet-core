@@ -40,13 +40,14 @@ setup(
     author_email='charles.morton@dri.edu',
     url='https://github.com/Open-ET/openet-core-beta',
     download_url='https://github.com/Open-ET/openet-core-beta/archive/v{}.tar.gz'.format(version),
-    install_requires=['earthengine-api'],
+    install_requires=['earthengine-api', 'python-dateutil'],
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-cov'],
     packages=['openet.core'],
     keywords='OpenET Evapotranspiration Earth Engine',
     classifiers = [
         'License :: OSI Approved :: Apache Software License',
-        'Programming Language :: Python :: 3.6'],
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7'],
     zip_safe=False,
 )
