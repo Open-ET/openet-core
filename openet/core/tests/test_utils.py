@@ -1,6 +1,7 @@
 import datetime
 
 import ee
+import pytest
 
 import openet.core.utils as utils
 
@@ -64,3 +65,18 @@ def test_millis():
 def test_date_0utc(date='2015-07-13'):
     assert utils.getinfo(utils.date_0utc(
         ee.Date(date).advance(2, 'hour')).format('yyyy-MM-dd')) == date
+
+
+@pytest.mark.parametrize(
+    # Note: These are made up values
+    'input, expected',
+    [
+        [300, True],
+        ['300', True],
+        [300.25, True],
+        ['300.25', True],
+        ['a', False],
+    ]
+)
+def test_is_number(input, expected):
+    assert utils.is_number(input) == expected

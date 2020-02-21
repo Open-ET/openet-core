@@ -393,7 +393,8 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
         raise ValueError('unsupported interp_method: {}'.format(
             interp_method))
 
-    if type(interp_days) is str and utils.is_number(interp_days):
+    if ((type(interp_days) is str or type(interp_days) is float) and
+            utils.is_number(interp_days)):
         interp_days = int(interp_days)
     elif not type(interp_days) is int:
         raise TypeError('interp_days must be an integer')
@@ -567,7 +568,7 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
             if et_reference_factor:
                 # Factor needs to be applied to ET image since ETf was already
                 # multiplied by ETr in interpolate.daily() but factor is not
-                # applied till here.
+                # applied until here.
                 et_img = et_img.multiply(et_reference_factor)
                 et_reference_img = et_reference_img\
                     .multiply(et_reference_factor)
@@ -735,7 +736,8 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
         raise ValueError('unsupported interp_method: {}'.format(
             interp_method))
 
-    if type(interp_days) is str and utils.is_number(interp_days):
+    if ((type(interp_days) is str or type(interp_days) is float) and
+            utils.is_number(interp_days)):
         interp_days = int(interp_days)
     elif not type(interp_days) is int:
         raise TypeError('interp_days must be an integer')
@@ -842,6 +844,7 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
     def normalize_et(img):
         img_date = ee.Date(img.get('system:time_start')) \
             .update(hour=0, minute=0, second=0)
+        img_date = ee.Date(img_date.millis().divide(1000).floor().multiply(1000))
         target_img = ee.Image(daily_target_coll \
             .filterDate(img_date, img_date.advance(1, 'day')).first())
         if interp_args['interp_resample'].lower() in ['bilinear', 'bicubic']:

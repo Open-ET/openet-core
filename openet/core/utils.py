@@ -97,3 +97,11 @@ def date_0utc(date):
     # Extra operations are needed since update() does not set milliseconds to 0.
     # return ee.Date(date.update(hour=0, minute=0, second=0).millis()\
     #     .divide(1000).floor().multiply(1000))
+
+
+def is_number(x):
+    try:
+        float(x)
+        return True
+    except:
+        return False
