@@ -330,7 +330,7 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
     Parameters
     ----------
     scene_coll : ee.ImageCollection
-        Non-daily 'et' images that will be interpolated.
+        Non-daily 'et_fraction' images that will be interpolated.
     start_date : str
         ISO format start date.
     end_date : str
@@ -462,7 +462,7 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
     if type(et_reference_source) is str:
         # Assume a string source is an single image collection ID
         #   not an list of collection IDs or ee.ImageCollection
-        daily_et_reference_coll = ee.ImageCollection(et_reference_source) \
+        daily_et_ref_coll = ee.ImageCollection(et_reference_source) \
             .filterDate(start_date, end_date) \
             .select([et_reference_band], ['et_reference'])
     # elif isinstance(et_reference_source, computedobject.ComputedObject):
@@ -511,14 +511,14 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
 
     # Interpolate to a daily time step
     daily_coll = daily(
-        target_coll=daily_et_reference_coll,
+        target_coll=daily_et_ref_coll,
         source_coll=scene_coll.select(interp_vars),
         interp_method=interp_method, interp_days=interp_days,
         use_joins=use_joins,
         compute_product=False,
     )
 
-    # The interpolate.daily() function is currently returning the product of
+    # The interpolate.daily() function can/will return the product of
     # the source and target image named as "{source_band}_1".
     # The problem with this approach is that is will drop any other bands
     # that are being interpolated (such as the ndvi).
@@ -557,19 +557,22 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
         for each time interval by separate mappable functions
 
         """
-        # if 'et' in variables or 'et_fraction' in variables:
-        et_img = daily_coll.filterDate(agg_start_date, agg_end_date) \
-            .select(['et']).sum()
+        if 'et' in variables or 'et_fraction' in variables:
+            et_img = daily_coll.filterDate(agg_start_date, agg_end_date) \
+                .select(['et']).sum()
+
+            # Factor needs to be applied to ET image since ETf was already
+            # multiplied by ETr in interpolate.daily() but factor is not
+            # applied until here.
+            if et_reference_factor:
+                et_img = et_img.multiply(et_reference_factor)
 
         if 'et_reference' in variables or 'et_fraction' in variables:
+            # et_reference_img = daily_et_ref_coll \
             et_reference_img = daily_coll \
                 .filterDate(agg_start_date, agg_end_date) \
                 .select(['et_reference']).sum()
             if et_reference_factor:
-                # Factor needs to be applied to ET image since ETf was already
-                # multiplied by ETr in interpolate.daily() but factor is not
-                # applied until here.
-                et_img = et_img.multiply(et_reference_factor)
                 et_reference_img = et_reference_img\
                     .multiply(et_reference_factor)
             # DEADBEEF - This doesn't seem to be doing anything
