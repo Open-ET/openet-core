@@ -616,6 +616,30 @@ def test_from_scene_et_actual_monthly_et_reference_factor(tol=0.0001):
     assert output['count']['2017-07-01'] == 3
 
 
+def test_from_scene_et_actual_daily_et_fraction_max(tol=0.0001):
+    output_coll = interpolate.from_scene_et_actual(
+        scene_coll(['et', 'time', 'mask'], et=100),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et', 'et_reference', 'et_fraction'],
+        interp_args={'interp_method': 'linear', 'interp_days': 32,
+                     'interp_source': 'IDAHO_EPSCOR/GRIDMET',
+                     'interp_band': 'etr',
+                     'interp_resample': 'nearest',
+                     'et_fraction_min': 0.0,
+                     'et_fraction_max': 1.4,
+                     },
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_resample': 'nearest',
+                    'et_reference_factor': 1.0,
+                    },
+        t_interval='daily')
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
+    assert abs(output['et_fraction']['2017-07-10'] - 1.4) <= tol
+
+
 """
 These tests were attempts at making "full" interpolation calls.
 They could be removed but are being left in case we want to explore this again 

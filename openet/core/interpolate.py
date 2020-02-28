@@ -324,8 +324,9 @@ def aggregate_to_daily(image_coll, start_date=None, end_date=None,
 
 def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
                            interp_args, model_args, t_interval='custom',
-                           use_joins=False):
-    """Interpolate from a precomputed collection of Landast ET fraction scenes
+                           use_joins=False,
+                           ):
+    """Interpolate from a precomputed collection of Landsat ET fraction scenes
 
     Parameters
     ----------
@@ -489,6 +490,9 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
 
     # The time band is always needed for interpolation
     interp_vars.append('time')
+
+    # TODO: Look into implementing et_fraction clamping here
+    #   (similar to et_actual below)
 
     # Filter scene collection to the interpolation range
     # This probably isn't needed since scene_coll was built to this range
@@ -667,8 +671,9 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
 
 def from_scene_et_actual(scene_coll, start_date, end_date, variables,
                          interp_args, model_args, t_interval='custom',
-                         use_joins=False):
-    """Interpolate from a precomputed collection of Landast actual ET scenes
+                         use_joins=False,
+                         ):
+    """Interpolate from a precomputed collection of Landsat actual ET scenes
 
     Parameters
     ----------
@@ -691,6 +696,8 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
         interp_days : int, str, optional
             Number of extra days before the start date and after the end date
             to include in the interpolation calculation. The default is 32.
+        et_fraction_min : float
+        et_fraction_max : float
     model_args : dict
         Parameters from the MODEL section of the INI file.  The reference
         source and other parameters will need to be set here if computing
@@ -703,6 +710,9 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
         If True, use joins to link the target and source collections.
         If False, the source collection will be filtered for each target image.
         This parameter is passed through to interpolate.daily().
+    # TODO: Move these into interp_args (and/or model_args)
+    fraction_min : float, optional
+    fraction_max : float, optional
 
     Returns
     -------
@@ -850,12 +860,26 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
         img_date = ee.Date(img_date.millis().divide(1000).floor().multiply(1000))
         target_img = ee.Image(daily_target_coll \
             .filterDate(img_date, img_date.advance(1, 'day')).first())
-        if interp_args['interp_resample'].lower() in ['bilinear', 'bicubic']:
-            target_img = target_img.resample(interp_args['interp_resample'])
+
+        # CGM - This is causing weird artifacts in the output images
+        # if interp_args['interp_resample'].lower() in ['bilinear', 'bicubic']:
+        #     target_img = target_img.resample(interp_args['interp_resample'])
+
+        et_norm_img = img.select(['et']).divide(target_img).rename(['et_norm'])
+
+        # Clamp the normalized ET image (et_fraction)
+        if 'et_fraction_max' in interp_args.keys():
+            et_norm_img = et_norm_img.min(float(interp_args['et_fraction_max']))
+        if 'et_fraction_min' in interp_args.keys():
+            et_norm_img = et_norm_img.max(float(interp_args['et_fraction_min']))
+        # if ('et_fraction_min' in interp_args.keys() and
+        #     'et_fraction_max' in interp_args.keys()):
+        #     et_norm_img = et_norm_img.clamp(
+        #         float(interp_args['et_fraction_min']),
+        #         float(interp_args['et_fraction_max']))
+
         return img.addBands([
-            img.select(['et']).divide(target_img).rename(['et_norm']),
-            target_img.rename(['norm']),
-        ])
+            et_norm_img.double(), target_img.rename(['norm'])])
 
     # The time band is always needed for interpolation
     scene_coll = scene_coll \
@@ -878,8 +902,6 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
     #             .apply(primary=scene_coll, secondary=target_coll,
     #                    condition=prev_filter)
     #     )
-    #     pprint.pprint(scene_coll.getInfo())
-    #     input('ENTER')
 
     # Interpolate to a daily time step
     daily_coll = daily(
