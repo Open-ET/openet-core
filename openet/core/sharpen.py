@@ -1,10 +1,7 @@
 import ee
 
 
-# CGM - We need to decide if there should be separate sharpen tools for each
-#   Landsat, similar to the cloud masking functions.
-
-def thermal(image):
+def landsat_thermal(image):
     """Thermal sharpening algorithm
 
     Global-RF and local-SLR and a residual redistribution process
@@ -12,27 +9,38 @@ def thermal(image):
     Parameters
     ----------
     image : ee.Image
-        "Prepped" Landsat image with standardized bands names.
-        Must have a "SATELLITE" property set.  This property does not exist
-        in the TOA collections but it can be copied from "SPACECRAFT_ID".
+        "Prepped" Landsat image with standardized bands names
+            (i.e. blue, green, red, nir, swir1, swir2, tir).
+        Thermal band must be named 'tir' and be in units of Kelvin (unscaled).
+        Must have either a "SATELLITE" (SR) or "SPACECRAFT_ID" (TOA) property.
 
     Returns
     -------
-    ee.Image with the original 'tir' band replaced with a sharpened version.
+    ee.Image
+
+    References
+    ----------
+    https://www.mdpi.com/2072-4292/4/11/3287/htm
 
     """
     # Settings
     tir_res_dict = ee.Dictionary({
         'LANDSAT_5': 120, 'LANDSAT_7': 60, 'LANDSAT_8': 100})
-    # TODO: Test if a GEE if statement could be used to read from this or SPACECRAFT_ID
-    tir_res = tir_res_dict.get(image.get('SATELLITE'))
-    # high_res = 30
+
+    # CGM - Consider requiring the "SATELLITE" property to be set for all images
+    # Landsat SR images have the property SATELLITE but TOA have SPACECRAFT_ID
+    satellite_name = ee.String(ee.Algorithms.If(
+        image.propertyNames().contains('SATELLITE'),
+        image.get('SATELLITE'),
+        image.get('SPACECRAFT_ID')))
+    tir_res = ee.Number(tir_res_dict.get(satellite_name))
+    # tir_res = ee.Number(tir_res_dict.get(image.get('SATELLITE')))
 
     # Kernel radius for local linear regression,
-    # lower values for more heterogenous areas
+    # lower values for more heterogeneous areas
     kernel_size = 20
 
-    # Threshold to select homogenous pixels
+    # Threshold to select homogeneous pixels
     cv_threshold = 0.15
 
     # Predictor bands
@@ -40,7 +48,10 @@ def thermal(image):
 
     bound = image.geometry()
     crs = image.projection().crs()
-    transform = getAffineTransform(image)
+    transform = get_affine_transform(image)
+
+    # Create a new transform for the tir resolution
+    tir_transform = transform.set(0, tir_res).set(4, tir_res.multiply(-1))
 
     # Aggregate the TIR band (result of the cubic convolution interpolation)
     # convert to brightness temperature or radiance
@@ -72,6 +83,7 @@ def thermal(image):
         .clip(bound)
 
     # Fit moving-window linear regressions at coarse resolution
+    # CGM - Note default units of Kernal are "pixels"
     # Y: tir (power 4)
     # X: SR Bands
     kernel = ee.Kernel.square(kernel_size)
@@ -82,7 +94,7 @@ def thermal(image):
     band_names = bands.copy()
     band_names.extend(['bias'])
 
-    # use crsTransform instead of scale to avoid misalignment
+    # Use crsTransform instead of scale to avoid misalignment
     coefficients = local_fit.select('coefficients').arrayProject([0]) \
         .arrayFlatten([band_names]) \
         .reproject(crs, transform)
@@ -148,8 +160,7 @@ def thermal(image):
     #     .multiply(10).int16()
     #     .clip(bound)
 
-    # Add sharpened band to input image
-    out = image.select(bands).addBands(tir_sp_final.rename(['tir']))
+    out = tir_sp_final.rename(['tir'])
 
     # # TODO: Only return extra bands if a "debug" or "diagnostic" flag is set
     # out = out.addBands(image.select('tir').divide(10).rename(['tir_original'])) \
@@ -160,16 +171,18 @@ def thermal(image):
     #     .addBands(global_agg.rename(['tir_global_agg'])) \
     #     .addBands(weight_local.rename(['local_weights'])) \
     #     .addBands(rmse.rename(['slr_rmse']))
-    #
-    # out = out.clip(bound).multiply(10).int16()
-    # out = out.copyProperties(image) \
-    #     .set('system:time_start', image.get('system:time_start'))
 
-    return out
+    # CGM - Test if the clip is needed
+    # out = out.clip(bound)
+
+    out = out.copyProperties(image) \
+        .set('system:time_start', image.get('system:time_start'))
+
+    return ee.Image(out)
 
 
 # TODO: move to utils.py
-def getAffineTransform(image):
+def get_affine_transform(image):
     """"""
     projection = image.projection()
     json = ee.Dictionary(ee.Algorithms.Describe(projection))
