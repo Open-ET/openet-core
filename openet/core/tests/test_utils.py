@@ -6,8 +6,8 @@ import pytest
 import openet.core.utils as utils
 
 
-def test_getinfo():
-    assert utils.getinfo(ee.Number(1)) == 1
+def test_get_info():
+    assert utils.get_info(ee.Number(1)) == 1
 
 
 def test_constant_image_value(tol=0.000001):
@@ -63,7 +63,7 @@ def test_millis():
 
 
 def test_date_0utc(date='2015-07-13'):
-    assert utils.getinfo(utils.date_0utc(
+    assert utils.get_info(utils.date_0utc(
         ee.Date(date).advance(2, 'hour')).format('yyyy-MM-dd')) == date
 
 

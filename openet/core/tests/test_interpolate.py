@@ -425,7 +425,7 @@ def test_aggregate_to_daily_properties():
     source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
         .filterDate('2017-06-30', '2017-08-02')\
         .filterBounds(ee.Geometry.Point(-121.9, 39))
-    output = utils.getinfo(interpolate.aggregate_to_daily(source_coll).first())
+    output = utils.get_info(interpolate.aggregate_to_daily(source_coll).first())
     assert set(output['properties'].keys()) == {
         'date', 'system:index', 'system:time_start'}
     assert output['properties']['date'] == '2017-06-30'
@@ -439,18 +439,18 @@ def test_aggregate_to_daily_date_filtering():
         .select(['B1'])
 
     # First test if both start and end date are set
-    output = utils.getinfo(interpolate.aggregate_to_daily(
+    output = utils.get_info(interpolate.aggregate_to_daily(
         source_coll, '2017-06-30', '2017-08-02').aggregate_array('date'))
     assert min(output) == '2017-06-30'
     assert max(output) < '2017-08-02'
 
     # Then test if only start_date is set
-    output = utils.getinfo(interpolate.aggregate_to_daily(
+    output = utils.get_info(interpolate.aggregate_to_daily(
         source_coll, start_date='2017-06-30').aggregate_array('date'))
     assert min(output) == '2017-06-30'
 
     # Then test if only end_date is set
-    output = utils.getinfo(interpolate.aggregate_to_daily(
+    output = utils.get_info(interpolate.aggregate_to_daily(
         source_coll, end_date='2017-08-02').aggregate_array('date'))
     assert max(output) < '2017-08-02'
 
