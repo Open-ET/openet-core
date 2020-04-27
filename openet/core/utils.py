@@ -71,7 +71,7 @@ def date_0utc(date):
     #     .divide(1000).floor().multiply(1000))
 
 
-def date_range(start_dt, end_dt, days=1, skip_leap_days=True):
+def date_range(start_dt, end_dt, days=1, skip_leap_days=False):
     """Generate dates within a range (inclusive)
 
     Parameters
@@ -83,7 +83,7 @@ def date_range(start_dt, end_dt, days=1, skip_leap_days=True):
     days : int, optional
         Step size (the default is 1).
     skip_leap_days : bool, optional
-        If True, skip leap days while incrementing (the default is True).
+        If True, skip leap days while incrementing (the default is False).
 
     Yields
     ------
