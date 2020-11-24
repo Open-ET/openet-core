@@ -83,6 +83,11 @@ def test_date_range_skip_leap_days(start_dt, end_dt, skip_leap_days, expected):
 #     assert False
 
 
+def test_get_ee_assets_exception():
+    with pytest.raises(Exception):
+        assert utils.get_ee_assets('deadbeef', retries=1)
+
+
 # def test_get_ee_tasks():
 #     assert False
 
