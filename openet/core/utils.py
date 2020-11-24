@@ -49,7 +49,7 @@ def arg_valid_file(file_path):
         return os.path.abspath(os.path.realpath(file_path))
         # return file_path
     else:
-        raise argparse.ArgumentTypeError('{} does not exist'.format(file_path))
+        raise argparse.ArgumentTypeError(f'{file_path} does not exist')
 
 
 def date_0utc(date):
@@ -121,7 +121,7 @@ def delay_task(delay_time=0, max_ready=-1):
     if delay_time < 0:
         delay_time = abs(delay_time)
 
-    logging.debug('  Pausing {} seconds'.format(delay_time))
+    logging.debug(f'  Pausing {delay_time} seconds')
 
     if max_ready <= 0:
         time.sleep(delay_time)
@@ -171,17 +171,17 @@ def get_ee_assets(asset_id):
         # asset_list = ee.data.listImages(asset_id)
         # logging.debug(asset_list)
     except Exception as e:
-        logging.error('\n  Unknown error, returning False')
         logging.error(e)
-        sys.exit()
+        raise Exception('\nUnable to retrieve asset list, exiting')
     # except ValueError as e:
     #     logging.info('  Collection doesn\'t exist')
     #     logging.debug('  {}'.format(str(e)))
     #     asset_list = []
+
     return asset_list
 
 
-def get_ee_tasks(states=['RUNNING', 'READY'], verbose=True):
+def get_ee_tasks(states=['RUNNING', 'READY'], verbose=False):
     """Return current active tasks
 
     Parameters
@@ -189,24 +189,26 @@ def get_ee_tasks(states=['RUNNING', 'READY'], verbose=True):
     states : list, optional
         List of task states to check (the default is ['RUNNING', 'READY']).
     verbose : boolean, optional
-        If True, print list of all active tasks (the default is True).
+        If True, print list of all active tasks (the default is False).
 
     Returns
     -------
     dict : task descriptions (key) and full task info dictionary (value)
 
     """
-    logging.debug('\nActive Tasks')
-    for i in range(1, 10):
+    logging.debug('\nRequesting Task List')
+    task_list = None
+    for i in range(1, 6):
         try:
             task_list = ee.data.getTaskList()
             # task_list = ee.data.listOperations()
             break
         except Exception as e:
-            logging.warning('  Exception retrieving task list, retrying')
-            logging.debug('    {}'.format(e))
+            logging.warning('Unable to retrieve the task list, retrying')
+            logging.warning('  {}'.format(e))
             time.sleep(i ** 2)
-            # return {}
+    if task_list is None:
+        raise Exception('\nUnable to retrieve task list, exiting')
 
     task_list = sorted(
         [task for task in task_list if task['state'] in states],
@@ -214,32 +216,9 @@ def get_ee_tasks(states=['RUNNING', 'READY'], verbose=True):
     # task_list = sorted([
     #     [t['state'], t['description'], t['id']] for t in task_list
     #     if t['state'] in states])
-    if verbose:
-        if task_list:
-            logging.debug('  {:8s} {}'.format('STATE', 'DESCRIPTION'))
-            logging.debug('  {:8s} {}'.format('=====', '==========='))
-        else:
-            logging.debug('  None')
 
-    tasks = {}
-    for task in task_list:
-        tasks[task['description']] = task
-        # tasks[task['description']] = task['id']
-        if verbose:
-            if task['state'] == 'RUNNING':
-                start_dt = datetime.datetime.utcfromtimestamp(
-                    task['start_timestamp_ms'] / 1000)
-                update_dt = datetime.datetime.utcfromtimestamp(
-                    task['update_timestamp_ms'] / 1000)
-                logging.debug('  {:8s} {}  {:0.2f}  {}'.format(
-                    task['state'], task['description'],
-                    (update_dt - start_dt).total_seconds() / 3600,
-                    task['id']))
-            else:
-                logging.debug('  {:8s} {}'.format(
-                    task['state'], task['description']))
-
-    return tasks
+    # Convert the task list to a dictionary with the task name as the key
+    return {task['description']: task for task in task_list}
 
 
 def get_info(ee_obj, max_retries=4):
@@ -295,7 +274,7 @@ def get_info(ee_obj, max_retries=4):
 #     return output
 
 
-def ee_task_start(task, n=10):
+def ee_task_start(task, n=6):
     """Make an exponential backoff Earth Engine request"""
     output = None
     for i in range(1, n):
