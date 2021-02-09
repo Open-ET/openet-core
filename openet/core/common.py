@@ -36,7 +36,7 @@ def landsat_c1_toa_cloud_mask(input_img, snow_flag=False, cirrus_flag=False,
     Notes
     -----
     Output image is structured to be applied directly with updateMask()
-        i.e. 0 is cloud, 1 is cloud free
+        i.e. 0 is cloud/masked, 1 is clear/unmasked
 
     Assuming Cloud must be set to check Cloud Confidence
 
@@ -62,7 +62,7 @@ def landsat_c1_toa_cloud_mask(input_img, snow_flag=False, cirrus_flag=False,
 
     References
     ----------
-    https://landsat.usgs.gov/collectionqualityband
+
 
     """
     qa_img = input_img.select(['BQA'])
@@ -100,7 +100,7 @@ def landsat_c1_sr_cloud_mask(input_img, cloud_confidence=3, snow_flag=False):
     Notes
     -----
     Output image is structured to be applied directly with updateMask()
-        i.e. 0 is cloud, 1 is cloud free
+        i.e. 0 is cloud/masked, 1 is clear/unmasked
 
     Assuming Cloud must be set to check Cloud Confidence
 
@@ -121,7 +121,7 @@ def landsat_c1_sr_cloud_mask(input_img, cloud_confidence=3, snow_flag=False):
 
     References
     ----------
-    https://landsat.usgs.gov/landsat-surface-reflectance-quality-assessment
+
 
     """
     qa_img = input_img.select(['pixel_qa'])
@@ -130,6 +130,86 @@ def landsat_c1_sr_cloud_mask(input_img, cloud_confidence=3, snow_flag=False):
         .Or(qa_img.rightShift(3).bitwiseAnd(1).neq(0))
     if snow_flag:
         cloud_mask = cloud_mask.Or(qa_img.rightShift(4).bitwiseAnd(1).neq(0))
+
+    # Set cloudy pixels to 0 and clear to 1
+    return cloud_mask.Not()
+
+
+def landsat_c2_sr_cloud_mask(input_img, snow_flag=False, cirrus_flag=False):
+    """Extract cloud mask from the Landsat Collection 2 SR QA_PIXEL band
+
+    Parameters
+    ----------
+    img : ee.Image
+        Image from a Landsat Collection 2 SR image collection with a QA_PIXEL
+        band (e.g. LANDSAT/LC08/C02/T1_C2).
+    snow_flag : bool
+        If true, mask snow pixels (the default is False).
+    cirrus_flag : bool
+        If true, mask cirrus pixels (the default is False).
+        Note, cirrus bits are only set for Landsat 8 (OLI) images.
+
+    Returns
+    -------
+    ee.Image
+
+    Notes
+    -----
+    Output image is structured to be applied directly with updateMask()
+        i.e. 0 is cloud/masked, 1 is clear/unmasked
+
+    Assuming Cloud must be set to check Cloud Confidence
+
+    Bits
+        0: Fill
+            0 for image data
+            1 for fill data
+        1: Dilated Cloud
+            0 for cloud is not dilated or no cloud
+            1 for cloud dilation
+        2: Cirrus
+            0 for no confidence level set or low confidence
+            1 for high confidence cirrus
+        3: Cloud
+            0 for cloud confidence is not high
+            1 for high confidence cloud
+        4: Cloud Shadow
+            0 for Cloud Shadow Confidence is not high
+            1 for high confidence cloud shadow
+        5: Snow
+            0 for Snow/Ice Confidence is not high
+            1 for high confidence snow cover
+        6: Clear
+            0 if Cloud or Dilated Cloud bits are set
+            1 if Cloud and Dilated Cloud bits are not set
+        7: Water
+            0 for land or cloud
+            1 for water
+        8-9: Cloud Confidence
+        10-11: Cloud Shadow Confidence
+        12-13: Snow/Ice Confidence
+        14-15: Cirrus Confidence
+
+    Confidence values
+        00: "No confidence level set"
+        01: "Low confidence"
+        10: "Medium confidence" (for Cloud Confidence only, otherwise "Reserved")
+        11: "High confidence"
+
+    References
+    ----------
+    https://prd-wret.s3.us-west-2.amazonaws.com/assets/palladium/production/atoms/files/LSDS-1328_Landsat8-9-OLI-TIRS-C2-L2-DFCB-v6.pdf
+
+    """
+    qa_img = input_img.select(['QA_PIXEL'])
+    cloud_mask = qa_img.rightShift(3).bitwiseAnd(1).neq(0)\
+            .Or(qa_img.rightShift(4).bitwiseAnd(1).neq(0))
+    #     .And(qa_img.rightShift(6).bitwiseAnd(3).gte(cloud_confidence))\
+    #     .Or(qa_img.rightShift(3).bitwiseAnd(1).neq(0))
+    if snow_flag:
+        cloud_mask = cloud_mask.Or(qa_img.rightShift(5).bitwiseAnd(1).neq(0))
+    if cirrus_flag:
+        cloud_mask = cloud_mask.Or(qa_img.rightShift(2).bitwiseAnd(1).neq(0))
 
     # Set cloudy pixels to 0 and clear to 1
     return cloud_mask.Not()

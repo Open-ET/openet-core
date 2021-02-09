@@ -118,6 +118,77 @@ def test_landsat_c1_sr_cloud_mask_snow(img_value, snow, expected):
 @pytest.mark.parametrize(
     "img_value, expected",
     [
+
+        ['0000000000000000', 1],  # Designated Fill
+        ['0000000000000001', 1],
+        ['0000000000000010', 1],  # Dilated Cloud
+        ['0000000000000100', 1],  # Cirrus
+        ['0000000000001000', 0],  # Cloud
+        ['0000000000010000', 0],  # Cloud Shadow
+        ['0000000000100000', 1],  # Snow
+        ['0000000001000000', 1],  # Clear
+        ['0000000010000000', 1],  # Water
+        # Not using the confidence bands to set cloud masking yet
+        # ['0000000100000000', 0],  # Cloud Confidence
+        # ['0000001000000000', 0],
+        # ['0000001100000000', 0],
+        # ['0000010000000000', 0],  # Cloud Shadow Confidence
+        # ['0000100000000000', 0],
+        # ['0000110000000000', 0],
+        # ['0001000000000000', 0],  # Snow/Ice Confidence
+        # ['0010000000000000', 0],
+        # ['0011000000000000', 0],
+        # ['0100000000000000', 0],  # Cirrus Confidence
+        # ['1000000000000000', 0],
+        # ['1100000000000000', 0],
+
+
+    ]
+)
+def test_landsat_c2_sr_cloud_mask(img_value, expected):
+    input_img = ee.Image.constant(int(img_value, 2)).rename(['QA_PIXEL'])
+    output_img = common.landsat_c2_sr_cloud_mask(input_img)
+    assert utils.constant_image_value(output_img)['QA_PIXEL'] == expected
+
+
+@pytest.mark.parametrize(
+    "img_value, snow, expected",
+    [
+        ['0000000000100000', None, 1],
+        ['0000000000100000', False, 1],
+        ['0000000000100000', True, 0],
+    ]
+)
+def test_landsat_c1_sr_cloud_mask_snow(img_value, snow, expected):
+    input_img = ee.Image.constant(int(img_value, 2)).rename(['QA_PIXEL'])
+    input_args = {'input_img': input_img}
+    if snow is not None:
+        input_args['snow_flag'] = snow
+    output_img = common.landsat_c2_sr_cloud_mask(**input_args)
+    assert utils.constant_image_value(output_img)['QA_PIXEL'] == expected
+
+
+@pytest.mark.parametrize(
+    "img_value, cirrus, expected",
+    [
+        ['0000000000000100', None, 1],
+        ['0000000000000100', False, 1],
+        ['0000000000000100', True, 0],
+    ]
+)
+def test_landsat_c1_sr_cloud_mask_cirrus(img_value, cirrus, expected):
+    input_img = ee.Image.constant(int(img_value, 2)).rename(['QA_PIXEL'])
+    input_args = {'input_img': input_img}
+    if cirrus is not None:
+        input_args['cirrus_flag'] = cirrus
+    output_img = common.landsat_c2_sr_cloud_mask(**input_args)
+    assert utils.constant_image_value(output_img)['QA_PIXEL'] == expected
+
+
+
+@pytest.mark.parametrize(
+    "img_value, expected",
+    [
         ['0000000000000000', 1],
         ['0000010000000000', 0],
         ['0000100000000000', 0],
