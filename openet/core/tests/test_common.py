@@ -173,7 +173,7 @@ def test_landsat_c2_sr_cloud_mask(img_value, expected):
         ['0000000000100000', 'snow_flag', True, 0],
     ]
 )
-def test_landsat_c1_sr_cloud_mask_flags(img_value, arg_name, flag_value, expected):
+def test_landsat_c2_sr_cloud_mask_flags(img_value, arg_name, flag_value, expected):
     input_img = ee.Image.constant(int(img_value, 2)).rename(['QA_PIXEL'])
     input_args = {'input_img': input_img}
     if flag_value is not None:
