@@ -135,19 +135,25 @@ def landsat_c1_sr_cloud_mask(input_img, cloud_confidence=3, snow_flag=False):
     return cloud_mask.Not()
 
 
-def landsat_c2_sr_cloud_mask(input_img, snow_flag=False, cirrus_flag=False):
+def landsat_c2_sr_cloud_mask(input_img, cirrus_flag=False, dilate_flag=False,
+                             shadow_flag=True, snow_flag=False,
+                             ):
     """Extract cloud mask from the Landsat Collection 2 SR QA_PIXEL band
 
     Parameters
     ----------
     img : ee.Image
         Image from a Landsat Collection 2 SR image collection with a QA_PIXEL
-        band (e.g. LANDSAT/LC08/C02/T1_C2).
-    snow_flag : bool
-        If true, mask snow pixels (the default is False).
+        band (e.g. LANDSAT/LC08/C02/T1_L2).
     cirrus_flag : bool
         If true, mask cirrus pixels (the default is False).
         Note, cirrus bits are only set for Landsat 8 (OLI) images.
+    dilate_flag : bool
+        If true, mask dilated cloud pixels (the default is False).
+    shadow_flag : bool
+        If true, mask shadow pixels (the default is True).
+    snow_flag : bool
+        If true, mask snow pixels (the default is False).
 
     Returns
     -------
@@ -202,16 +208,18 @@ def landsat_c2_sr_cloud_mask(input_img, snow_flag=False, cirrus_flag=False):
 
     """
     qa_img = input_img.select(['QA_PIXEL'])
-    cloud_mask = qa_img.rightShift(3).bitwiseAnd(1).neq(0)\
-            .Or(qa_img.rightShift(4).bitwiseAnd(1).neq(0))
-    #     .And(qa_img.rightShift(6).bitwiseAnd(3).gte(cloud_confidence))\
-    #     .Or(qa_img.rightShift(3).bitwiseAnd(1).neq(0))
-    if snow_flag:
-        cloud_mask = cloud_mask.Or(qa_img.rightShift(5).bitwiseAnd(1).neq(0))
+    cloud_mask = qa_img.rightShift(3).bitwiseAnd(1).neq(0)
+    #     .And(qa_img.rightShift(6).bitwiseAnd(3).gte(cloud_confidence))
     if cirrus_flag:
         cloud_mask = cloud_mask.Or(qa_img.rightShift(2).bitwiseAnd(1).neq(0))
+    if dilate_flag:
+        cloud_mask = cloud_mask.Or(qa_img.rightShift(1).bitwiseAnd(1).neq(0))
+    if shadow_flag:
+        cloud_mask = cloud_mask.Or(qa_img.rightShift(4).bitwiseAnd(1).neq(0))
+    if snow_flag:
+        cloud_mask = cloud_mask.Or(qa_img.rightShift(5).bitwiseAnd(1).neq(0))
 
-    # Set cloudy pixels to 0 and clear to 1
+    # Flip to set cloudy pixels to 0 and clear to 1
     return cloud_mask.Not()
 
 
