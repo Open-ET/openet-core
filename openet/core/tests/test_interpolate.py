@@ -603,7 +603,7 @@ def test_from_scene_et_actual_daily_values(tol=0.0001):
     assert abs(output['et_reference']['2017-07-10'] - 10.5) <= tol
     assert abs(output['et']['2017-07-10'] - 4.71917200088501) <= tol
     assert abs(output['et']['2017-07-01'] - 3.6936933994293213) <= tol
-    assert abs(output['et']['2017-07-31'] - 5) <= tol
+    assert abs(output['et']['2017-07-31'] - 4.951923370361328) <= tol
     assert '2017-08-01' not in output['et'].keys()
     # assert output['count']['2017-07-01'] == 3
 
