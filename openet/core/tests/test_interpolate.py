@@ -48,7 +48,8 @@ def src_images(src_values, src_times):
     return src_images
 
 
-def scene_coll(variables, et_fraction=0.4, et=5, ndvi=0.6):
+def scene_coll(variables, et_fraction=[0.4, 0.4, 0.4], et=[5, 5, 5],
+               ndvi=[0.6, 0.6, 0.6]):
     """Return a generic scene collection to test scene interpolation functions
 
     Parameters
@@ -68,22 +69,30 @@ def scene_coll(variables, et_fraction=0.4, et=5, ndvi=0.6):
         .select(['B2']).double().multiply(0)
     mask = img.add(1).updateMask(1).uint8()
 
-    time1 = ee.Number(ee.Date.fromYMD(2017, 7, 8).millis())
-    time2 = ee.Number(ee.Date.fromYMD(2017, 7, 16).millis())
-    time3 = ee.Number(ee.Date.fromYMD(2017, 7, 24).millis())
+    # The time band needs to be the 0 UTC time (date)
+    date1 = ee.Number(ee.Date.fromYMD(2017, 7, 8).millis())
+    date2 = ee.Number(ee.Date.fromYMD(2017, 7, 16).millis())
+    date3 = ee.Number(ee.Date.fromYMD(2017, 7, 24).millis())
+    time1 = ee.Number(ee.Date.fromYMD(2017, 7, 8).advance(18, 'hours').millis())
+    time2 = ee.Number(ee.Date.fromYMD(2017, 7, 16).advance(18, 'hours').millis())
+    time3 = ee.Number(ee.Date.fromYMD(2017, 7, 24).advance(18, 'hours').millis())
 
     # Mask and time bands currently get added on to the scene collection
     #   and images are unscaled just before interpolating in the export tool
-    scene_img = ee.Image([img.add(et_fraction), img.add(et), img.add(ndvi), mask])\
-        .rename(['et_fraction', 'et', 'ndvi', 'mask'])
     scene_coll = ee.ImageCollection([
-        scene_img.addBands([img.add(time1).rename('time')]) \
+        ee.Image([img.add(et_fraction[0]), img.add(et[0]), img.add(ndvi[0]),
+                  img.add(date1), mask])\
+            .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
             .set({'system:index': 'LE07_044033_20170708',
                   'system:time_start': time1}),
-        scene_img.addBands([img.add(time2).rename('time')]) \
+        ee.Image([img.add(et_fraction[1]), img.add(et[1]), img.add(ndvi[1]),
+                  img.add(date2), mask])\
+            .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
             .set({'system:index': 'LC08_044033_20170716',
                   'system:time_start': time2}),
-        scene_img.addBands([img.add(time3).rename('time')]) \
+        ee.Image([img.add(et_fraction[2]), img.add(et[2]), img.add(ndvi[2]),
+                  img.add(date3), mask])\
+            .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
             .set({'system:index': 'LE07_044033_20170724',
                   'system:time_start': time3}),
     ])
@@ -457,7 +466,7 @@ def test_aggregate_to_daily_date_filtering():
 
 def test_from_scene_et_fraction_daily_values(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
-        scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
+        scene_coll(['et_fraction', 'ndvi', 'time', 'mask'], ndvi=[0.2, 0.4, 0.6]),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi'],
         interp_args={'interp_method': 'linear', 'interp_days': 32},
@@ -469,7 +478,13 @@ def test_from_scene_et_fraction_daily_values(tol=0.0001):
 
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
-    assert abs(output['ndvi']['2017-07-10'] - 0.6) <= tol
+    assert abs(output['ndvi']['2017-07-01'] - 0.2) <= tol
+    assert abs(output['ndvi']['2017-07-08'] - 0.2) <= tol
+    assert abs(output['ndvi']['2017-07-12'] - 0.3) <= tol
+    assert abs(output['ndvi']['2017-07-16'] - 0.4) <= tol
+    assert abs(output['ndvi']['2017-07-24'] - 0.6) <= tol
+    assert abs(output['ndvi']['2017-07-31'] - 0.6) <= tol
+    # assert abs(output['ndvi']['2017-07-10'] - 0.6) <= tol
     assert abs(output['et_fraction']['2017-07-10'] - 0.4) <= tol
     assert abs(output['et_reference']['2017-07-10'] - 10.5) <= tol
     assert abs(output['et']['2017-07-10'] - (10.5 * 0.4)) <= tol
