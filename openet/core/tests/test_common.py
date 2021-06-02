@@ -99,18 +99,23 @@ def test_landsat_c1_sr_cloud_mask(img_value, expected):
 
 
 @pytest.mark.parametrize(
-    "img_value, snow, expected",
+    "img_value, arg_name, flag_value, expected",
     [
-        ['0000000000010000', None, 1],
-        ['0000000000010000', False, 1],
-        ['0000000000010000', True, 0],
+        # Shadows
+        ['0000000000001000', 'shadow_flag', None, 0],
+        ['0000000000001000', 'shadow_flag', False, 1],
+        ['0000000000001000', 'shadow_flag', True, 0],
+        # Snow
+        ['0000000000010000', 'snow_flag', None, 1],
+        ['0000000000010000', 'snow_flag', False, 1],
+        ['0000000000010000', 'snow_flag', True, 0],
     ]
 )
-def test_landsat_c1_sr_cloud_mask_snow(img_value, snow, expected):
+def test_landsat_c2_sr_cloud_mask_flags(img_value, arg_name, flag_value, expected):
     input_img = ee.Image.constant(int(img_value, 2)).rename(['pixel_qa'])
     input_args = {'input_img': input_img}
-    if snow is not None:
-        input_args['snow_flag'] = snow
+    if flag_value is not None:
+        input_args[arg_name] = flag_value
     output_img = common.landsat_c1_sr_cloud_mask(**input_args)
     assert utils.constant_image_value(output_img)['pixel_qa'] == expected
 
