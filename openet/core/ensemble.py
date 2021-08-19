@@ -4,12 +4,12 @@ from . import utils
 # import openet.core.utils as utils
 
 
-def median_absolute_deviation(images, made_scale=2):
+def mad(ensemble_img, made_scale=2):
     """Median absolute deviation
 
     Parameters
     ----------
-    images : list
+    ensemble_img : ee.Image
     made_scale : float, optional
 
     Returns
@@ -18,11 +18,11 @@ def median_absolute_deviation(images, made_scale=2):
 
     """
     # TODO: Add checks on model count and minimum model count
-    model_count = len(images)
-    # model_count = 6
+    # TODO: Compute model_count dynamically
+    model_count = 6
+    # model_count = image.bandNames().size()
     min_model_count = 4
 
-    ensemble_img = ee.Image(images)
     ens_median = ensemble_img.reduce(ee.Reducer.median()).rename(["median"])
     MADe = ensemble_img.subtract(ens_median).abs()\
         .reduce(ee.Reducer.median()).multiply(1.4826)
@@ -32,16 +32,20 @@ def median_absolute_deviation(images, made_scale=2):
     lower = ens_median.subtract(MADe.multiply(made_scale)).rename(["lower"])
 
     # Count of ensemble values after applying MAD filtering
-    count_img = ensemble_img.gte(lower).And(ensemble_img.lte(upper))\
-        .reduce(ee.Reducer.sum()).clamp(min_model_count, model_count).rename(["count"])
+    # Note, this is not the final count of models used in the ensemble
+    mad_count = ensemble_img.gte(lower).And(ensemble_img.lte(upper))\
+        .reduce(ee.Reducer.sum())\
+        .clamp(min_model_count, model_count)\
+        .rename(["count"])
 
     ens_array = ensemble_img.unmask(-9999).toArray()
     diff_array = ens_array.subtract(ens_median)
     ens_sort = ens_array.arraySort(diff_array.abs())
 
     array_null = ee.Image.constant([-9999] * model_count).toArray()
-    sort_img = ens_sort.arraySlice(0, 0, count_img).arrayCat(array_null, 0)\
-        .arraySlice(0, 0, 6).arrayFlatten([[f'B{b+1}' for b in range(model_count)]])
+    sort_img = ens_sort.arraySlice(0, 0, mad_count)\
+        .arrayCat(array_null, 0).arraySlice(0, 0, model_count)\
+        .arrayFlatten([[f'B{b+1}' for b in range(model_count)]])
 
     model_drop_mean = sort_img.mask(sort_img.neq(-9999))\
         .reduce(ee.Reducer.mean()).rename(["ensemble"])

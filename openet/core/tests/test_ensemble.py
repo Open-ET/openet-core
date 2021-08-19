@@ -76,6 +76,7 @@ import openet.core.utils as utils
     ]
 )
 def test_mad(model_values, made_scale, expected, tol=0.001):
+    print(model_values)
     # TODO: Check if using constant images is faster and works
     images = []
     mask_img = ee.Image('IDAHO_EPSCOR/GRIDMET/20200101')\
@@ -86,10 +87,18 @@ def test_mad(model_values, made_scale, expected, tol=0.001):
         else:
             images.append(mask_img.add(value).rename([f'B{i+1}']))
 
-    output_img = ensemble.median_absolute_deviation(
-        images=images, made_scale=made_scale)
+    output_img = ensemble.mad(ensemble_img=ee.Image(images),
+                              made_scale=made_scale)
     output = utils.point_image_value(output_img, [-120, 39])['ensemble']
     assert abs(output - expected) <= tol
+
+
+# TODO: Write a test to check that the output band is called ensemble
+# def test_mad_bandname():
+#     assert False
+
+
+# TODO: Write a test to check if the MADe_scale factor works
 
 
 # @pytest.mark.parametrize(
@@ -112,6 +121,6 @@ def test_mad(model_values, made_scale, expected, tol=0.001):
 #             images.append(ee.Image.constant(value))
 #
 #     output_img = ensemble.mean(
-#         images=images, crop_mask=ee.Image.constant(crop_mask))
+#         ensemble_img=images, crop_mask=ee.Image.constant(crop_mask))
 #     output = utils.constant_image_value(output_img)['ensemble']
 #     assert abs(output - expected) <= tol
