@@ -19,6 +19,7 @@ def mad(ensemble_img, made_scale=2):
     """
     # TODO: Add checks on model count and minimum model count
     # TODO: Compute model_count dynamically
+    #   Change all the range() calls to server side calls
     model_count = 6
     # model_count = image.bandNames().size()
     min_model_count = 4
@@ -40,15 +41,41 @@ def mad(ensemble_img, made_scale=2):
 
     ens_array = ensemble_img.unmask(-9999).toArray()
     diff_array = ens_array.subtract(ens_median)
-    ens_sort = ens_array.arraySort(diff_array.abs())
 
-    array_null = ee.Image.constant([-9999] * model_count).toArray()
-    sort_img = ens_sort.arraySlice(0, 0, mad_count)\
-        .arrayCat(array_null, 0).arraySlice(0, 0, model_count)\
+    mad_img = ens_array.arraySort(diff_array.abs())\
+        .arraySlice(0, 0, mad_count)\
+        .arrayCat(ee.Image.constant([-9999] * model_count).toArray(), 0)\
+        .arraySlice(0, 0, model_count)\
         .arrayFlatten([[f'B{b+1}' for b in range(model_count)]])
+    mad_img = mad_img.mask(mad_img.neq(-9999))
 
-    model_drop_mean = sort_img.mask(sort_img.neq(-9999))\
-        .reduce(ee.Reducer.mean()).rename(["ensemble"])
+    # TODO: Add a flag or parameter for returning additional bands
+    # TODO: Move the model bit image
+    output_img = mad_img\
+        .reduce(ee.Reducer.mean()
+                .combine(ee.Reducer.min(), sharedInputs=True)
+                .combine(ee.Reducer.max(), sharedInputs=True)
+                .combine(ee.Reducer.count(), sharedInputs=True))\
+        .rename(["ensemble_mad", "ensemble_mad_min", "ensemble_mad_max",
+                 "ensemble_mad_count"])\
+
+    # Bit encode the models using the model index values
+    # Build the index array from the ensemble images so that the index
+    #   is masked the same
+    index_array = ensemble_img\
+        .multiply(0).add([x+1 for x in range(model_count)])\
+        .unmask(-9999).toArray()
+    index_img = index_array.arraySort(diff_array.abs())\
+        .arraySlice(0, 0, mad_count)\
+        .arrayCat(ee.Image.constant([-9999] * model_count).toArray(), 0)\
+        .arraySlice(0, 0, model_count)\
+        .arrayFlatten([[f'B{b+1}' for b in range(model_count)]])
+    index_img = index_img.mask(index_img.neq(-9999))
+    index_img = index_img.multiply(0).add(2).pow(index_img.subtract(1))\
+        .reduce(ee.Reducer.sum()).int().rename(['ensemble_mad_index'])
+    output_img = output_img.addBands(index_img)
+
+    return output_img
 
     # DEADBEEF
     # print(utils.point_image_value(ee.Image(images), [-120, 39], scale=1))
@@ -60,16 +87,6 @@ def mad(ensemble_img, made_scale=2):
     # print(utils.point_image_value(sort_img, [-120, 39], scale=1))
     # print(utils.point_image_value(model_drop_mean, [-120, 39], scale=1))
 
-    return model_drop_mean
-
-    # # CGM - Commented out returning model indices for now
-    # index_array = ee.Image.constant([1, 2, 3, 4, 5, 6])\
-    #     .rename(ensemble_sims_crop.bandNames()).toArray()
-    # index_sort = index_array.arraySort(diff.abs().toArray())
-    # index_img = index_sort.arraySlice(0, 0, count_img).arrayCat(array_null, 0)\
-    #     .arraySlice(0, 0, 6).arrayFlatten([['B1', 'B2', 'B3', 'B4', 'B5', 'B6']])
-    # index_img = index_img.mask(sort_img.neq(-9999))
-
     # # Add mean, ens_meidan, made, upper and lower to ensamble for map display
     # ens_mean = ensemble_img.reduce(ee.Reducer.mean()).rename(["mean"])
     # ensemble = ensemble_sims_crop.addBands(ens_mean).addBands(ens_median)
@@ -77,18 +94,16 @@ def mad(ensemble_img, made_scale=2):
     #     .addBands(model_drop_mean)
 
 
-# CGM - Mean ensemble placeholder function
-def mean(images):
-    """
+def mean(ensemble_img):
+    """Simple arithmetic mean placeholder function
 
     Parameters
     ----------
-    images : list
+    ensemble_img : ee.Image
 
     Returns
     -------
     ee.Image
 
     """
-    ensemble_img = ee.Image(images)
-    return ensemble_img.reduce(ee.Reducer.mean()).rename(['ensemble'])
+    return ensemble_img.reduce(ee.Reducer.mean()).rename(['ensemble_sam'])
