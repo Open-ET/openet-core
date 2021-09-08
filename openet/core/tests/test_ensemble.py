@@ -11,6 +11,8 @@ import openet.core.utils as utils
 # logging.basicConfig(level=logging.DEBUG, format='%(message)s')
 
 
+
+
 # TODO: Write a test to check that the output bandnames
 # def test_mad_bandname():
 #     assert False
@@ -89,6 +91,9 @@ import openet.core.utils as utils
         # Check that the scale term does something
         # CGM - This might be better as a separate test function
         [[87, 55, 23, 25, 41, 12], 2.5, 40.5],
+
+        # Check that dropping an image works (dropped SIMS None)
+        [[118, 111, 57, 75, 58], 2, 83.8],
     ]
 )
 def test_mad_values(model_values, made_scale, expected, tol=0.001):
@@ -103,8 +108,7 @@ def test_mad_values(model_values, made_scale, expected, tol=0.001):
         else:
             images.append(mask_img.add(value).rename([f'B{i+1}']))
 
-    output_img = ensemble.mad(ensemble_img=ee.Image(images),
-                              made_scale=made_scale)
+    output_img = ensemble.mad(ensemble_img=ee.Image(images), made_scale=made_scale)
     output = utils.point_image_value(output_img, [-120, 39])['ensemble_mad']
     assert abs(output - expected) <= tol
 
@@ -112,19 +116,18 @@ def test_mad_values(model_values, made_scale, expected, tol=0.001):
 # TODO: Create separate tests for each of the other (non-mean) stats,
 #   For now test all of them in one function
 @pytest.mark.parametrize(
-    "model_values, made_scale, mn, mx, count, index",
+    "model_values, made_scale, mn, mx, count",
     [
-        [[118, 111, 57, 75, 99, 58], 2, 57, 118, 6, 63],
-        [[87, 55, 23, 25, 41, 12], 2, 12, 55, 5, 62],
-        [[55, 23, 25, 41, None, 12], 2, 12, 55, 5, 47],
-        [[100, 23, 25, 41, None, 12], 2, 12, 41, 4, 46],
-        [[0, 0, 1, 15, None, 0], 2, 0, 1, 4, 39],
-        [[0, 0, 13, 8, None, 0], 2, 0, 8, 4, 43],
-        [[0, 0, 0, 12, None, 0], 2, 0, 0, 4, 39],
+        [[118, 111, 57, 75, 99, 58], 2, 57, 118, 6],
+        [[87, 55, 23, 25, 41, 12], 2, 12, 55, 5],
+        [[55, 23, 25, 41, None, 12], 2, 12, 55, 5],
+        [[100, 23, 25, 41, None, 12], 2, 12, 41, 4],
+        [[0, 0, 1, 15, None, 0], 2, 0, 1, 4],
+        [[0, 0, 13, 8, None, 0], 2, 0, 8, 4],
+        [[0, 0, 0, 12, None, 0], 2, 0, 0, 4],
     ]
 )
-def test_mad_other_stats(model_values, made_scale, mn, mx, count, index,
-                         tol=0.001):
+def test_mad_other_stats(model_values, made_scale, mn, mx, count, tol=0.001):
     # print(model_values)
     images = []
     mask_img = ee.Image('IDAHO_EPSCOR/GRIDMET/20200101')\
@@ -135,13 +138,54 @@ def test_mad_other_stats(model_values, made_scale, mn, mx, count, index,
         else:
             images.append(mask_img.add(value).rename([f'B{i+1}']))
 
-    output_img = ensemble\
-        .mad(ensemble_img=ee.Image(images), made_scale=made_scale)
+    output_img = ensemble.mad(ensemble_img=ee.Image(images), made_scale=made_scale)
     output = utils.point_image_value(output_img, [-120, 39], scale=100)
     assert abs(output['ensemble_mad_min'] - mn) <= tol
     assert abs(output['ensemble_mad_max'] - mx) <= tol
     assert abs(output['ensemble_mad_count'] - count) <= tol
-    assert abs(output['ensemble_mad_index'] - index) <= tol
+
+
+@pytest.mark.parametrize(
+    "model_values, made_scale, index",
+    [
+        # Same test values as in stats test
+        [{'disalexi': 118, 'eemetric': 111, 'geesebal': 57, 'ptjpl': 75,
+          'sims': 99, 'ssebop': 58}, 2, 63],
+        [{'disalexi': 87, 'eemetric': 55, 'geesebal': 23, 'ptjpl': 25,
+          'sims': 41, 'ssebop': 12}, 2, 62],
+        [{'disalexi': 55, 'eemetric': 23, 'geesebal': 25, 'ptjpl': 41,
+          'sims': None, 'ssebop': 12}, 2, 47],
+        [{'disalexi': 100, 'eemetric': 23, 'geesebal': 25, 'ptjpl': 41,
+          'sims': None, 'ssebop': 12}, 2, 46],
+        [{'disalexi': 0, 'eemetric': 0, 'geesebal': 1, 'ptjpl': 15,
+          'sims': None, 'ssebop': 0}, 2, 39],
+        [{'disalexi': 0, 'eemetric': 0, 'geesebal': 13, 'ptjpl': 8,
+          'sims': None, 'ssebop': 0}, 2, 43],
+        [{'disalexi': 0, 'eemetric': 0, 'geesebal': 0, 'ptjpl': 12,
+          'sims': None, 'ssebop': 0}, 2, 39],
+        # Check that 5 band image with SIMS totally excluded
+        [{'disalexi': 55, 'eemetric': 23, 'geesebal': 25, 'ptjpl': 41,
+          'ssebop': 12}, 2, 47],
+        # Check that order doesn't matter
+        [{'eemetric': 23, 'sims': None, 'ptjpl': 41, 'disalexi': 55,
+          'geesebal': 25, 'ssebop': 12}, 2, 47],
+
+    ]
+)
+def test_mad_index(model_values, made_scale, index):
+    # print(model_values)
+    images = []
+    mask_img = ee.Image('IDAHO_EPSCOR/GRIDMET/20200101')\
+        .select(['tmmx']).multiply(0)
+    for name, value in model_values.items():
+        if value is None:
+            images.append(mask_img.updateMask(0).rename([name]))
+        else:
+            images.append(mask_img.add(value).rename([name]))
+
+    output_img = ensemble.mad(ensemble_img=ee.Image(images), made_scale=made_scale)
+    output = utils.point_image_value(output_img, [-120, 39], scale=100)
+    assert output['ensemble_mad_index'] == index
 
 
 @pytest.mark.parametrize(
@@ -153,7 +197,7 @@ def test_mad_other_stats(model_values, made_scale, mn, mx, count, index,
         [[118, 111, 57, 75, 0, 58], 69.8333],
     ]
 )
-def test_mean(model_values, expected, tol=0.0001):
+def test_mean_values(model_values, expected, tol=0.0001):
     # input_img = ee.Image.constant(int(img_value, 2)).rename(['BQA'])
     # input_args = {'input_img': input_img}
     images = []

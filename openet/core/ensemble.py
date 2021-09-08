@@ -1,7 +1,18 @@
+import pprint
+
 import ee
 
 from . import utils
 # import openet.core.utils as utils
+
+model_index = {
+    'disalexi': 1,
+    'eemetric': 2,
+    'geesebal': 3,
+    'ptjpl': 4,
+    'sims': 5,
+    'ssebop': 6,
+}
 
 
 def mad(ensemble_img, made_scale=2):
@@ -17,12 +28,18 @@ def mad(ensemble_img, made_scale=2):
     ee.Image
 
     """
+    # TODO:
+
     # TODO: Add checks on model count and minimum model count
     # TODO: Compute model_count dynamically
-    #   Change all the range() calls to server side calls
-    model_count = 6
-    # model_count = image.bandNames().size()
-    min_model_count = 4
+    # TODO: Change the model_count and range() based lists to server side calls
+    model_names = ensemble_img.bandNames()
+    model_count = model_names.size()
+    min_model_count = model_count.min(4)
+
+    # Map the model index to a generic "BX" band name for the output images
+    output_bands = ee.List.sequence(1, model_count)\
+        .map(lambda x: ee.String('B').cat(ee.Number(x).format('%d')))
 
     ens_median = ensemble_img.reduce(ee.Reducer.median()).rename(["median"])
     MADe = ensemble_img.subtract(ens_median).abs()\
@@ -44,9 +61,9 @@ def mad(ensemble_img, made_scale=2):
 
     mad_img = ens_array.arraySort(diff_array.abs())\
         .arraySlice(0, 0, mad_count)\
-        .arrayCat(ee.Image.constant([-9999] * model_count).toArray(), 0)\
+        .arrayCat(ee.Array(-9999).repeat(0, model_count), 0)\
         .arraySlice(0, 0, model_count)\
-        .arrayFlatten([[f'B{b+1}' for b in range(model_count)]])
+        .arrayFlatten([output_bands])
     mad_img = mad_img.mask(mad_img.neq(-9999))
 
     # TODO: Add a flag or parameter for returning additional bands
@@ -59,17 +76,27 @@ def mad(ensemble_img, made_scale=2):
         .rename(["ensemble_mad", "ensemble_mad_min", "ensemble_mad_max",
                  "ensemble_mad_count"])\
 
+    # Map the band names to the model index
+    # The extra combine is to try and account for the ensemble images having
+    #   band names that don't map to one of the model names/indexes
+    # band_dict = ee.Dictionary(model_index)
+    band_dict = ee.Dictionary(model_index).combine(ee.Dictionary.fromLists(
+        output_bands, ee.List.sequence(9, model_count.add(9).subtract(1))))
+    pprint.pprint(band_dict.getInfo())
+    band_index = model_names.map(lambda x: band_dict.get(x))
+    # band_index = ee.List.sequence(1, model_count)
+
     # Bit encode the models using the model index values
     # Build the index array from the ensemble images so that the index
     #   is masked the same
     index_array = ensemble_img\
-        .multiply(0).add([x+1 for x in range(model_count)])\
+        .multiply(0).add(ee.Image.constant(band_index))\
         .unmask(-9999).toArray()
     index_img = index_array.arraySort(diff_array.abs())\
         .arraySlice(0, 0, mad_count)\
-        .arrayCat(ee.Image.constant([-9999] * model_count).toArray(), 0)\
+        .arrayCat(ee.Array(-9999).repeat(0, model_count), 0)\
         .arraySlice(0, 0, model_count)\
-        .arrayFlatten([[f'B{b+1}' for b in range(model_count)]])
+        .arrayFlatten([output_bands])
     index_img = index_img.mask(index_img.neq(-9999))
     index_img = index_img.multiply(0).add(2).pow(index_img.subtract(1))\
         .reduce(ee.Reducer.sum()).int().rename(['ensemble_mad_index'])
