@@ -82,7 +82,6 @@ def mad(ensemble_img, made_scale=2):
     # band_dict = ee.Dictionary(model_index)
     band_dict = ee.Dictionary(model_index).combine(ee.Dictionary.fromLists(
         output_bands, ee.List.sequence(9, model_count.add(9).subtract(1))))
-    pprint.pprint(band_dict.getInfo())
     band_index = model_names.map(lambda x: band_dict.get(x))
     # band_index = ee.List.sequence(1, model_count)
 
