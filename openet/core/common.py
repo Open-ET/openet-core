@@ -213,7 +213,7 @@ def landsat_c2_sr_cloud_mask(input_img, cirrus_flag=False, dilate_flag=False,
     """
     qa_img = input_img.select(['QA_PIXEL'])
     cloud_mask = qa_img.rightShift(3).bitwiseAnd(1).neq(0)
-    #     .And(qa_img.rightShift(6).bitwiseAnd(3).gte(cloud_confidence))
+    #     .And(qa_img.rightShift(8).bitwiseAnd(3).gte(cloud_confidence))
     if cirrus_flag:
         cloud_mask = cloud_mask.Or(qa_img.rightShift(2).bitwiseAnd(1).neq(0))
     if dilate_flag:
