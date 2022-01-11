@@ -15,7 +15,7 @@ dependencies:
   - pytest>=4.3.0
   - pytest-cov
   - pytest-runner
-  - python=3.6
+  - python=3.7
   - python-dateutil
   - pip:
     - openet-core
