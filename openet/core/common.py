@@ -141,7 +141,7 @@ def landsat_c1_sr_cloud_mask(input_img, cloud_confidence=3,
 
 def landsat_c2_sr_cloud_mask(input_img, cirrus_flag=False, dilate_flag=False,
                              shadow_flag=True, snow_flag=False,
-                             saturated_flag=True,
+                             saturated_flag=True, cloud_confidence=3,
                              ):
     """Extract cloud mask from the Landsat Collection 2 SR QA_PIXEL band
 
@@ -162,6 +162,8 @@ def landsat_c2_sr_cloud_mask(input_img, cirrus_flag=False, dilate_flag=False,
     saturated_flag : bool
         If true, mask pixels that are saturated in any band
         (the default is True).
+    cloud_confidence : int
+        Not currently used.
 
     Returns
     -------
@@ -218,7 +220,7 @@ def landsat_c2_sr_cloud_mask(input_img, cirrus_flag=False, dilate_flag=False,
     """
     qa_img = input_img.select(['QA_PIXEL'])
     cloud_mask = qa_img.rightShift(3).bitwiseAnd(1).neq(0)
-    #     .And(qa_img.rightShift(8).bitwiseAnd(3).gte(cloud_confidence))
+    #     .Or(qa_img.rightShift(8).bitwiseAnd(3).gte(cloud_confidence))
     if cirrus_flag:
         cloud_mask = cloud_mask.Or(qa_img.rightShift(2).bitwiseAnd(1).neq(0))
     if dilate_flag:
@@ -231,12 +233,12 @@ def landsat_c2_sr_cloud_mask(input_img, cirrus_flag=False, dilate_flag=False,
     if saturated_flag:
         # Mask if saturated in any band
         # CGM - Check if we should only use a subset of the bands instead
-        sat_mask = input_img.select(['QA_RADST']).gt(0)
+        sat_mask = input_img.select(['QA_RADSAT']).gt(0)
         #     .And(input_img.select(['QA_RADST']).lt(255))
         cloud_mask = cloud_mask.Or(sat_mask)
 
     # Flip to set cloudy pixels to 0 and clear to 1
-    return cloud_mask.Not()
+    return cloud_mask.Not().rename(['cloud_mask'])
 
 
 def sentinel2_toa_cloud_mask(input_img):
