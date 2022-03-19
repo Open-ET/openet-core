@@ -141,6 +141,7 @@ def landsat_c1_sr_cloud_mask(input_img, cloud_confidence=3,
 
 def landsat_c2_sr_cloud_mask(input_img, cirrus_flag=False, dilate_flag=False,
                              shadow_flag=True, snow_flag=False,
+                             saturated_flag=True,
                              ):
     """Extract cloud mask from the Landsat Collection 2 SR QA_PIXEL band
 
@@ -158,6 +159,9 @@ def landsat_c2_sr_cloud_mask(input_img, cirrus_flag=False, dilate_flag=False,
         If true, mask shadow pixels (the default is True).
     snow_flag : bool
         If true, mask snow pixels (the default is False).
+    saturated_flag : bool
+        If true, mask pixels that are saturated in any band
+        (the default is True).
 
     Returns
     -------
@@ -169,6 +173,7 @@ def landsat_c2_sr_cloud_mask(input_img, cirrus_flag=False, dilate_flag=False,
         i.e. 0 is cloud/masked, 1 is clear/unmasked
 
     Assuming Cloud must be set to check Cloud Confidence
+    (CGM - Note, this is a bad assumption and is probably causing missed clouds)
 
     Bits
         0: Fill
@@ -222,6 +227,13 @@ def landsat_c2_sr_cloud_mask(input_img, cirrus_flag=False, dilate_flag=False,
         cloud_mask = cloud_mask.Or(qa_img.rightShift(4).bitwiseAnd(1).neq(0))
     if snow_flag:
         cloud_mask = cloud_mask.Or(qa_img.rightShift(5).bitwiseAnd(1).neq(0))
+
+    if saturated_flag:
+        # Mask if saturated in any band
+        # CGM - Check if we should only use a subset of the bands instead
+        sat_mask = input_img.select(['QA_RADST']).gt(0)
+        #     .And(input_img.select(['QA_RADST']).lt(255))
+        cloud_mask = cloud_mask.Or(sat_mask)
 
     # Flip to set cloudy pixels to 0 and clear to 1
     return cloud_mask.Not()
