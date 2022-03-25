@@ -121,20 +121,20 @@ def test_landsat_c1_sr_cloud_mask_flags(img_value, arg_name, flag_value, expecte
 
 
 @pytest.mark.parametrize(
-    "qa_pixel, qa_radsat, expected",
+    "qa_pixel, expected",
     [
 
-        ['0000000000000000', 0, 1],  # Designated Fill
-        ['0000000000000001', 0, 1],
-        ['0000000000000010', 0, 1],  # Dilated Cloud
-        ['0000000000000100', 0, 1],  # Cirrus
-        ['0000000000001000', 0, 0],  # Cloud
-        ['0000000000010000', 0, 0],  # Cloud Shadow
-        ['0000000000100000', 0, 1],  # Snow
-        ['0000000001000000', 0, 1],  # Clear
-        ['0000000010000000', 0, 1],  # Water
+        ['0000000000000000', 1],  # Designated Fill
+        ['0000000000000001', 1],
+        ['0000000000000010', 1],  # Dilated Cloud
+        ['0000000000000100', 1],  # Cirrus
+        ['0000000000001000', 0],  # Cloud
+        ['0000000000010000', 0],  # Cloud Shadow
+        ['0000000000100000', 1],  # Snow
+        ['0000000001000000', 1],  # Clear
+        ['0000000010000000', 1],  # Water
         # Check that any saturated bits are masked
-        ['0000000000100000', 1, 0],  # Snow
+        # ['0000000000100000', 0, 0],  # Snow
         # Not using the confidence bands to set cloud masking yet
         # ['0000000100000000', 0],  # Cloud Confidence
         # ['0000001000000000', 0],
@@ -152,9 +152,8 @@ def test_landsat_c1_sr_cloud_mask_flags(img_value, arg_name, flag_value, expecte
 
     ]
 )
-def test_landsat_c2_sr_cloud_mask(qa_pixel, qa_radsat, expected):
-    input_img = ee.Image.constant([int(qa_pixel, 2), qa_radsat])\
-        .rename(['QA_PIXEL', 'QA_RADSAT'])
+def test_landsat_c2_sr_cloud_mask(qa_pixel, expected):
+    input_img = ee.Image.constant([int(qa_pixel, 2)]).rename(['QA_PIXEL'])
     output_img = common.landsat_c2_sr_cloud_mask(input_img)
     assert utils.constant_image_value(output_img)['cloud_mask'] == expected
 
@@ -163,14 +162,14 @@ def test_landsat_c2_sr_cloud_mask(qa_pixel, qa_radsat, expected):
     "img_value, arg_name, flag_value, expected",
     [
         # The "none" flag_value should test the default condition
-        # Cirrus clouds
-        ['0000000000000100', 'cirrus_flag', None, 1],
-        ['0000000000000100', 'cirrus_flag', False, 1],
-        ['0000000000000100', 'cirrus_flag', True, 0],
         # Dilated clouds
         ['0000000000000010', 'dilate_flag', None, 1],
         ['0000000000000010', 'dilate_flag', False, 1],
         ['0000000000000010', 'dilate_flag', True, 0],
+        # Cirrus clouds
+        ['0000000000000100', 'cirrus_flag', None, 1],
+        ['0000000000000100', 'cirrus_flag', False, 1],
+        ['0000000000000100', 'cirrus_flag', True, 0],
         # Shadows
         ['0000000000010000', 'shadow_flag', None, 0],
         ['0000000000010000', 'shadow_flag', False, 1],
@@ -182,8 +181,7 @@ def test_landsat_c2_sr_cloud_mask(qa_pixel, qa_radsat, expected):
     ]
 )
 def test_landsat_c2_sr_cloud_mask_flags(img_value, arg_name, flag_value, expected):
-    input_img = ee.Image.constant([int(img_value, 2), 0])\
-        .rename(['QA_PIXEL', 'QA_RADSAT'])
+    input_img = ee.Image.constant([int(img_value, 2)]).rename(['QA_PIXEL'])
     input_args = {'input_img': input_img}
     if flag_value is not None:
         input_args[arg_name] = flag_value
@@ -195,17 +193,17 @@ def test_landsat_c2_sr_cloud_mask_flags(img_value, arg_name, flag_value, expecte
     "qa_pixel, qa_radsat, arg_name, flag_value, expected",
     [
         # The "none" flag_value should test the default condition
-        # Saturation (using a "snowy" bit mask)
+        # Using a "snowy" bit mask that should be unmasked by default
         ['0000000000100000', 0, 'saturated_flag', False, 1],
         ['0000000000100000', 0, 'saturated_flag', True, 1],
         ['0000000000100000', 0, 'saturated_flag', None, 1],
         ['0000000000100000', 1, 'saturated_flag', False, 1],
         ['0000000000100000', 1, 'saturated_flag', True, 0],
-        ['0000000000100000', 1, 'saturated_flag', None, 0],
+        ['0000000000100000', 1, 'saturated_flag', None, 1],
     ]
 )
-def test_landsat_c2_sr_saturation_mask_flags(qa_pixel, qa_radsat, arg_name,
-                                             flag_value, expected):
+def test_landsat_c2_sr_saturated_flag(qa_pixel, qa_radsat, arg_name,
+                                      flag_value, expected):
     input_img = ee.Image.constant([int(qa_pixel, 2), qa_radsat])\
         .rename(['QA_PIXEL', 'QA_RADSAT'])
     input_args = {'input_img': input_img}

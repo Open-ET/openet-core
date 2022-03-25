@@ -3,9 +3,15 @@ import warnings
 import ee
 
 
-def landsat_c1_toa_cloud_mask(input_img, snow_flag=False, cirrus_flag=False,
-                              cloud_confidence=2, shadow_confidence=3,
-                              snow_confidence=3, cirrus_confidence=3):
+def landsat_c1_toa_cloud_mask(
+        input_img,
+        snow_flag=False,
+        cirrus_flag=False,
+        cloud_confidence=2,
+        shadow_confidence=3,
+        snow_confidence=3,
+        cirrus_confidence=3,
+        ):
     """Extract cloud mask from the Landsat Collection 1 TOA BQA band
 
     Parameters
@@ -80,13 +86,17 @@ def landsat_c1_toa_cloud_mask(input_img, snow_flag=False, cirrus_flag=False,
     return cloud_mask.Not()
 
 
-def landsat_c1_sr_cloud_mask(input_img, cloud_confidence=3,
-                             shadow_flag=True, snow_flag=False):
+def landsat_c1_sr_cloud_mask(
+        input_img,
+        cloud_confidence=3,
+        shadow_flag=True,
+        snow_flag=False,
+        ):
     """Extract cloud mask from the Landsat Collection 1 SR pixel_qa band
 
     Parameters
     ----------
-    img : ee.Image
+    input_img : ee.Image
         Image from a Landsat Collection 1 SR image collection with a pixel_qa
         band (e.g. LANDSAT/LE07/C01/T1_SR).
     cloud_confidence : int
@@ -125,7 +135,6 @@ def landsat_c1_sr_cloud_mask(input_img, cloud_confidence=3,
     References
     ----------
 
-
     """
     qa_img = input_img.select(['pixel_qa'])
     cloud_mask = qa_img.rightShift(5).bitwiseAnd(1).neq(0)\
@@ -139,15 +148,20 @@ def landsat_c1_sr_cloud_mask(input_img, cloud_confidence=3,
     return cloud_mask.Not()
 
 
-def landsat_c2_sr_cloud_mask(input_img, cirrus_flag=False, dilate_flag=False,
-                             shadow_flag=True, snow_flag=False,
-                             saturated_flag=True, cloud_confidence=3,
-                             ):
+def landsat_c2_sr_cloud_mask(
+        input_img,
+        cirrus_flag=False,
+        dilate_flag=False,
+        shadow_flag=True,
+        snow_flag=False,
+        saturated_flag=False,
+        # cloud_confidence=3,
+        ):
     """Extract cloud mask from the Landsat Collection 2 SR QA_PIXEL band
 
     Parameters
     ----------
-    img : ee.Image
+    input_img : ee.Image
         Image from a Landsat Collection 2 SR image collection with a QA_PIXEL
         band (e.g. LANDSAT/LC08/C02/T1_L2).
     cirrus_flag : bool
@@ -161,9 +175,7 @@ def landsat_c2_sr_cloud_mask(input_img, cirrus_flag=False, dilate_flag=False,
         If true, mask snow pixels (the default is False).
     saturated_flag : bool
         If true, mask pixels that are saturated in any band
-        (the default is True).
-    cloud_confidence : int
-        Not currently used.
+        (the default is False).
 
     Returns
     -------
@@ -231,10 +243,9 @@ def landsat_c2_sr_cloud_mask(input_img, cirrus_flag=False, dilate_flag=False,
         cloud_mask = cloud_mask.Or(qa_img.rightShift(5).bitwiseAnd(1).neq(0))
 
     if saturated_flag:
-        # Mask if saturated in any band
-        # CGM - Check if we should only use a subset of the bands instead
+        # Currently masking if saturated in any band
+        # Check if we should only use a subset of the bands instead
         sat_mask = input_img.select(['QA_RADSAT']).gt(0)
-        #     .And(input_img.select(['QA_RADST']).lt(255))
         cloud_mask = cloud_mask.Or(sat_mask)
 
     # Flip to set cloudy pixels to 0 and clear to 1
