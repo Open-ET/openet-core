@@ -292,6 +292,7 @@ def get_info(ee_obj, max_retries=4):
                     'Earth Engine capacity exceeded' in str(e) or
                     'Too many concurrent aggregations' in str(e) or
                     'Computation timed out.' in str(e)):
+                # TODO: Maybe add 'Connection reset by peer'
                 logging.info('    Resending query ({}/{})'.format(i, max_retries))
                 logging.info('    {}'.format(e))
                 time.sleep(i ** 2)
@@ -302,8 +303,8 @@ def get_info(ee_obj, max_retries=4):
                 # input('Press ENTER to continue')
                 # raise e
         except Exception as e:
-            logging.info('    Resending query ({}/{})'.format(i, max_retries))
-            logging.debug('    {}'.format(e))
+            logging.info(f'    Resending query ({i}/{max_retries})')
+            logging.debug(f'    {e}')
             time.sleep(i ** 2)
 
         if output:
