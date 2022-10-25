@@ -722,8 +722,38 @@ def test_from_scene_et_actual_daily_et_fraction_max(tol=0.0001):
 
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
-    print(output)
     assert abs(output['et_fraction']['2017-07-10'] - 1.4) <= tol
+
+
+def test_from_scene_et_actual_daily_custom_et_band_name(tol=0.0001):
+    output_coll = interpolate.from_scene_et_actual(
+        scene_coll(['et', 'time', 'mask'])
+            .select(['et', 'time', 'mask'], ['et_actual', 'time', 'mask']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et', 'et_reference', 'et_fraction'],
+        interp_args={'interp_method': 'linear', 'interp_days': 32,
+                     'interp_source': 'IDAHO_EPSCOR/GRIDMET',
+                     'interp_band': 'etr',
+                     'interp_resample': 'nearest',
+                     },
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_resample': 'nearest',
+                    'et_reference_factor': 1.0,
+                    },
+        t_interval='daily',
+        et_band_name='et_actual',
+    )
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
+    assert abs(output['et_fraction']['2017-07-10'] - 0.449444979429245) <= tol
+    assert abs(output['et_reference']['2017-07-10'] - 10.5) <= tol
+    assert abs(output['et']['2017-07-10'] - 4.71917200088501) <= tol
+    assert abs(output['et']['2017-07-01'] - 3.6936933994293213) <= tol
+    assert abs(output['et']['2017-07-31'] - 4.951923370361328) <= tol
+    assert '2017-08-01' not in output['et'].keys()
+    # assert output['count']['2017-07-01'] == 3
 
 
 def test_from_scene_et_fraction_t_interval_bad_value():

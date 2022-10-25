@@ -678,14 +678,16 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
 
 def from_scene_et_actual(scene_coll, start_date, end_date, variables,
                          interp_args, model_args, t_interval,
-                         use_joins=False,
+                         use_joins=False, et_band_name='et',
                          ):
     """Interpolate from a precomputed collection of Landsat actual ET scenes
 
     Parameters
     ----------
     scene_coll : ee.ImageCollection
-        Non-daily 'et' images that will be interpolated.
+        Non-daily actual ET source images that will be interpolated from.
+        If the band name is different than 'et', it will need to be set using
+        the 'et_band_name' function parameter.
     start_date : str
         ISO format start date.
     end_date : str
@@ -720,6 +722,8 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
         If True, use joins to link the target and source collections.
         If False, the source collection will be filtered for each target image.
         This parameter is passed through to interpolate.daily().
+    et_band_name : str, optional
+        The actual ET band name.  The default is "et".
 
     Returns
     -------
@@ -870,8 +874,6 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
         .filterDate(interp_start_date, interp_end_date) \
         .select([interp_args['interp_band']])
 
-    interp_vars = ['et'] + ['mask', 'time']
-
     # For count, compute the composite/mosaic image for the mask band only
     if 'count' in variables:
         aggregate_coll = aggregate_to_daily(
@@ -898,7 +900,8 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
         # if interp_args['interp_resample'].lower() in ['bilinear', 'bicubic']:
         #     target_img = target_img.resample(interp_args['interp_resample'])
 
-        et_norm_img = img.select(['et']).divide(target_img).rename(['et_norm'])
+        et_norm_img = img.select([et_band_name]) \
+            .divide(target_img).rename(['et_norm'])
 
         # Clamp the normalized ET image (et_fraction)
         if 'et_fraction_max' in interp_args.keys():
@@ -911,13 +914,12 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
         #         float(interp_args['et_fraction_min']),
         #         float(interp_args['et_fraction_max']))
 
-        return img.addBands([
-            et_norm_img.double(), target_img.rename(['norm'])])
+        return img.addBands([et_norm_img.double(), target_img.rename(['norm'])])
 
     # The time band is always needed for interpolation
     scene_coll = scene_coll \
         .filterDate(interp_start_date, interp_end_date) \
-        .select(interp_vars) \
+        .select([et_band_name, 'mask', 'time']) \
         .map(normalize_et)
 
     # # Join the target (normalization) image to the scene images
