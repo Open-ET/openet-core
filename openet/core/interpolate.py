@@ -346,6 +346,9 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
         interp_days : int, str, optional
             Number of extra days before the start date and after the end date
             to include in the interpolation calculation. The default is 32.
+        use_joins : bool, optional
+            If True, use joins to link the target and source collections.
+            If False, the source collection will be filtered for each target image.
     model_args : dict
         Parameters from the MODEL section of the INI file.  The reference
         source and parameters will need to be set here if computing
@@ -386,6 +389,14 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
     else:
         interp_days = 32
         logging.debug('interp_days was not set, default to 32')
+
+    # Override the use_joins function parameter if it was set in interp_args
+    # Eventually the separate function parameter will be deprecated and removed
+    if 'use_joins' in interp_args.keys():
+        use_joins = interp_args['use_joins']
+    # else:
+    #     use_joins = False
+    #     logging.debug('use_joins was not set, default to False')
 
     # Check that the input parameters are valid
     if t_interval.lower() not in ['daily', 'monthly', 'annual', 'custom']:
@@ -694,6 +705,9 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
             to include in the interpolation calculation. The default is 32.
         et_fraction_min : float
         et_fraction_max : float
+        use_joins : bool, optional
+            If True, use joins to link the target and source collections.
+            If False, the source collection will be filtered for each target image.
     model_args : dict
         Parameters from the MODEL section of the INI file.  The reference
         source and other parameters will need to be set here if computing
@@ -706,9 +720,6 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
         If True, use joins to link the target and source collections.
         If False, the source collection will be filtered for each target image.
         This parameter is passed through to interpolate.daily().
-    # TODO: Move these into interp_args (and/or model_args)
-    fraction_min : float, optional
-    fraction_max : float, optional
 
     Returns
     -------
@@ -737,6 +748,14 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
     else:
         interp_days = 32
         logging.debug('interp_days was not set, default to 32')
+
+    # Override the use_joins function parameter if it was set in interp_args
+    # Eventually the separate function parameter will be deprecated and removed
+    if 'use_joins' in interp_args.keys():
+        use_joins = interp_args['use_joins']
+    # else:
+    #     use_joins = False
+    #     logging.debug('use_joins was not set, default to False')
 
     # Check that the input parameters are valid
     if t_interval.lower() not in ['daily', 'monthly', 'annual', 'custom']:
