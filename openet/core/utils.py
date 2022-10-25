@@ -305,7 +305,7 @@ def get_info(ee_obj, max_retries=4):
         except Exception as e:
             logging.info(f'    Resending query ({i}/{max_retries})')
             logging.debug(f'    {e}')
-            time.sleep(i ** 2)
+            time.sleep(i ** 3)
 
         if output:
             break
