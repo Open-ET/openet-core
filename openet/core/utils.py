@@ -297,8 +297,8 @@ def get_info(ee_obj, max_retries=4):
                 logging.info('    {}'.format(e))
                 time.sleep(i ** 2)
             else:
-                logging.info(f'{e}')
-                logging.info('Unhandled Earth Engine exception,')
+                logging.info(f'  {e}')
+                logging.info('  Unhandled Earth Engine exception')
                 continue
                 # input('Press ENTER to continue')
                 # raise e
