@@ -350,6 +350,7 @@ def smoothing_coll2_lst(sr_image, ndvi, soil_emis_coll_id=''):
         """
         spacecraft_id = ee.String(sr_image.get('SPACECRAFT_ID'))
         veg_emis = 0.99
+        soil_emiss_fill = 0.97
 
         # Get soil emissivity image by path/row
         wrs_path = ee.Number(sr_image.get('WRS_PATH'))
@@ -365,8 +366,8 @@ def smoothing_coll2_lst(sr_image, ndvi, soil_emis_coll_id=''):
 
         # Filter collection by path/row
         soil_emis_image = ee.Image(
-            soil_emis_coll.filter(ee.Filter.eq("wrs_path", wrs_path))
-            .filter(ee.Filter.eq("wrs_row", wrs_row)).first())
+            soil_emis_coll.filter(ee.Filter.eq("path", wrs_path))
+            .filter(ee.Filter.eq("row", wrs_row)).first())
 
         # Set up temp image to fallback on if soil emissivity image is not found
         soil_emis_test = ee.Image(2.00)
@@ -524,11 +525,11 @@ def smoothing_coll2_lst(sr_image, ndvi, soil_emis_coll_id=''):
 
         # Added accounting for instability in (1-fc_ASTER) denominator when fc_ASTER is large by fixing bare
         # component to spectral library emissivity of soil
-        em_soil = em_soil.where(fc_ASTER.gt(0.8), soil_emis)
+        em_soil = em_soil.where(fc_ASTER.gt(0.8), soil_emiss_fill)
 
         # Fill in soil emissivity gaps using the footprint of the landsat NDVI image
         # Need to set flag for footprint to False since the footprint of the ASTER emissivity data is undefined
-        fill_img = ndvi.multiply(0).add(soil_emis)
+        fill_img = ndvi.multiply(0).add(soil_emiss_fill)
         em_soil = em_soil.unmask(fill_img, False)
 
         # Multiply soil emissivity by scale factor so consistent with asset scale factor
