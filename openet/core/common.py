@@ -335,8 +335,7 @@ def sentinel2_sr_cloud_mask(input_img):
 #     return sentinel2_cloud_mask(input_img)
 
 
-# def landsat_c2_sr_lst_correct(sr_image, ndvi, soil_emis_coll_id=''):
-def smoothing_coll2_lst(sr_image, ndvi, soil_emis_coll_id=''):
+def landsat_c2_sr_lst_correct(sr_image, ndvi, soil_emis_coll_id=None):
     """ Apply correction to Collection 2 LST by using ASTER emissivity and recalculating LST following the
     procedure in the white paper by R.Allen and A.Kilic (2022) that is based on
     Malakar, N.K., Hulley, G.C., Hook, S.J., Laraby, K., Cook, M. and Schott, J.R., 2018.
@@ -351,8 +350,12 @@ def smoothing_coll2_lst(sr_image, ndvi, soil_emis_coll_id=''):
     :authors: Peter ReVelle, Richard Allen, Ayse Kilic
     """
     spacecraft_id = ee.String(sr_image.get('SPACECRAFT_ID'))
+
     veg_emis = 0.99
     soil_emiss_fill = 0.97
+
+    # Aster Global Emissivity Dataset
+    ged = ee.Image("NASA/ASTER_GED/AG100_003")
 
     # Get soil emissivity image by path/row
     wrs_path = ee.Number(sr_image.get('WRS_PATH'))
@@ -360,6 +363,8 @@ def smoothing_coll2_lst(sr_image, ndvi, soil_emis_coll_id=''):
     wrs_row = ee.Number(sr_image.get('WRS_ROW'))
     wrs_row = ee.Number(wrs_row.format('%03d'))
 
+    if soil_emis_coll_id is None:
+        soil_emis_coll_id = 'projects/earthengine-legacy/assets/projects/openet/soil_emissivity/tiles'
     soil_emis_coll = ee.ImageCollection(soil_emis_coll_id)
 
     # Scale factor used to convert saved soil emissivty values to 0-1 scale and applied to unsmoothed
@@ -368,8 +373,11 @@ def smoothing_coll2_lst(sr_image, ndvi, soil_emis_coll_id=''):
 
     # Filter collection by path/row
     soil_emis_image = ee.Image(
-        soil_emis_coll.filter(ee.Filter.eq("path", wrs_path))
-        .filter(ee.Filter.eq("row", wrs_row)).first())
+        soil_emis_coll
+        .filter(ee.Filter.eq("path", wrs_path))
+        .filter(ee.Filter.eq("row", wrs_row))
+        .first()
+    )
 
     # Set up temp image to fallback on if soil emissivity image is not found
     soil_emis_test = ee.Image(2.00)
@@ -417,9 +425,6 @@ def smoothing_coll2_lst(sr_image, ndvi, soil_emis_coll_id=''):
               'c14': ee.Number(c14.get(spacecraft_id)),
               'c': ee.Number(c.get(spacecraft_id))
               })
-
-    # Aster Global Emissivity Dataset
-    ged = ee.Image("NASA/ASTER_GED/AG100_003")
 
     def get_matched_c2_t1_rt_image(input_image):
         # Find Coll 2 T1 raw and RT image matching the Collection image based on the LANDSAT_SCENE_ID property

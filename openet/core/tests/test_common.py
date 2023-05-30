@@ -254,7 +254,18 @@ def test_sentinel2_sr_cloud_mask(img_value, expected):
 def test_landsat_c2_sr_lst_correct():
     input_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
     ndvi_img = input_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
-    output_img = common.smoothing_coll2_lst(input_img, ndvi_img, 'projects/earthengine-legacy/assets/projects/openet/soil_emissivity/tiles')
+    output_img = common.landsat_c2_sr_lst_correct(input_img, ndvi_img)
+    output = utils.get_info(output_img)
+    assert output['bands'][0]['id'] == 'surface_temperature'
+
+
+def test_landsat_c2_sr_lst_parameters():
+    sr_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
+    ndvi_img = sr_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
+    output_img = common.landsat_c2_sr_lst_correct(
+        sr_image=sr_img, ndvi=ndvi_img,
+        soil_emis_coll_id='projects/earthengine-legacy/assets/projects/openet/soil_emissivity/tiles',
+    )
     output = utils.get_info(output_img)
     assert output['bands'][0]['id'] == 'surface_temperature'
 
@@ -277,9 +288,7 @@ def test_landsat_c2_sr_lst_correct_values(xy, expected, tol=0.1):
     ndvi_img = input_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
     # lst_img = input_img.select(['ST_B10']).multiply(0.00341802).add(149.0)
     # original = utils.point_image_value(lst_img, xy, scale=30)['ST_B10']
-    output_img = common.smoothing_coll2_lst(
-        input_img, ndvi_img, 'projects/earthengine-legacy/assets/projects/openet/soil_emissivity/tiles'
-    )
+    output_img = common.landsat_c2_sr_lst_correct(input_img, ndvi_img)
     corrected = utils.point_image_value(output_img, xy, scale=30)
     assert abs(corrected['surface_temperature'] - expected) <= tol
 
@@ -306,8 +315,6 @@ def test_landsat_c2_sr_lst_correct_values(xy, expected, tol=0.1):
 #     ndvi_img = input_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
 #
 #     # with pytest.raises(Exception):
-#     output_img = common.smoothing_coll2_lst(
-#         input_img, ndvi_img, 'projects/earthengine-legacy/assets/projects/openet/soil_emissivity/tiles'
-#     )
+#     output_img = common.landsat_c2_sr_lst_correct(input_img, ndvi_img)
 #     print(utils.get_info(output_img))
 #     print(utils.point_image_value(output_img, [-102.266679, 34.368470], scale=30))
