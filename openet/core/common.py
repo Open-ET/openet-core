@@ -365,7 +365,7 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi, soil_emis_coll_id=None):
         soil_emis_coll_id = 'projects/earthengine-legacy/assets/projects/openet/soil_emissivity/tiles'
     soil_emis_coll = ee.ImageCollection(soil_emis_coll_id)
 
-    # Scale factor used to convert saved soil emissivty values to 0-1 scale
+    # Scale factor used to convert saved soil emissivity values to 0-1 scale
     #   and applied to unsmoothed soil emissivity values calculated below so
     #   consistent for when either smoothed asset is found / not found
     scale_factor = ee.Number(soil_emis_coll.first().get('scale_factor'))
@@ -383,8 +383,10 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi, soil_emis_coll_id=None):
 
     # Creating a feature collection with test image and soil emissivity image for filtering
     emis_coll_size = ee.FeatureCollection([soil_emis_image, soil_emis_test]).size()
+
     # Flag indicating if soil emissivity image is missing (1) or found (0)
     missing_flag = emis_coll_size.lt(2)
+
     # Set missing flag value on soil emissivity test image for filtering
     soil_emis_test = soil_emis_test.set("scale_factor", missing_flag)
 
@@ -531,8 +533,8 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi, soil_emis_coll_id=None):
     # with settings by Allen-Kilic. This uses NDVI of ASTER over the same period as ASTER emissivity.
     fc_ASTER = ged.select(['ndvi']).multiply(0.01).subtract(0.15).divide(0.65).clamp(0, 1.0)
 
-    # denom = fc_ASTER.multiply(-1).add(1)
-    denom = ee.Image.constant(1).subtract(fc_ASTER)
+    denom = fc_ASTER.multiply(-1).add(1)
+    # denom = ee.Image.constant(1).subtract(fc_ASTER)
     # The 0.9798 is average from ASTER spectral response for bands 13/14 for vegetation derived
     # from Glynn Hulley (2023)
     em_soil = l8_As_Em.subtract(fc_ASTER.multiply(0.9798)).divide(denom)

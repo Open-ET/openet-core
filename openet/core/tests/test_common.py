@@ -280,7 +280,7 @@ def test_landsat_c2_sr_lst_parameters():
         [[-102.266679, 34.368470], 309.95],
         [[-102.266754, 34.367682], 309.93],
         # This point is just outside the field and should stay the same
-        # [[-102.269769, 34.366115], 318.10],
+        [[-102.269769, 34.366115], 318.10],
     ]
 )
 def test_landsat_c2_sr_lst_correct_values(xy, expected, tol=0.1):
