@@ -358,17 +358,16 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi, soil_emis_coll_id=None):
     ged = ee.Image("NASA/ASTER_GED/AG100_003")
 
     # Get soil emissivity image by path/row
-    wrs_path = ee.Number(sr_image.get('WRS_PATH'))
-    wrs_path = ee.Number(wrs_path.format('%03d'))
-    wrs_row = ee.Number(sr_image.get('WRS_ROW'))
-    wrs_row = ee.Number(wrs_row.format('%03d'))
+    wrs_path = ee.Number(sr_image.get('WRS_PATH')).format('%03d')
+    wrs_row = ee.Number(sr_image.get('WRS_ROW')).format('%03d')
 
     if soil_emis_coll_id is None:
         soil_emis_coll_id = 'projects/earthengine-legacy/assets/projects/openet/soil_emissivity/tiles'
     soil_emis_coll = ee.ImageCollection(soil_emis_coll_id)
 
-    # Scale factor used to convert saved soil emissivty values to 0-1 scale and applied to unsmoothed
-    # soil emissivity values calculated below so consistent for when either smoothed asset is found / not found
+    # Scale factor used to convert saved soil emissivty values to 0-1 scale
+    #   and applied to unsmoothed soil emissivity values calculated below so
+    #   consistent for when either smoothed asset is found / not found
     scale_factor = ee.Number(soil_emis_coll.first().get('scale_factor'))
 
     # Filter collection by path/row
@@ -395,39 +394,40 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi, soil_emis_coll_id=None):
 
     # Set K1, K2 values
     k1 = ee.Dictionary({
-        'LANDSAT_4': 607.76, 'LANDSAT_5': 607.76,
-        'LANDSAT_7': 666.09, 'LANDSAT_8': 774.8853,
-        'LANDSAT_9': 799.0284})
+        'LANDSAT_4': 607.76, 'LANDSAT_5': 607.76, 'LANDSAT_7': 666.09,
+        'LANDSAT_8': 774.8853, 'LANDSAT_9': 799.0284,
+    })
     k2 = ee.Dictionary({
-        'LANDSAT_4': 1260.56, 'LANDSAT_5': 1260.56,
-        'LANDSAT_7': 1282.71, 'LANDSAT_8': 1321.0789,
-        'LANDSAT_9': 1329.0284})
+        'LANDSAT_4': 1260.56, 'LANDSAT_5': 1260.56, 'LANDSAT_7': 1282.71,
+        'LANDSAT_8': 1321.0789, 'LANDSAT_9': 1329.0284,
+    })
 
     # Set c13, c14, and c regression coefficients from Malakar et al. (2018)
     # Landsat 9 coefficients are copied from L8
     c13 = ee.Dictionary({
-        'LANDSAT_4': 0.3222, 'LANDSAT_5': -0.0723,
-        'LANDSAT_7': 0.2147, 'LANDSAT_8': 0.6820,
-        'LANDSAT_9': 0.6820})
+        'LANDSAT_4': 0.3222, 'LANDSAT_5': -0.0723, 'LANDSAT_7': 0.2147,
+        'LANDSAT_8': 0.6820, 'LANDSAT_9': 0.6820,
+    })
     c14 = ee.Dictionary({
-        'LANDSAT_4': 0.6498, 'LANDSAT_5': 1.0521,
-        'LANDSAT_7': 0.7789, 'LANDSAT_8': 0.2578,
-        'LANDSAT_9': 0.2578})
+        'LANDSAT_4': 0.6498, 'LANDSAT_5': 1.0521, 'LANDSAT_7': 0.7789,
+        'LANDSAT_8': 0.2578, 'LANDSAT_9': 0.2578,
+    })
     c = ee.Dictionary({
-        'LANDSAT_4': 0.0272, 'LANDSAT_5': 0.0195,
-        'LANDSAT_7': 0.0058, 'LANDSAT_8': 0.0584,
-        'LANDSAT_9': 0.0584})
+        'LANDSAT_4': 0.0272, 'LANDSAT_5': 0.0195, 'LANDSAT_7': 0.0058,
+        'LANDSAT_8': 0.0584, 'LANDSAT_9': 0.0584,
+    })
     sr_image = sr_image \
         .set({
-              'K1': ee.Number(k1.get(spacecraft_id)),
-              'K2': ee.Number(k2.get(spacecraft_id)),
-              'c13': ee.Number(c13.get(spacecraft_id)),
-              'c14': ee.Number(c14.get(spacecraft_id)),
-              'c': ee.Number(c.get(spacecraft_id))
-              })
+            'K1': ee.Number(k1.get(spacecraft_id)),
+            'K2': ee.Number(k2.get(spacecraft_id)),
+            'c13': ee.Number(c13.get(spacecraft_id)),
+            'c14': ee.Number(c14.get(spacecraft_id)),
+            'c': ee.Number(c.get(spacecraft_id))
+        })
 
     def get_matched_c2_t1_rt_image(input_image):
-        # Find Coll 2 T1 raw and RT image matching the Collection image based on the LANDSAT_SCENE_ID property
+        # Find Coll 2 T1 raw and RT image matching the Collection image
+        #   based on the LANDSAT_SCENE_ID property
         scene_id = input_image.get('LANDSAT_SCENE_ID')
         landsat_bands = ['blue', 'green', 'red', 'nir', 'swir1', 'thermal', 'swir2']
 
@@ -481,16 +481,19 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi, soil_emis_coll_id=None):
             l8_spacecraft_id: props(l8_spacecraft_id),
             l9_spacecraft_id: props(l9_spacecraft_id)
         })
-        # TODO: Fix error when images that are in the T1_L2 collections but not in the T1, will fail with a .get() error
-        #  because image_raw is 'None', could cause issues if trying to map over a collection
+        # TODO: Fix error when images that are in the T1_L2 collections but not in the T1,
+        #  will fail with a .get() error because image_raw is 'None',
+        #  could cause issues if trying to map over a collection
         satellite = image_raw.get('SPACECRAFT_ID')
 
-        matched_image = image_raw.select(rename_band.get(satellite), landsat_bands).set(set_prop.get(satellite))
+        matched_image = image_raw.select(rename_band.get(satellite), landsat_bands)\
+            .set(set_prop.get(satellite))
 
         return ee.Image(matched_image)
 
     def get_matched_c2_t1_image(input_image):
-        # Find Coll 2 T1 RT image matching the Collection image based on the LANDSAT_SCENE_ID property
+        # Find Coll 2 T1 RT image matching the Collection image
+        #   based on the LANDSAT_SCENE_ID property
 
         scene_id = input_image.get('LANDSAT_SCENE_ID')
 
@@ -513,9 +516,12 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi, soil_emis_coll_id=None):
     def ged_emis(ged_col):
         eb13 = ged_col.select('emissivity_band13').multiply(0.001)
         eb14 = ged_col.select('emissivity_band14').multiply(0.001)
-        emAsLs = eb13.multiply(
-            ee.Image.constant(sr_image.get('c13'))).add(eb14.multiply(ee.Image.constant(sr_image.get('c14'))))\
-            .add(ee.Image.constant(sr_image.get('c'))).rename('EmisAsL8')
+        emAsLs = (
+            eb13.multiply(ee.Number(sr_image.get('c13')))
+            .add(eb14.multiply(ee.Number(sr_image.get('c14'))))
+            .add(ee.Number(sr_image.get('c')))
+            .rename('EmisAsL8')
+        )
         return emAsLs
 
     l8_As_Em = ged_emis(ged)
@@ -525,6 +531,7 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi, soil_emis_coll_id=None):
     # with settings by Allen-Kilic. This uses NDVI of ASTER over the same period as ASTER emissivity.
     fc_ASTER = ged.select(['ndvi']).multiply(0.01).subtract(0.15).divide(0.65).clamp(0, 1.0)
 
+    # denom = fc_ASTER.multiply(-1).add(1)
     denom = ee.Image.constant(1).subtract(fc_ASTER)
     # The 0.9798 is average from ASTER spectral response for bands 13/14 for vegetation derived
     # from Glynn Hulley (2023)
@@ -554,32 +561,37 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi, soil_emis_coll_id=None):
     # to some predefined safe limits (for example, 0.5 and 1.0).
     fc_Landsat = ndvi.multiply(1.0).subtract(0.15).divide(0.65).clamp(0, 1.0)
 
-    def calc_smoothed_em_soil(image):
-        em_soil_smooth_clipped = smooth_em_soil.clip(image.geometry())
-        return image.multiply(veg_emis).add(ee.Image.constant(1).subtract(image).multiply(em_soil_smooth_clipped)) \
-            .set('system:time_start', image.get('system:time_start'))
-
-    LS_EM_smooth = calc_smoothed_em_soil(fc_Landsat)
+    # calc_smoothed_em_soil
+    em_soil_smooth_clipped = smooth_em_soil.clip(fc_Landsat.geometry())
+    LS_EM_smooth = (
+        fc_Landsat.multiply(-1).add(1).multiply(em_soil_smooth_clipped)
+        .add(fc_Landsat.multiply(veg_emis))
+    )
+    # LS_EM_smooth = image.multiply(veg_emis)
+    #     .add(ee.Image.constant(1).subtract(image).multiply(em_soil_smooth_clipped))
 
     # Apply Eq. 8 to get thermal surface radiance, Rc, from C2 Real time band 10
     # (Eq. 7 of Malakar et al. but without the emissivity to produce actual radiance)
-    def calc_Rc_smooth(image):
-        return coll2RT.select(['thermal']).multiply(ee.Image.constant(coll2RT.get('RADIANCE_MULT_BAND_thermal'))) \
-            .add(ee.Image.constant(coll2RT.get('RADIANCE_ADD_BAND_thermal'))).subtract(
-            coll2.select(['ST_URAD']).multiply(0.001)) \
-            .divide(coll2.select(['ST_ATRAN']).multiply(0.0001)) \
-            .subtract(ee.Image.constant(1).subtract(image).multiply(coll2.select(['ST_DRAD']).multiply(0.001))) \
-            .set('system:time_start', image.get('system:time_start'))
-
-    Rc_smooth = calc_Rc_smooth(LS_EM_smooth)
+    # def calc_Rc_smooth(LS_EM_smooth):
+    Rc_smooth = (
+        coll2RT.select(['thermal'])
+        .multiply(ee.Number(coll2RT.get('RADIANCE_MULT_BAND_thermal')))
+        .add(ee.Number(coll2RT.get('RADIANCE_ADD_BAND_thermal')))
+        .subtract(coll2.select(['ST_URAD']).multiply(0.001))
+        .divide(coll2.select(['ST_ATRAN']).multiply(0.0001))
+        .subtract(LS_EM_smooth.multiply(-1).add(1).multiply(coll2.select(['ST_DRAD']).multiply(0.001)))
+    )
 
     # Apply Eq. 7 to convert Rs to LST (similar to Malakar et al., but with emissivity)
-    def calc_LST_smooth(image):
-        return ee.Image.constant(sr_image.get('K2')) \
-            .divide(image.multiply(ee.Image.constant(sr_image.get('K1')))
-                    .divide(Rc_smooth).add(ee.Image.constant(1.0)).log()) \
-            .set('system:time_start', image.get('system:time_start'))
-
-    L8_LST_smooth = calc_LST_smooth(LS_EM_smooth)
+    # def calc_LST_smooth(image):
+    L8_LST_smooth = (
+        LS_EM_smooth.multiply(ee.Number(sr_image.get('K1')))
+        .divide(Rc_smooth).add(1.0).log().pow(-1)
+        .multiply(ee.Number(sr_image.get('K2')))
+    )
+    # L8_LST_smooth = ee.Image.constant(sr_image.get('K2')) \
+    #     .divide(LS_EM_smooth.multiply(ee.Number(sr_image.get('K1')))
+    #             .divide(Rc_smooth).add(ee.Number(1.0)).log())
 
     return L8_LST_smooth.rename('surface_temperature')
+    #     .set('system:time_start', image.get('system:time_start'))
