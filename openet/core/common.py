@@ -362,7 +362,7 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi, soil_emis_coll_id=None):
     wrs_row = ee.Number(sr_image.get('WRS_ROW')).format('%03d')
 
     if soil_emis_coll_id is None:
-        soil_emis_coll_id = 'projects/earthengine-legacy/assets/projects/openet/soil_emissivity/V1'
+        soil_emis_coll_id = 'projects/earthengine-legacy/assets/projects/openet/soil_emissivity/aster/landsat/v1'
     soil_emis_coll = ee.ImageCollection(soil_emis_coll_id)
 
     # Scale factor used to convert saved soil emissivity values to 0-1 scale
