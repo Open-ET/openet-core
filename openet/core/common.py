@@ -1,3 +1,4 @@
+import re
 import warnings
 
 import ee
@@ -363,6 +364,11 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi, soil_emis_coll_id=None):
 
     if soil_emis_coll_id is None:
         soil_emis_coll_id = 'projects/earthengine-legacy/assets/projects/openet/soil_emissivity/aster/landsat/v1'
+
+    # TODO: Add move advanced checking on the collection ID
+    if not re.match('^(projects/|users/)\w+', soil_emis_coll_id):
+        raise ValueError(f'invalid soil_emis_coll_id: {soil_emis_coll_id}')
+
     soil_emis_coll = ee.ImageCollection(soil_emis_coll_id)
 
     # Scale factor used to convert saved soil emissivity values to 0-1 scale

@@ -252,21 +252,37 @@ def test_sentinel2_sr_cloud_mask(img_value, expected):
 
 
 def test_landsat_c2_sr_lst_correct():
-    input_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
-    ndvi_img = input_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
-    output_img = common.landsat_c2_sr_lst_correct(input_img, ndvi_img)
+    # Basic function test with default inputs
+    sr_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
+    ndvi_img = sr_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
+    output_img = common.landsat_c2_sr_lst_correct(sr_img, ndvi_img)
     output = utils.get_info(output_img)
     assert output['bands'][0]['id'] == 'surface_temperature'
 
 
-def test_landsat_c2_sr_lst_parameters():
+def test_landsat_c2_sr_lst_parameter_keywords():
+    # Check that the function parameter keywords all work
     sr_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
     ndvi_img = sr_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
     output_img = common.landsat_c2_sr_lst_correct(
-        sr_image=sr_img, ndvi=ndvi_img
+        ndvi=ndvi_img, sr_image=sr_img,
+        soil_emis_coll_id='projects/earthengine-legacy/assets/projects/openet/soil_emissivity/aster/landsat/v1',
     )
     output = utils.get_info(output_img)
     assert output['bands'][0]['id'] == 'surface_temperature'
+
+
+def test_landsat_c2_sr_lst_soil_emis_valuerror():
+    # Check that a ValueError is raised if the collection ID is not valid
+    # Currently this should only be if it does not start with "users/" or "projects/"
+    sr_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
+    ndvi_img = sr_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
+    with pytest.raises(ValueError):
+        common.landsat_c2_sr_lst_correct(
+            sr_image=sr_img, ndvi=ndvi_img, soil_emis_coll_id='deadbeef',
+        )
+        # output = utils.get_info(output_img)
+        # assert output['bands'][0]['id'] == 'surface_temperature'
 
 
 # TODO: Consider reworking this test to compare the before and after value

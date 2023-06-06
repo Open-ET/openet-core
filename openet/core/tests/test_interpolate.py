@@ -722,7 +722,6 @@ def test_from_scene_et_actual_daily_et_fraction_max(tol=0.0001):
 
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
-    print(output)
     assert abs(output['et_fraction']['2017-07-10'] - 1.4) <= tol
 
 
