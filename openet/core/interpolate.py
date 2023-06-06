@@ -229,8 +229,7 @@ def daily(target_coll, source_coll, interp_days=32, interp_method='linear',
             # The product bands will have a "_1" appended to the name
             # i.e. "et_fraction" -> "et_fraction_1"
             if compute_product:
-                output_img = output_img\
-                    .addBands([interp_img.multiply(target_img)])
+                output_img = output_img.addBands([interp_img.multiply(target_img)])
 
             return output_img.set({
                 'system:index': image.get('system:index'),
