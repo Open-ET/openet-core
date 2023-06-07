@@ -23,6 +23,7 @@ def tgt_image(tgt_value, tgt_time):
               'system:index': datetime.datetime.utcfromtimestamp(
                   tgt_time / 1000.0).strftime('%Y%m%d')})
 
+
 def src_images(src_values, src_times):
     """Build constant source images from values and times"""
     src_images = []
@@ -165,8 +166,7 @@ def test_daily_collection(tgt_value, tgt_time, src_values, src_times,
 @pytest.mark.parametrize(
     "tgt_value, tgt_time, src_values, src_times, expected",
     [
-        [10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222],
-         0.1],
+        [10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.1],
     ]
 )
 def test_daily_compute_product_true(tgt_value, tgt_time, src_values, src_times,
