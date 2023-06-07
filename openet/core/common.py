@@ -78,10 +78,12 @@ def landsat_c1_toa_cloud_mask(
         .Or(qa_img.rightShift(7).bitwiseAnd(3).gte(shadow_confidence))
     if snow_flag:
         cloud_mask = cloud_mask.Or(
-            qa_img.rightShift(9).bitwiseAnd(3).gte(snow_confidence))
+            qa_img.rightShift(9).bitwiseAnd(3).gte(snow_confidence)
+        )
     if cirrus_flag:
         cloud_mask = cloud_mask.Or(
-            qa_img.rightShift(11).bitwiseAnd(3).gte(cirrus_confidence))
+            qa_img.rightShift(11).bitwiseAnd(3).gte(cirrus_confidence)
+        )
 
     # Set cloudy pixels to 0 and clear to 1
     return cloud_mask.Not()
