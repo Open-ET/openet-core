@@ -1,3 +1,5 @@
+import pprint
+
 import ee
 import pytest
 
@@ -248,3 +250,86 @@ def test_sentinel2_sr_cloud_mask(img_value, expected):
 #         output_img = common.sentinel2_toa_cloud_mask(input_img)
 #         assert utils.constant_image_value(ee.Image(output_img))['QA60'] == 0
 
+
+def test_landsat_c2_sr_lst_correct():
+    # Basic function test with default inputs
+    sr_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
+    ndvi_img = sr_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
+    output_img = common.landsat_c2_sr_lst_correct(sr_img, ndvi_img)
+    output = utils.get_info(output_img)
+    assert output['bands'][0]['id'] == 'surface_temperature'
+
+
+def test_landsat_c2_sr_lst_parameter_keywords():
+    # Check that the function parameter keywords all work
+    sr_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
+    ndvi_img = sr_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
+    output_img = common.landsat_c2_sr_lst_correct(
+        ndvi=ndvi_img, sr_image=sr_img,
+        soil_emis_coll_id='projects/earthengine-legacy/assets/projects/openet/soil_emissivity/aster/landsat/v1',
+    )
+    output = utils.get_info(output_img)
+    assert output['bands'][0]['id'] == 'surface_temperature'
+
+
+def test_landsat_c2_sr_lst_soil_emis_valuerror():
+    # Check that a ValueError is raised if the collection ID is not valid
+    # Currently this should only be if it does not start with "users/" or "projects/"
+    sr_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
+    ndvi_img = sr_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
+    with pytest.raises(ValueError):
+        common.landsat_c2_sr_lst_correct(
+            sr_image=sr_img, ndvi=ndvi_img, soil_emis_coll_id='deadbeef',
+        )
+        # output = utils.get_info(output_img)
+        # assert output['bands'][0]['id'] == 'surface_temperature'
+
+
+# TODO: Consider reworking this test to compare the before and after value
+#   instead of testing the values themselves
+@pytest.mark.parametrize(
+    "xy, expected",
+    [
+        # First two points are in the same field but the second one is in an
+        # area of bad emissivity data and needs correction
+        [[-102.266679, 34.368470], 309.95],
+        [[-102.266754, 34.367682], 309.93],
+        # This point is just outside the field and should stay the same
+        [[-102.269769, 34.366115], 318.10],
+    ]
+)
+def test_landsat_c2_sr_lst_correct_values(xy, expected, tol=0.1):
+    input_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
+    ndvi_img = input_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
+    # lst_img = input_img.select(['ST_B10']).multiply(0.00341802).add(149.0)
+    # original = utils.point_image_value(lst_img, xy, scale=30)['ST_B10']
+    output_img = common.landsat_c2_sr_lst_correct(input_img, ndvi_img)
+    corrected = utils.point_image_value(output_img, xy, scale=30)
+    assert abs(corrected['surface_temperature'] - expected) <= tol
+
+
+# # CGM - Trying to see if I could catch how the function failed when there is not a TOA image
+# def test_landsat_c2_sr_lst_no_toa():
+#     src_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
+#     # src_info = src_img.getInfo()
+#     # src_values = utils.point_image_value(src_img, [-102.266679, 34.368470], scale=30)
+#     # pprint.pprint(src_values)
+#
+#     input_img = ee.Image([src_img.select(['QA_PIXEL']).multiply(0)]) \
+#         .add([8465, 9505, 9301, 18113, 15091, 11534, 47113]) \
+#         .rename(['SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', 'ST_B10']) \
+#         .set({
+#             'LANDSAT_SCENE_ID': 'DEADBEEF',
+#             'SPACECRAFT_ID': 'LANDSAT_8',
+#             'WRS_PATH': 30,
+#             'WRS_ROW': 36,
+#             'system:time_start': src_img.get('system:time_start'),
+#             # 'system:time_start': src_info['properties']['system:time_start'],
+#         })
+#     # print(input_img.getInfo())
+#     ndvi_img = input_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
+#
+#     # with pytest.raises(Exception):
+#     output_img = common.landsat_c2_sr_lst_correct(input_img, ndvi_img)
+#     print(utils.get_info(output_img))
+#     print(utils.point_image_value(output_img, [-102.266679, 34.368470], scale=30))
