@@ -265,8 +265,7 @@ def test_landsat_c2_sr_lst_parameter_keywords():
     sr_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
     ndvi_img = sr_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
     output_img = common.landsat_c2_sr_lst_correct(
-        ndvi=ndvi_img, sr_image=sr_img,
-        soil_emis_coll_id='projects/earthengine-legacy/assets/projects/openet/soil_emissivity/aster/landsat/v1',
+        ndvi=ndvi_img, sr_image=sr_img
     )
     output = utils.get_info(output_img)
     assert output['bands'][0]['id'] == 'surface_temperature'
@@ -279,7 +278,7 @@ def test_landsat_c2_sr_lst_soil_emis_valuerror():
     ndvi_img = sr_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
     with pytest.raises(ValueError):
         common.landsat_c2_sr_lst_correct(
-            sr_image=sr_img, ndvi=ndvi_img, soil_emis_coll_id='deadbeef',
+            sr_image=sr_img, ndvi=ndvi_img
         )
         # output = utils.get_info(output_img)
         # assert output['bands'][0]['id'] == 'surface_temperature'
