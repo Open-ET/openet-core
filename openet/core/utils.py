@@ -283,6 +283,7 @@ def print_ee_tasks(tasks):
 
 def get_info(ee_obj, max_retries=4):
     """Make an exponential back off getInfo call on an Earth Engine object"""
+    # output = ee_obj.getInfo()
     output = None
     for i in range(1, max_retries):
         try:
@@ -293,24 +294,23 @@ def get_info(ee_obj, max_retries=4):
                     'Too many concurrent aggregations' in str(e) or
                     'Computation timed out.' in str(e)):
                 # TODO: Maybe add 'Connection reset by peer'
-                logging.info('    Resending query ({}/{})'.format(i, max_retries))
-                logging.info('    {}'.format(e))
-                time.sleep(i ** 2)
+                logging.info(f'    Resending query ({i}/{max_retries})')
+                logging.info(f'    {e}')
             else:
-                logging.info(f'  {e}')
-                logging.info('  Unhandled Earth Engine exception')
+                # TODO: What should happen for unexpected EE exceptions?
+                #   It might be better to reraise the exception and exit
+                logging.info(f'    {e}')
+                logging.info('    Unhandled Earth Engine exception')
                 continue
-                # input('Press ENTER to continue')
-                # raise e
         except Exception as e:
             logging.info(f'    Resending query ({i}/{max_retries})')
             logging.debug(f'    {e}')
-            time.sleep(i ** 3)
 
         if output:
             break
 
-    # output = ee_obj.getInfo()
+        time.sleep(i ** 3)
+
     return output
 
 
