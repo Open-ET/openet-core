@@ -371,15 +371,15 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
     # Landsat 9 coefficients are copied from L8
     c13 = ee.Dictionary({
         'LANDSAT_4': 0.3222, 'LANDSAT_5': -0.0723, 'LANDSAT_7': 0.2147,
-        'LANDSAT_8': 0.6820, 'LANDSAT_9': 0.6820,
+        'LANDSAT_8': 0.6820, 'LANDSAT_9': 0.7689,
     })
     c14 = ee.Dictionary({
         'LANDSAT_4': 0.6498, 'LANDSAT_5': 1.0521, 'LANDSAT_7': 0.7789,
-        'LANDSAT_8': 0.2578, 'LANDSAT_9': 0.2578,
+        'LANDSAT_8': 0.2578, 'LANDSAT_9': 0.1843,
     })
     c = ee.Dictionary({
         'LANDSAT_4': 0.0272, 'LANDSAT_5': 0.0195, 'LANDSAT_7': 0.0058,
-        'LANDSAT_8': 0.0584, 'LANDSAT_9': 0.0584,
+        'LANDSAT_8': 0.0584, 'LANDSAT_9': 0.0457,
     })
     sr_image = sr_image \
         .set({
