@@ -381,14 +381,6 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
         'LANDSAT_4': 0.0272, 'LANDSAT_5': 0.0195, 'LANDSAT_7': 0.0058,
         'LANDSAT_8': 0.0584, 'LANDSAT_9': 0.0457,
     })
-    sr_image = sr_image \
-        .set({
-            'K1': ee.Number(k1.get(spacecraft_id)),
-            'K2': ee.Number(k2.get(spacecraft_id)),
-            'c13': ee.Number(c13.get(spacecraft_id)),
-            'c14': ee.Number(c14.get(spacecraft_id)),
-            'c': ee.Number(c.get(spacecraft_id))
-        })
 
     def get_matched_c2_t1_rt_image(input_image):
         # Find Coll 2 T1 raw and RT image matching the Collection image
@@ -399,7 +391,7 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
         l4 = ee.ImageCollection('LANDSAT/LT04/C01/T1')
         l5 = ee.ImageCollection('LANDSAT/LT05/C02/T1')
         l7 = ee.ImageCollection('LANDSAT/LE07/C02/T1_RT')
-        l8 = ee.ImageCollection("LANDSAT/LC08/C02/T1_RT")
+        l8 = ee.ImageCollection('LANDSAT/LC08/C02/T1_RT')
         l9 = ee.ImageCollection('LANDSAT/LC09/C02/T1')
         coll2 = l4.merge(l5).merge(l7).merge(l8).merge(l9)
 
@@ -416,7 +408,7 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
             l5_spacecraft_id: image_raw.get('RADIANCE_ADD_BAND_6'),
             l7_spacecraft_id: image_raw.get('RADIANCE_ADD_BAND_6_VCID_1'),
             l8_spacecraft_id: image_raw.get('RADIANCE_ADD_BAND_10'),
-            l9_spacecraft_id: image_raw.get('RADIANCE_ADD_BAND_10')
+            l9_spacecraft_id: image_raw.get('RADIANCE_ADD_BAND_10'),
 
         }
         MUL_THERMAL = {
@@ -438,13 +430,14 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
             l5_spacecraft_id: ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
             l7_spacecraft_id: ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1', 'B7'],
             l8_spacecraft_id: ['B2', 'B3', 'B4', 'B5', 'B6', 'B10', 'B7'],
-            l9_spacecraft_id: ['B2', 'B3', 'B4', 'B5', 'B6', 'B10', 'B7']})
+            l9_spacecraft_id: ['B2', 'B3', 'B4', 'B5', 'B6', 'B10', 'B7'],
+        })
         set_prop = ee.Dictionary({
             l4_spacecraft_id: props(l4_spacecraft_id),
             l5_spacecraft_id: props(l5_spacecraft_id),
             l7_spacecraft_id: props(l7_spacecraft_id),
             l8_spacecraft_id: props(l8_spacecraft_id),
-            l9_spacecraft_id: props(l9_spacecraft_id)
+            l9_spacecraft_id: props(l9_spacecraft_id),
         })
         # TODO: Fix error when images that are in the T1_L2 collections but not in the T1,
         #  will fail with a .get() error because image_raw is 'None',
@@ -465,8 +458,8 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
         l4 = ee.ImageCollection('LANDSAT/LT04/C02/T1_L2')
         l5 = ee.ImageCollection('LANDSAT/LT05/C02/T1_L2')
         l7 = ee.ImageCollection('LANDSAT/LE07/C02/T1_L2')
-        l8 = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
-        l9 = ee.ImageCollection("LANDSAT/LC09/C02/T1_L2")
+        l8 = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+        l9 = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
         coll2 = l4.merge(l5).merge(l7).merge(l8).merge(l9)
 
         matched_image = coll2.filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)).first()
@@ -482,9 +475,9 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
         eb13 = ged_col.select('emissivity_band13').multiply(0.001)
         eb14 = ged_col.select('emissivity_band14').multiply(0.001)
         emAsLs = (
-            eb13.multiply(ee.Number(sr_image.get('c13')))
-            .add(eb14.multiply(ee.Number(sr_image.get('c14'))))
-            .add(ee.Number(sr_image.get('c')))
+            eb13.multiply(ee.Number(c13.get(spacecraft_id)))
+            .add(eb14.multiply(ee.Number(c14.get(spacecraft_id))))
+            .add(ee.Number(c.get(spacecraft_id)))
             .rename('EmisAsL8')
         )
         return emAsLs
@@ -492,15 +485,15 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
     l8_As_Em = ged_emis(ged)
 
     # Apply Eq. 4 and 3 of Allen-Kilic to estimate the ASTER emissivity for bare soil
-    # (this is Eq. 5 of Malakar et al., 2018)
-    # with settings by Allen-Kilic. This uses NDVI of ASTER over the same period as ASTER emissivity.
+    # (this is Eq. 5 of Malakar et al., 2018) with settings by Allen-Kilic.
+    # This uses NDVI of ASTER over the same period as ASTER emissivity.
     fc_ASTER = ged.select(['ndvi']).multiply(0.01).subtract(0.15).divide(0.65).clamp(0, 1.0)
 
-    denom = fc_ASTER.multiply(-1).add(1)
-    # denom = ee.Image.constant(1).subtract(fc_ASTER)
-    # The 0.9798 is average from ASTER spectral response for bands 13/14 for vegetation derived
-    # from Glynn Hulley (2023)
-    em_soil = l8_As_Em.subtract(fc_ASTER.multiply(0.9798)).divide(denom)
+    # The 0.9798 is average from ASTER spectral response for bands 13/14 for vegetation
+    # derived from Glynn Hulley (2023)
+    # CGM - Reordered equation to avoid needing a constant image that would not have a projection
+    #   X.multiply(-1).add(1) is equivalent to "1-X" or ee.Image.constant(1).subtract(X)
+    em_soil = l8_As_Em.subtract(fc_ASTER.multiply(0.9798)).divide(fc_ASTER.multiply(-1).add(1))
 
     # Added accounting for instability in (1-fc_ASTER) denominator when fc_ASTER is large by fixing bare
     # component to spectral library emissivity of soil
@@ -512,7 +505,7 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
     em_soil = em_soil.unmask(fill_img, False)
 
     # Resample soil emissivity using bilinear interpolation
-    em_soil = em_soil.resample("bilinear")
+    em_soil = em_soil.resample('bilinear')
 
     # Apply Eq. 4 and 6 of Allen-Kilic to estimate Landsat-based emissivity
     # Using the ASTER-based soil emissivity from above
@@ -544,13 +537,14 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
     # Apply Eq. 7 to convert Rs to LST (similar to Malakar et al., but with emissivity)
     # def calc_LST_smooth(image):
     L8_LST = (
-        LS_EM.multiply(ee.Number(sr_image.get('K1')))
+        LS_EM.multiply(ee.Number(k1.get(spacecraft_id)))
         .divide(Rc).add(1.0).log().pow(-1)
-        .multiply(ee.Number(sr_image.get('K2')))
+        .multiply(ee.Number(k2.get(spacecraft_id)))
     )
-    # L8_LST = ee.Image.constant(sr_image.get('K2')) \
-    #     .divide(LS_EM.multiply(ee.Number(sr_image.get('K1')))
+    # L8_LST = ee.Image.constant(ee.Number(k2.get(spacecraft_id))) \
+    #     .divide(LS_EM.multiply(ee.Number(k1.get(spacecraft_id)))
     #             .divide(Rc_smooth).add(ee.Number(1.0)).log())
 
     return L8_LST.rename('surface_temperature')
     #     .set('system:time_start', image.get('system:time_start'))
+
