@@ -1,11 +1,10 @@
 import argparse
 import calendar
-import datetime
+from datetime import datetime, timedelta
 import itertools
 import json
 import logging
 import os
-import sys
 import time
 
 import ee
@@ -34,7 +33,7 @@ def arg_valid_date(input_date):
 
     """
     try:
-        return datetime.datetime.strptime(input_date, '%Y-%m-%d')
+        return datetime.strptime(input_date, '%Y-%m-%d')
     except ValueError:
         msg = f'Not a valid date: "{input_date}".'
         raise argparse.ArgumentTypeError(msg)
@@ -95,7 +94,7 @@ def date_range(start_dt, end_dt, days=1, skip_leap_days=False):
     while curr_dt <= end_dt:
         if not skip_leap_days or curr_dt.month != 2 or curr_dt.day != 29:
             yield curr_dt
-        curr_dt += datetime.timedelta(days=days)
+        curr_dt += timedelta(days=days)
 
 
 def delay_task(delay_time=0, max_ready=-1):
@@ -187,7 +186,8 @@ def get_ee_assets(asset_id, start_dt=None, end_dt=None, retries=6):
             raise Exception('\nThe collection or folder does not exist, exiting')
         except Exception as e:
             logging.warning(
-                f'  Error getting asset list, retrying ({i}/{retries})\n  {e}')
+                f'  Error getting asset list, retrying ({i}/{retries})\n  {e}'
+            )
             time.sleep((i+1) ** 2)
 
     if asset_id_list is None:
@@ -224,17 +224,20 @@ def get_ee_tasks(states=['RUNNING', 'READY'], verbose=False, retries=6):
             break
         except Exception as e:
             logging.warning(
-                f'  Error getting task list, retrying ({i}/{retries})\n  {e}')
+                f'  Error getting task list, retrying ({i}/{retries})\n  {e}'
+            )
             time.sleep((i+1) ** 2)
     if task_list is None:
         raise Exception('\nUnable to retrieve task list, exiting')
 
     task_list = sorted(
         [task for task in task_list if task['state'] in states],
-        key=lambda t: (t['state'], t['description'], t['id']))
+        key=lambda t: (t['state'], t['description'], t['id'])
+    )
     # task_list = sorted([
     #     [t['state'], t['description'], t['id']] for t in task_list
-    #     if t['state'] in states])
+    #     if t['state'] in states
+    # ])
 
     # Convert the task list to a dictionary with the task name as the key
     return {task['description']: task for task in task_list}
@@ -263,18 +266,16 @@ def print_ee_tasks(tasks):
 
     for desc, task in tasks.items():
         if task['state'] == 'RUNNING':
-            start_dt = datetime.datetime.utcfromtimestamp(
-                task['start_timestamp_ms'] / 1000)
-            update_dt = datetime.datetime.utcfromtimestamp(
-                task['update_timestamp_ms'] / 1000)
+            start_dt = datetime.utcfromtimestamp(task['start_timestamp_ms'] / 1000)
+            update_dt = datetime.utcfromtimestamp(task['update_timestamp_ms'] / 1000)
             logging.debug('  {:8s} {}  {:0.2f}  {}'.format(
                 task['state'], task['description'],
                 (update_dt - start_dt).total_seconds() / 3600,
-                task['id']))
+                task['id'])
+            )
         # elif task['state'] in states:
         else:
-            logging.debug('  {:8s} {}'.format(
-                task['state'], task['description']))
+            logging.debug('  {:8s} {}'.format(task['state'], task['description']))
 
     logging.debug(f'  Tasks: {len(tasks)}\n')
 
@@ -337,7 +338,6 @@ def get_info(ee_obj, max_retries=4):
 
 def ee_task_start(task, n=6):
     """Make an exponential backoff Earth Engine request"""
-    output = None
     for i in range(1, n):
         try:
             task.start()
@@ -543,8 +543,7 @@ def point_coll_value(coll, xy, scale=1):
         col_dict[k] = i + 4
         info_dict[k] = {}
     for row in output[1:]:
-        date = datetime.datetime.utcfromtimestamp(row[3] / 1000.0).strftime(
-            '%Y-%m-%d')
+        date = datetime.utcfromtimestamp(row[3] / 1000.0).strftime('%Y-%m-%d')
         for k, v in col_dict.items():
             info_dict[k][date] = row[col_dict[k]]
     return info_dict
