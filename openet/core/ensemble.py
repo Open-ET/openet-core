@@ -1,9 +1,7 @@
-import pprint
-
 import ee
 
-from . import utils
-# import openet.core.utils as utils
+# from . import utils
+# # import openet.core.utils as utils
 
 model_index = {
     'disalexi': 1,

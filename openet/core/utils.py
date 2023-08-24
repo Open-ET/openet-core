@@ -332,7 +332,6 @@ def get_info(ee_obj, max_retries=4):
 #         if output:
 #             break
 #
-#     # output = ee_obj.getInfo()
 #     return output
 
 
@@ -362,7 +361,7 @@ def is_number(x):
     try:
         float(x)
         return True
-    except:
+    except ValueError:
         return False
 
 
@@ -411,6 +410,7 @@ def parse_int_set(nputstr=""):
                 invalid.add(i)
     # Report invalid tokens before returning valid selection
     # print "Invalid set: " + str(invalid)
+
     return selection
 
 
@@ -450,6 +450,7 @@ def wrs2_set_2_str(tiles):
     tile_str = json.dumps(tile_dict, sort_keys=True) \
         .replace('"', '').replace(' ', '') \
         .replace('{', '').replace('}', '')
+
     return tile_str
 
 
@@ -462,6 +463,7 @@ def wrs2_str_2_set(tile_str, wrs2_fmt='p{:03d}r{:03d}'):
         rows = str_ranges_2_list(t.split(':')[1].replace(']', ''))
         for row in sorted(rows):
             tile_set.add(wrs2_fmt.format(path, int(row)))
+
     return tile_set
 
 
@@ -493,6 +495,7 @@ def str_ranges_2_list(nputstr=""):
             except:
                 # not an int and not a range...
                 invalid.add(i)
+
     return sorted(list(selection))
 
 
@@ -506,12 +509,13 @@ def list_2_str_ranges(i):
     for a, b in itertools.groupby(enumerate(sorted(set(i))), lambda pair: pair[1] - pair[0]):
         b = list(b)
         # Only create ranges for 3 or more numbers
-        if b[0][1] != b[-1][1] and abs(b[-1][1] - b[0][1]) > 1 :
+        if b[0][1] != b[-1][1] and abs(b[-1][1] - b[0][1]) > 1:
             output.append('{}-{}'.format(b[0][1], b[-1][1]))
         elif b[0][1] != b[-1][1]:
             output.append('{},{}'.format(b[0][1], b[-1][1]))
         else:
             output.append('{}'.format(b[0][1]))
+
     return ','.join(output)
 
 

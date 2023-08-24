@@ -1,6 +1,6 @@
 import datetime
 import logging
-import pprint
+# import pprint
 
 import ee
 import pytest
@@ -22,6 +22,7 @@ def tgt_image(tgt_value, tgt_time):
         .set({'system:time_start': tgt_time,
               'system:index': datetime.datetime.utcfromtimestamp(
                   tgt_time / 1000.0).strftime('%Y%m%d')})
+
 
 def src_images(src_values, src_times):
     """Build constant source images from values and times"""
@@ -82,22 +83,16 @@ def scene_coll(variables, et_fraction=[0.4, 0.4, 0.4], et=[5, 5, 5],
 
     # Mask and time bands currently get added on to the scene collection
     #   and images are unscaled just before interpolating in the export tool
-    scene_coll = ee.ImageCollection([
-        ee.Image([img.add(et_fraction[0]), img.add(et[0]), img.add(ndvi[0]),
-                  img.add(date1), mask])\
+    scene_coll = ee.ImageCollection.fromImages([
+        ee.Image([img.add(et_fraction[0]), img.add(et[0]), img.add(ndvi[0]), img.add(date1), mask])
             .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
-            .set({'system:index': 'LE07_044033_20170708',
-                  'system:time_start': time1}),
-        ee.Image([img.add(et_fraction[1]), img.add(et[1]), img.add(ndvi[1]),
-                  img.add(date2), mask])\
+            .set({'system:index': 'LE07_044033_20170708', 'system:time_start': time1}),
+        ee.Image([img.add(et_fraction[1]), img.add(et[1]), img.add(ndvi[1]), img.add(date2), mask])
             .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
-            .set({'system:index': 'LC08_044033_20170716',
-                  'system:time_start': time2}),
-        ee.Image([img.add(et_fraction[2]), img.add(et[2]), img.add(ndvi[2]),
-                  img.add(date3), mask])\
+            .set({'system:index': 'LC08_044033_20170716', 'system:time_start': time2}),
+        ee.Image([img.add(et_fraction[2]), img.add(et[2]), img.add(ndvi[2]), img.add(date3), mask])
             .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
-            .set({'system:index': 'LE07_044033_20170724',
-                  'system:time_start': time3}),
+            .set({'system:index': 'LE07_044033_20170724', 'system:time_start': time3}),
     ])
     return scene_coll.select(variables)
 
@@ -728,7 +723,7 @@ def test_from_scene_et_actual_daily_et_fraction_max(tol=0.0001):
 def test_from_scene_et_fraction_t_interval_bad_value():
     # Function should raise a ValueError if t_interval is not supported
     with pytest.raises(ValueError):
-        output_coll = interpolate.from_scene_et_fraction(
+        interpolate.from_scene_et_fraction(
             scene_coll(['et', 'time', 'mask']),
             start_date='2017-07-01', end_date='2017-08-01', variables=['et'],
             interp_args={'interp_method': 'linear', 'interp_days': 32},
@@ -742,7 +737,7 @@ def test_from_scene_et_fraction_t_interval_bad_value():
 def test_from_scene_et_fraction_t_interval_no_value():
     # Function should raise an Exception if t_interval is not set
     with pytest.raises(TypeError):
-        output_coll = interpolate.from_scene_et_fraction(
+        interpolate.from_scene_et_fraction(
             scene_coll(['et', 'time', 'mask']),
             start_date='2017-07-01', end_date='2017-08-01',
             variables=['et', 'et_reference', 'et_fraction', 'count'],
@@ -756,7 +751,7 @@ def test_from_scene_et_fraction_t_interval_no_value():
 def test_from_scene_et_actual_t_interval_bad_value():
     # Function should raise a ValueError if t_interval is not supported
     with pytest.raises(ValueError):
-        output_coll = interpolate.from_scene_et_actual(
+        interpolate.from_scene_et_actual(
             scene_coll(['et', 'time', 'mask']),
             start_date='2017-07-01', end_date='2017-08-01', variables=['et'],
             interp_args={'interp_method': 'linear', 'interp_days': 32,
@@ -772,7 +767,7 @@ def test_from_scene_et_actual_t_interval_bad_value():
 def test_from_scene_et_actual_t_interval_no_value():
     # Function should raise an Exception if t_interval is not set
     with pytest.raises(TypeError):
-        output_coll = interpolate.from_scene_et_actual(
+        interpolate.from_scene_et_actual(
             scene_coll(['et', 'time', 'mask']),
             start_date='2017-07-01', end_date='2017-08-01', variables=['et'],
             interp_args={'interp_method': 'linear', 'interp_days': 32,
@@ -787,7 +782,7 @@ def test_from_scene_et_actual_t_interval_no_value():
 
 """
 These tests were attempts at making "full" interpolation calls.
-They could be removed but are being left in case we want to explore this again 
+They could be removed but are being left in case we want to explore this again
 at some point in the future.
 """
 # def test_daily_values_collection_a():

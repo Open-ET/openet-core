@@ -1,4 +1,4 @@
-import sys
+# import sys
 
 import ee
 
@@ -22,7 +22,7 @@ def collection(
         t_interval,
         geometry,
         **kwargs
-    ):
+        ):
     """Generic OpenET Collection
 
     Parameters

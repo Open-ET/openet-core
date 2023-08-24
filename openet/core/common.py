@@ -1,6 +1,3 @@
-import re
-import warnings
-
 import ee
 
 
@@ -547,4 +544,3 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
 
     return L8_LST.rename('surface_temperature')
     #     .set('system:time_start', image.get('system:time_start'))
-

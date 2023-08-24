@@ -1,6 +1,6 @@
 # import datetime
-import logging
-import pprint
+# import logging
+# import pprint
 
 import ee
 import pytest
@@ -9,8 +9,6 @@ import openet.core.ensemble as ensemble
 import openet.core.utils as utils
 
 # logging.basicConfig(level=logging.DEBUG, format='%(message)s')
-
-
 
 
 # TODO: Write a test to check that the output bandnames
