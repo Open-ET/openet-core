@@ -906,13 +906,29 @@ def from_scene_et_actual(
             .set({'system:time_start': ee.Date(start_date).millis()})
         )
 
-    def normalize_et(img):
-        img_date = ee.Date(img.get('system:time_start')).update(hour=0, minute=0, second=0)
-        img_date = ee.Date(img_date.millis().divide(1000).floor().multiply(1000))
-        target_coll = daily_target_coll.filterDate(img_date, img_date.advance(1, 'day'))
-        target_img = ee.Image(target_coll.first())
+    # Switched the approach for building the normalized ET scene collection to
+    #   joining the target collection to the scene collection so that scenes that
+    #   occur on a day with no target image (likely DisALEXI) will get dropped.
+    # Filtering to the previous day before the scene image should be equivalent
+    #   to joining on the 0 UTC date.
+    # The original filtering in the mapped function code is commented out below
+    prev_day_filter = ee.Filter.And(
+        ee.Filter.maxDifference(
+            difference=1 * 24 * 60 * 60 * 1000,
+            leftField='system:time_start', rightField='system:time_start'),
+        ee.Filter.greaterThan(leftField='system:time_start', rightField='system:time_start')
+    )
+    scene_coll = ee.ImageCollection(
+        ee.Join.saveFirst(matchKey='target_img', ordering='system:time_start', ascending=False)
+        .apply(primary=scene_coll.filterDate(interp_start_date, interp_end_date),
+               secondary=daily_target_coll,
+               condition=prev_day_filter)
+    )
 
-        # CGM - This is causing weird artifacts in the output images
+    def normalize_et(img):
+        target_img = ee.Image(img.get('target_img'))
+
+        # CGM - Resampling in this function caused weird artifacts in the output images
         # if interp_args['interp_resample'].lower() in ['bilinear', 'bicubic']:
         #     target_img = target_img.resample(interp_args['interp_resample'])
 
@@ -932,11 +948,41 @@ def from_scene_et_actual(
 
         return img.addBands([et_norm_img.double(), target_img.rename(['norm'])])
 
-    # The time band is always needed for interpolation
-    scene_coll = (
-        scene_coll.filterDate(interp_start_date, interp_end_date).select(interp_vars)
-        .map(normalize_et)
-    )
+    scene_coll = scene_coll.select(interp_vars).map(normalize_et)
+
+    # # DEADBEEF - Changed to the join approach above
+    # #   so  that scenes without target images will get dropped
+    # def normalize_et(img):
+    #     img_date = ee.Date(img.get('system:time_start')).update(hour=0, minute=0, second=0)
+    #     img_date = ee.Date(img_date.millis().divide(1000).floor().multiply(1000))
+    #     target_coll = daily_target_coll.filterDate(img_date, img_date.advance(1, 'day'))
+    #     target_img = ee.Image(target_coll.first())
+    #
+    #     # CGM - This is causing weird artifacts in the output images
+    #     # if interp_args['interp_resample'].lower() in ['bilinear', 'bicubic']:
+    #     #     target_img = target_img.resample(interp_args['interp_resample'])
+    #
+    #     et_norm_img = img.select(['et']).divide(target_img).rename(['et_norm'])
+    #
+    #     # Clamp the normalized ET image (et_fraction)
+    #     if 'et_fraction_max' in interp_args.keys():
+    #         et_norm_img = et_norm_img.min(float(interp_args['et_fraction_max']))
+    #     if 'et_fraction_min' in interp_args.keys():
+    #         et_norm_img = et_norm_img.max(float(interp_args['et_fraction_min']))
+    #     # if ('et_fraction_min' in interp_args.keys() and
+    #     #     'et_fraction_max' in interp_args.keys()):
+    #     #     et_norm_img = et_norm_img.clamp(
+    #     #         float(interp_args['et_fraction_min']),
+    #     #         float(interp_args['et_fraction_max'])
+    #     #     )
+    #
+    #     return img.addBands([et_norm_img.double(), target_img.rename(['norm'])])
+    #
+    # # The time band is always needed for interpolation
+    # scene_coll = (
+    #     scene_coll.filterDate(interp_start_date, interp_end_date).select(interp_vars)
+    #     .map(normalize_et)
+    # )
 
     # Interpolate to a daily time step
     daily_coll = daily(
