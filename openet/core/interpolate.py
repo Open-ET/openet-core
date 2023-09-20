@@ -1,5 +1,6 @@
 import datetime
 import logging
+import pprint
 
 import ee
 from dateutil.relativedelta import relativedelta
@@ -148,7 +149,7 @@ def daily(
             time_img = ee.Image.constant(utc0_date.millis()).double()
 
             # Build nodata images/masks that can be placed at the front/back of
-            #   of the qm image collections in case the collections are empty.
+            #   the qm image collections in case the collections are empty
             bands = source_coll.first().bandNames()
             prev_qm_mask = ee.Image.constant(ee.List.repeat(1, bands.length()))\
                 .double().rename(bands).updateMask(0)\
@@ -186,10 +187,8 @@ def daily(
                 # The closest image in time should be on "top"
                 # CGM - Is the previous collection already sorted?
                 # prev_qm_img = prev_qm_coll.mosaic()
-                prev_qm_img = prev_qm_coll.sort('system:time_start', True)\
-                    .mosaic()
-                next_qm_img = next_qm_coll.sort('system:time_start', False)\
-                    .mosaic()
+                prev_qm_img = prev_qm_coll.sort('system:time_start', True).mosaic()
+                next_qm_img = next_qm_coll.sort('system:time_start', False).mosaic()
 
             # DEADBEEF - It might be easier to interpolate all bands instead of
             #   separating the value and time bands
@@ -253,8 +252,7 @@ def daily(
 
 
 # @deprecated
-def aggregate_daily(image_coll, start_date=None, end_date=None,
-                    agg_type='mean'):
+def aggregate_daily(image_coll, start_date=None, end_date=None, agg_type='mean'):
     return aggregate_to_daily(image_coll, start_date, end_date, agg_type)
 
 
@@ -340,7 +338,6 @@ def from_scene_et_fraction(
         interp_args,
         model_args,
         t_interval,
-        use_joins=False,
         ):
     """Interpolate from a precomputed collection of Landsat ET fraction scenes
 
@@ -365,6 +362,7 @@ def from_scene_et_fraction(
         use_joins : bool, optional
             If True, use joins to link the target and source collections.
             If False, the source collection will be filtered for each target image.
+            This parameter is passed through to interpolate.daily().
     model_args : dict
         Parameters from the MODEL section of the INI file.  The reference
         source and parameters will need to be set here if computing
@@ -373,10 +371,6 @@ def from_scene_et_fraction(
         Time interval over which to interpolate and aggregate values
         The 'custom' interval will aggregate all days within the start and end
         dates into an image collection with a single image.
-    use_joins : bool, optional
-        If True, use joins to link the target and source collections.
-        If False, the source collection will be filtered for each target image.
-        This parameter is passed through to interpolate.daily().
 
     Returns
     -------
@@ -397,29 +391,27 @@ def from_scene_et_fraction(
         interp_method = interp_args['interp_method']
     else:
         interp_method = 'linear'
-        logging.debug('interp_method was not set, default to "linear"')
+        logging.debug('interp_method was not set in interp_args, default to "linear"')
 
     # Get interp_days
     if 'interp_days' in interp_args.keys():
         interp_days = interp_args['interp_days']
     else:
         interp_days = 32
-        logging.debug('interp_days was not set, default to 32')
+        logging.debug('interp_days was not set in interp_args, default to 32')
 
-    # Override the use_joins function parameter if it was set in interp_args
-    # Eventually the separate function parameter will be deprecated and removed
+    # Get use_joins
     if 'use_joins' in interp_args.keys():
         use_joins = interp_args['use_joins']
-    # else:
-    #     use_joins = False
-    #     logging.debug('use_joins was not set, default to False')
+    else:
+        use_joins = False
+        logging.debug('use_joins was not set in interp_args, default to False')
 
     # Check that the input parameters are valid
     if t_interval.lower() not in ['daily', 'monthly', 'annual', 'custom']:
-        raise ValueError('unsupported t_interval: {}'.format(t_interval))
+        raise ValueError(f'unsupported t_interval: {t_interval}')
     elif interp_method.lower() not in ['linear']:
-        raise ValueError('unsupported interp_method: {}'.format(
-            interp_method))
+        raise ValueError(f'unsupported interp_method: {interp_method}')
 
     if ((type(interp_days) is str or type(interp_days) is float) and
             utils.is_number(interp_days)):
@@ -489,8 +481,8 @@ def from_scene_et_fraction(
     #     # raise ValueError('et_reference_resample was not set')
 
     if type(et_reference_source) is str:
-        # Assume a string source is an single image collection ID
-        #   not an list of collection IDs or ee.ImageCollection
+        # Assume a string source is a single image collection ID
+        #   not a list of collection IDs or ee.ImageCollection
         daily_et_ref_coll = ee.ImageCollection(et_reference_source) \
             .filterDate(start_date, end_date) \
             .select([et_reference_band], ['et_reference'])
@@ -708,7 +700,6 @@ def from_scene_et_actual(
         interp_args,
         model_args,
         t_interval,
-        use_joins=False,
         ):
     """Interpolate from a precomputed collection of Landsat actual ET scenes
 
@@ -738,6 +729,7 @@ def from_scene_et_actual(
         use_joins : bool, optional
             If True, use joins to link the target and source collections.
             If False, the source collection will be filtered for each target image.
+            This parameter is passed through to interpolate.daily().
     model_args : dict
         Parameters from the MODEL section of the INI file.  The reference
         source and other parameters will need to be set here if computing
@@ -746,10 +738,6 @@ def from_scene_et_actual(
         Time interval over which to interpolate and aggregate values.
         The 'custom' interval will aggregate all days within the start and end
         dates into an image collection with a single image.
-    use_joins : bool, optional
-        If True, use joins to link the target and source collections.
-        If False, the source collection will be filtered for each target image.
-        This parameter is passed through to interpolate.daily().
 
     Returns
     -------
@@ -770,29 +758,27 @@ def from_scene_et_actual(
         interp_method = interp_args['interp_method']
     else:
         interp_method = 'linear'
-        logging.debug('interp_method was not set, default to "linear"')
+        logging.debug('interp_method was not set in interp_args, default to "linear"')
 
     # Get interp_days
     if 'interp_days' in interp_args.keys():
         interp_days = interp_args['interp_days']
     else:
         interp_days = 32
-        logging.debug('interp_days was not set, default to 32')
+        logging.debug('interp_days was not set in interp_args, default to 32')
 
-    # Override the use_joins function parameter if it was set in interp_args
-    # Eventually the separate function parameter will be deprecated and removed
+    # Get use_joins
     if 'use_joins' in interp_args.keys():
         use_joins = interp_args['use_joins']
-    # else:
-    #     use_joins = False
-    #     logging.debug('use_joins was not set, default to False')
+    else:
+        use_joins = False
+        logging.debug('use_joins was not set in interp_args, default to False')
 
     # Check that the input parameters are valid
     if t_interval.lower() not in ['daily', 'monthly', 'annual', 'custom']:
-        raise ValueError('unsupported t_interval: {}'.format(t_interval))
+        raise ValueError(f'unsupported t_interval: {t_interval}')
     elif interp_method.lower() not in ['linear']:
-        raise ValueError('unsupported interp_method: {}'.format(
-            interp_method))
+        raise ValueError(f'unsupported interp_method: {interp_method}')
 
     if ((type(interp_days) is str or type(interp_days) is float) and
             utils.is_number(interp_days)):
@@ -856,8 +842,8 @@ def from_scene_et_actual(
         #         'et_reference_resample was not set, default to nearest')
         #     # raise ValueError('et_reference_resample was not set')
 
-        # Assume a string source is an single image collection ID
-        #   not an list of collection IDs or ee.ImageCollection
+        # Assume a string source is a single image collection ID
+        #   not a list of collection IDs or ee.ImageCollection
         daily_et_ref_coll_id = model_args['et_reference_source']
         daily_et_ref_coll = ee.ImageCollection(daily_et_ref_coll_id) \
             .filterDate(start_date, end_date) \
@@ -909,24 +895,22 @@ def from_scene_et_actual(
             start_date=start_date,
             end_date=end_date,
         )
+
         # The following is needed because the aggregate collection can be
         #   empty if there are no scenes in the target date range but there
         #   are scenes in the interpolation date range.
-        # Without this the count image will not be built but the other
-        #   bands will be which causes a non-homogeneous image collection.
+        # Without this the count image will not be built but the other bands
+        #   will be, which causes a non-homogeneous image collection.
         aggregate_coll = aggregate_coll.merge(
             ee.Image.constant(0).rename(['mask'])
-                .set({'system:time_start': ee.Date(start_date).millis()})
+            .set({'system:time_start': ee.Date(start_date).millis()})
         )
 
-    # It might be more efficient to join the target collection to the scenes
     def normalize_et(img):
-        img_date = ee.Date(img.get('system:time_start')) \
-            .update(hour=0, minute=0, second=0)
+        img_date = ee.Date(img.get('system:time_start')).update(hour=0, minute=0, second=0)
         img_date = ee.Date(img_date.millis().divide(1000).floor().multiply(1000))
-        target_img = ee.Image(
-            daily_target_coll.filterDate(img_date, img_date.advance(1, 'day')).first()
-        )
+        target_coll = daily_target_coll.filterDate(img_date, img_date.advance(1, 'day'))
+        target_img = ee.Image(target_coll.first())
 
         # CGM - This is causing weird artifacts in the output images
         # if interp_args['interp_resample'].lower() in ['bilinear', 'bicubic']:
@@ -943,7 +927,8 @@ def from_scene_et_actual(
         #     'et_fraction_max' in interp_args.keys()):
         #     et_norm_img = et_norm_img.clamp(
         #         float(interp_args['et_fraction_min']),
-        #         float(interp_args['et_fraction_max']))
+        #         float(interp_args['et_fraction_max'])
+        #     )
 
         return img.addBands([et_norm_img.double(), target_img.rename(['norm'])])
 
@@ -952,22 +937,6 @@ def from_scene_et_actual(
         scene_coll.filterDate(interp_start_date, interp_end_date).select(interp_vars)
         .map(normalize_et)
     )
-
-    # # Join the target (normalization) image to the scene images
-    # if use_joins:
-    #     prev_filter = ee.Filter.And(
-    #         ee.Filter.maxDifference(
-    #             difference=(interp_days + 1) * 24 * 60 * 60 * 1000,
-    #             leftField='system:time_start', rightField='system:time_start'),
-    #         ee.Filter.greaterThan(leftField='system:time_start',
-    #                               rightField='system:time_start')
-    #     )
-    #     scene_coll = ee.ImageCollection(
-    #         ee.Join.saveFirst(matchKey='norm_img', ordering='system:time_start',
-    #                           ascending=False)
-    #             .apply(primary=scene_coll, secondary=target_coll,
-    #                    condition=prev_filter)
-    #     )
 
     # Interpolate to a daily time step
     daily_coll = daily(
@@ -1054,7 +1023,7 @@ def from_scene_et_actual(
             .set({
                 'system:index': ee.Date(agg_start_date).format(date_format),
                 'system:time_start': ee.Date(agg_start_date).millis()})
-        #     .set(interp_properties)\
+            # .set(interp_properties)\
 
     # Combine input, interpolated, and derived values
     if t_interval.lower() == 'daily':

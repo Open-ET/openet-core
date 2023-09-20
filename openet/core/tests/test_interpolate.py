@@ -150,8 +150,7 @@ def test_daily_collection(tgt_value, tgt_time, src_values, src_times,
     tgt_coll = ee.ImageCollection([tgt_image(tgt_value, tgt_time)])
     src_coll = ee.ImageCollection.fromImages(src_images(src_values, src_times))
     output_coll = interpolate.daily(
-        tgt_coll, src_coll, interp_days=32, interp_method='linear',
-        use_joins=False)
+        tgt_coll, src_coll, interp_days=32, interp_method='linear', use_joins=False)
     output = utils.constant_image_value(ee.Image(output_coll.first()))
     assert abs(output['src'] - expected) <= tol
     assert abs(output['tgt'] - tgt_value) <= tol
@@ -205,8 +204,7 @@ def test_daily_use_joins_true(tgt_value, tgt_time, src_values, src_times,
     tgt_coll = ee.ImageCollection([tgt_image(tgt_value, tgt_time)])
     src_coll = ee.ImageCollection.fromImages(src_images(src_values, src_times))
     output_coll = interpolate.daily(
-        tgt_coll, src_coll, interp_days=32, interp_method='linear',
-        use_joins=True)
+        tgt_coll, src_coll, interp_days=32, interp_method='linear', use_joins=True)
     output = utils.constant_image_value(ee.Image(output_coll.first()))
     assert abs(output['src'] - expected) <= tol
     assert abs(output['tgt'] - tgt_value) <= tol
@@ -410,8 +408,7 @@ def test_aggregate_to_daily_values_multi_band(src_values, time_values, expected,
     # Dates can be ISO Date string or milliseconds since epoch
     # Use the date strings to get 0 UTC dates and better match model calls
     start_date = ee.Date(min(time_values)).format('yyyy-MM-dd')
-    end_date = ee.Date(max(time_values)).advance(1, 'day').format(
-        'yyyy-MM-dd')
+    end_date = ee.Date(max(time_values)).advance(1, 'day').format('yyyy-MM-dd')
     # start_date = min(time_values)
     # end_date = max(time_values)
 
@@ -462,7 +459,7 @@ def test_aggregate_to_daily_date_filtering():
     assert max(output) < '2017-08-02'
 
 
-def test_from_scene_et_fraction_daily_values(tol=0.0001):
+def test_from_scene_et_fraction_t_interval_daily_values(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi', 'time', 'mask'], ndvi=[0.2, 0.4, 0.6]),
         start_date='2017-07-01', end_date='2017-08-01',
@@ -492,7 +489,7 @@ def test_from_scene_et_fraction_daily_values(tol=0.0001):
     # assert output['count']['2017-07-01'] == 3
 
 
-def test_from_scene_et_fraction_monthly_values(tol=0.0001):
+def test_from_scene_et_fraction_t_interval_monthly_values(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
@@ -513,7 +510,7 @@ def test_from_scene_et_fraction_monthly_values(tol=0.0001):
     assert output['count']['2017-07-01'] == 3
 
 
-def test_from_scene_et_fraction_custom_values(tol=0.0001):
+def test_from_scene_et_fraction_t_interval_custom_values(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
@@ -534,7 +531,7 @@ def test_from_scene_et_fraction_custom_values(tol=0.0001):
     assert output['count']['2017-07-01'] == 3
 
 
-def test_from_scene_et_fraction_monthly_et_reference_factor(tol=0.0001):
+def test_from_scene_et_fraction_t_interval_monthly_et_reference_factor(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
@@ -556,7 +553,7 @@ def test_from_scene_et_fraction_monthly_et_reference_factor(tol=0.0001):
 
 
 # CGM - Resampling is not being applied so this should be equal to nearest
-def test_from_scene_et_fraction_monthly_et_reference_resampling(tol=0.0001):
+def test_from_scene_et_fraction_t_interval_monthly_et_reference_resampling(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
@@ -577,7 +574,7 @@ def test_from_scene_et_fraction_monthly_et_reference_resampling(tol=0.0001):
     assert output['count']['2017-07-01'] == 3
 
 
-def test_from_scene_et_actual_daily_values(tol=0.0001):
+def test_from_scene_et_actual_t_interval_daily_values(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
@@ -603,7 +600,7 @@ def test_from_scene_et_actual_daily_values(tol=0.0001):
     # assert output['count']['2017-07-01'] == 3
 
 
-def test_from_scene_et_actual_monthly_values(tol=0.0001):
+def test_from_scene_et_actual_t_interval_monthly_values(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
@@ -626,7 +623,7 @@ def test_from_scene_et_actual_monthly_values(tol=0.0001):
     assert output['count']['2017-07-01'] == 3
 
 
-def test_from_scene_et_actual_custom_values(tol=0.0001):
+def test_from_scene_et_actual_t_interval_custom_values(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
@@ -649,7 +646,7 @@ def test_from_scene_et_actual_custom_values(tol=0.0001):
     assert output['count']['2017-07-01'] == 3
 
 
-def test_from_scene_et_actual_monthly_et_reference_factor(tol=0.0001):
+def test_from_scene_et_actual_t_interval_monthly_et_reference_factor(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
@@ -673,7 +670,7 @@ def test_from_scene_et_actual_monthly_et_reference_factor(tol=0.0001):
 
 
 # CGM - Resampling is not being applied so this should be equal to nearest
-def test_from_scene_et_actual_monthly_et_reference_resample(tol=0.0001):
+def test_from_scene_et_actual_t_interval_monthly_et_reference_resample(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
@@ -696,7 +693,7 @@ def test_from_scene_et_actual_monthly_et_reference_resample(tol=0.0001):
     assert output['count']['2017-07-01'] == 3
 
 
-def test_from_scene_et_actual_daily_et_fraction_max(tol=0.0001):
+def test_from_scene_et_actual_t_interval_daily_et_fraction_max(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et', 'time', 'mask'], et=[100, 100, 100]),
         start_date='2017-07-01', end_date='2017-08-01',
@@ -778,6 +775,91 @@ def test_from_scene_et_actual_t_interval_no_value():
                         'et_reference_band': 'etr',
                         'et_reference_factor': 1.0,
                         'et_reference_resample': 'nearest'})
+
+
+def test_from_scene_et_fraction_interp_args_use_joins_true(tol=0.01):
+    # Check that the use_joins interp_args parameter works
+    output_coll = interpolate.from_scene_et_fraction(
+        scene_coll(['et_fraction', 'time', 'mask']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et', 'et_reference', 'count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 32, 'use_joins': True},
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_factor': 1.0,
+                    'et_reference_resample': 'nearest'},
+        t_interval='monthly')
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
+    assert abs(output['et_reference']['2017-07-01'] - 310.3) <= tol
+    assert abs(output['et']['2017-07-01'] - (310.3 * 0.4)) <= tol
+    assert output['count']['2017-07-01'] == 3
+
+
+def test_from_scene_et_fraction_interp_args_use_joins_false(tol=0.01):
+    # Check that the use_joins interp_args parameter works
+    output_coll = interpolate.from_scene_et_fraction(
+        scene_coll(['et_fraction', 'time', 'mask']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et', 'et_reference', 'count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 32, 'use_joins': False},
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_factor': 1.0,
+                    'et_reference_resample': 'nearest'},
+        t_interval='monthly')
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
+    assert abs(output['et_reference']['2017-07-01'] - 310.3) <= tol
+    assert abs(output['et']['2017-07-01'] - (310.3 * 0.4)) <= tol
+    assert output['count']['2017-07-01'] == 3
+
+
+def test_from_scene_et_actual_interp_args_use_joins_true(tol=0.01):
+    # Check that the use_joins interp_args parameter works
+    output_coll = interpolate.from_scene_et_actual(
+        scene_coll(['et', 'time', 'mask']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et', 'et_reference', 'count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 32,
+                     'interp_source': 'IDAHO_EPSCOR/GRIDMET', 'interp_band': 'etr',
+                     'use_joins': True},
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_factor': 1.0,
+                    'et_reference_resample': 'nearest'},
+        t_interval='monthly')
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
+    assert abs(output['et']['2017-07-01'] - 142.9622039794922) <= tol
+    assert abs(output['et_reference']['2017-07-01'] - 310.3) <= tol
+    assert output['count']['2017-07-01'] == 3
+
+
+def test_from_scene_et_actual_interp_args_use_joins_false(tol=0.01):
+    # Check that the use_joins interp_args parameter works
+    output_coll = interpolate.from_scene_et_actual(
+        scene_coll(['et', 'time', 'mask']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et', 'et_reference', 'count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 32,
+                     'interp_source': 'IDAHO_EPSCOR/GRIDMET', 'interp_band': 'etr',
+                     'use_joins': True},
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_factor': 1.0,
+                    'et_reference_resample': 'nearest'},
+        t_interval='monthly')
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
+    assert abs(output['et']['2017-07-01'] - 142.9622039794922) <= tol
+    assert abs(output['et_reference']['2017-07-01'] - 310.3) <= tol
+    assert output['count']['2017-07-01'] == 3
+
 
 
 """
