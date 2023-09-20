@@ -1,2 +1,0 @@
-earthengine-api>=0.1.304
-python-dateutil
