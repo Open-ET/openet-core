@@ -307,7 +307,7 @@ def get_info(ee_obj, max_retries=4):
             logging.info(f'    Resending query ({i}/{max_retries})')
             logging.debug(f'    {e}')
 
-        if output:
+        if output is not None:
             break
 
         time.sleep(i ** 3)

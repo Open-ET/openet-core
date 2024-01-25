@@ -159,7 +159,8 @@ def landsat_c2_sr_cloud_mask(
     ----------
     input_img : ee.Image
         Image from a Landsat Collection 2 SR image collection
-        with QA_PIXEL and QA_RADSAT bands (e.g. LANDSAT/LC08/C02/T1_L2).
+        with QA_PIXEL and QA_RADSAT bands and teh SPACECRAFT_ID property
+        (e.g. LANDSAT/LC08/C02/T1_L2).
     cirrus_flag : bool
         If true, mask cirrus pixels (the default is False).
         Note, cirrus bits are only set for Landsat 8 (OLI) images.
@@ -170,7 +171,7 @@ def landsat_c2_sr_cloud_mask(
     snow_flag : bool
         If true, mask snow pixels (the default is False).
     saturated_flag : bool
-        If true, mask pixels that are saturated in any band
+        If true, mask pixels that are saturated in the RGB bands
         (the default is False).
 
     Returns
@@ -239,8 +240,19 @@ def landsat_c2_sr_cloud_mask(
         cloud_mask = cloud_mask.Or(qa_img.rightShift(5).bitwiseAnd(1).neq(0))
 
     if saturated_flag:
+        # Masking if saturated in the RGB bands
+        # Use the SPACECRAFT_ID property identify each Landsat type
+        spacecraft_id = ee.String(input_img.get('SPACECRAFT_ID'))
+        bitshift = ee.Dictionary({
+            'LANDSAT_4': 0, 'LANDSAT_5': 0, 'LANDSAT_7': 0, 'LANDSAT_8': 1, 'LANDSAT_9': 1,
+        })
+        sat_mask = (
+            input_img.select(['QA_RADSAT'])
+            .rightShift(ee.Number(bitshift.get(spacecraft_id)))
+            .bitwiseAnd(7).gt(0)
+        )
         # Masking if saturated in any band
-        sat_mask = input_img.select(['QA_RADSAT']).gt(0)
+        # sat_mask = input_img.select(['QA_RADSAT']).gt(0)
         cloud_mask = cloud_mask.Or(sat_mask)
 
     # Flip to set cloudy pixels to 0 and clear to 1

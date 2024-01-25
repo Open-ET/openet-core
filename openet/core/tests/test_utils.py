@@ -24,6 +24,14 @@ def test_get_info():
     assert utils.get_info(ee.Number(1)) == 1
 
 
+def test_get_info_zero():
+    assert utils.get_info(ee.Number(0)) == 0
+
+
+def test_get_info_empty_list():
+    assert utils.get_info(ee.List([])) == []
+
+
 def test_date_0utc(date='2015-07-13'):
     assert utils.get_info(utils.date_0utc(
         ee.Date(date).advance(2, 'hour')).format('yyyy-MM-dd')) == date

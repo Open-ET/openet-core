@@ -16,7 +16,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "earthengine-api>=0.1.310",
+    "earthengine-api>=0.1.364",
     "python-dateutil",
     "importlib-metadata; python_version <= '3.7'",
 ]
