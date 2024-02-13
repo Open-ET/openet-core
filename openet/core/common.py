@@ -1,5 +1,7 @@
 import ee
 
+from . import landsat
+
 
 def landsat_c1_toa_cloud_mask(
         input_img,
@@ -70,9 +72,11 @@ def landsat_c1_toa_cloud_mask(
 
     """
     qa_img = input_img.select(['BQA'])
-    cloud_mask = qa_img.rightShift(4).bitwiseAnd(1).neq(0)\
-        .And(qa_img.rightShift(5).bitwiseAnd(3).gte(cloud_confidence))\
+    cloud_mask = (
+        qa_img.rightShift(4).bitwiseAnd(1).neq(0)
+        .And(qa_img.rightShift(5).bitwiseAnd(3).gte(cloud_confidence))
         .Or(qa_img.rightShift(7).bitwiseAnd(3).gte(shadow_confidence))
+    )
     if snow_flag:
         cloud_mask = cloud_mask.Or(qa_img.rightShift(9).bitwiseAnd(3).gte(snow_confidence))
     if cirrus_flag:
@@ -150,16 +154,20 @@ def landsat_c2_sr_cloud_mask(
         dilate_flag=False,
         shadow_flag=True,
         snow_flag=False,
+        cloud_score_flag=False,
+        cloud_score_pct=100,
+        filter_flag=False,
         saturated_flag=False,
+        sr_cloud_qa_flag=False,
         # cloud_confidence=3,
         ):
-    """Extract cloud mask from the Landsat Collection 2 SR QA_PIXEL band
+    """Compute cloud mask for a Landsat Coll. 2 Level 2 (SR) image using multiple approaches
 
     Parameters
     ----------
     input_img : ee.Image
         Image from a Landsat Collection 2 SR image collection
-        with QA_PIXEL and QA_RADSAT bands and teh SPACECRAFT_ID property
+        with QA_PIXEL and QA_RADSAT bands and the SPACECRAFT_ID property
         (e.g. LANDSAT/LC08/C02/T1_L2).
     cirrus_flag : bool
         If true, mask cirrus pixels (the default is False).
@@ -170,9 +178,19 @@ def landsat_c2_sr_cloud_mask(
         If true, mask shadow pixels (the default is True).
     snow_flag : bool
         If true, mask snow pixels (the default is False).
-    saturated_flag : bool
-        If true, mask pixels that are saturated in the RGB bands
+    cloud_score_flag : bool
+        If true, mask pixels that have a TOA simple cloud score >= cloud_score_pct
         (the default is False).
+    cloud_score_pct : bool
+        Pixels with a cloud score >= this value will be masked (the default is 100).
+    filter_flag : bool
+        Filter QA_PIXEL cloud mask with a single pixel erode/dilate (the default is True).
+    saturated_flag : bool
+        If true, mask pixels that are saturated in the RGB bands (the default is False).
+    sr_cloud_qa_flag : bool
+        If true, mask pixels using the SR_CLOUD_QA band (the default is False).
+        This approach will only be applied for Landsat 4/5/7 images
+        and is equivalent to the LEDAPS masking in Collection 1.
 
     Returns
     -------
@@ -183,80 +201,41 @@ def landsat_c2_sr_cloud_mask(
     Output image is structured to be applied directly with updateMask()
         i.e. 0 is cloud/masked, 1 is clear/unmasked
 
-    Assuming Cloud must be set to check Cloud Confidence
-    (CGM - Note, this is a bad assumption and is probably causing missed clouds)
-
-    Bits
-        0: Fill
-            0 for image data
-            1 for fill data
-        1: Dilated Cloud
-            0 for cloud is not dilated or no cloud
-            1 for cloud dilation
-        2: Cirrus
-            0 for no confidence level set or low confidence
-            1 for high confidence cirrus
-        3: Cloud
-            0 for cloud confidence is not high
-            1 for high confidence cloud
-        4: Cloud Shadow
-            0 for Cloud Shadow Confidence is not high
-            1 for high confidence cloud shadow
-        5: Snow
-            0 for Snow/Ice Confidence is not high
-            1 for high confidence snow cover
-        6: Clear
-            0 if Cloud or Dilated Cloud bits are set
-            1 if Cloud and Dilated Cloud bits are not set
-        7: Water
-            0 for land or cloud
-            1 for water
-        8-9: Cloud Confidence
-        10-11: Cloud Shadow Confidence
-        12-13: Snow/Ice Confidence
-        14-15: Cirrus Confidence
-
-    Confidence values
-        00: "No confidence level set"
-        01: "Low confidence"
-        10: "Medium confidence" (for Cloud Confidence only, otherwise "Reserved")
-        11: "High confidence"
-
-    References
-    ----------
-    https://prd-wret.s3.us-west-2.amazonaws.com/assets/palladium/production/atoms/files/LSDS-1328_Landsat8-9-OLI-TIRS-C2-L2-DFCB-v6.pdf
-
     """
-    qa_img = input_img.select(['QA_PIXEL'])
-    cloud_mask = qa_img.rightShift(3).bitwiseAnd(1).neq(0)
-    #     .Or(qa_img.rightShift(8).bitwiseAnd(3).gte(cloud_confidence))
-    if cirrus_flag:
-        cloud_mask = cloud_mask.Or(qa_img.rightShift(2).bitwiseAnd(1).neq(0))
-    if dilate_flag:
-        cloud_mask = cloud_mask.Or(qa_img.rightShift(1).bitwiseAnd(1).neq(0))
-    if shadow_flag:
-        cloud_mask = cloud_mask.Or(qa_img.rightShift(4).bitwiseAnd(1).neq(0))
-    if snow_flag:
-        cloud_mask = cloud_mask.Or(qa_img.rightShift(5).bitwiseAnd(1).neq(0))
+    # Use the QA_PIXEL band to build the initial/default cloud mask
+    mask_img = landsat.c02_qa_pixel_mask(
+        input_img, cirrus_flag, dilate_flag, shadow_flag, snow_flag
+    )
 
-    if saturated_flag:
-        # Masking if saturated in the RGB bands
-        # Use the SPACECRAFT_ID property identify each Landsat type
-        spacecraft_id = ee.String(input_img.get('SPACECRAFT_ID'))
-        bitshift = ee.Dictionary({
-            'LANDSAT_4': 0, 'LANDSAT_5': 0, 'LANDSAT_7': 0, 'LANDSAT_8': 1, 'LANDSAT_9': 1,
-        })
-        sat_mask = (
-            input_img.select(['QA_RADSAT'])
-            .rightShift(ee.Number(bitshift.get(spacecraft_id)))
-            .bitwiseAnd(7).gt(0)
+    # Erode/dilate 1 cell to remove standalone pixels
+    # This seems to mostly happen in the QA_PIXEL mask above,
+    #   but it could be applied to the final mask before return
+    # The extra dilate might help, but would setting the radius to 2 do the same thing?
+    # Does this call need the reproject?  If applied in a map call it might be needed
+    if filter_flag:
+        mask_img = (
+            mask_img
+            .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.circle(radius=1, units='pixels'))
+            .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.circle(radius=1, units='pixels'))
+            # .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.circle(radius=1, units='pixels'))
+            # .reproject(input_img.projection())
         )
-        # Masking if saturated in any band
-        # sat_mask = input_img.select(['QA_RADSAT']).gt(0)
-        cloud_mask = cloud_mask.Or(sat_mask)
 
-    # Flip to set cloudy pixels to 0 and clear to 1
-    return cloud_mask.Not().rename(['cloud_mask'])
+    # Apply other cloud masks
+    if cloud_score_flag:
+        mask_img = mask_img.Or(landsat.c02_cloud_score_mask(input_img, cloud_score_pct))
+    if saturated_flag:
+        mask_img = mask_img.Or(landsat.c02_qa_radsat_mask(input_img))
+    if sr_cloud_qa_flag:
+        mask_img = mask_img.Or(landsat.c02_sr_cloud_qa_mask(input_img))
+        # # TODO: Should the QA_PIXEL flags be passed through to this function also?
+        # sr_cloud_qa_mask = landsat.c02_l2_sr_cloud_qa_mask(
+        #     input_img, adjacent_flag=dilate_flag, shadow_flag=shadow_flag, snow_flag=snow_flag
+        # )
+        # mask_img = mask_img.Or(sr_cloud_qa_mask)
+
+    # Flip to set cloudy pixels to 0 and clear to 1 for an updateMask() call
+    return mask_img.Not().rename(['cloud_mask'])
 
 
 def sentinel2_toa_cloud_mask(input_img):
@@ -293,7 +272,7 @@ def sentinel2_toa_cloud_mask(input_img):
         .Or(qa_img.rightShift(11).bitwiseAnd(1).neq(0))
 
     # Set cloudy pixels to 0 and clear to 1
-    return cloud_mask.Not()
+    return cloud_mask.Not().rename(['cloud_mask'])
 
 
 def sentinel2_sr_cloud_mask(input_img):
@@ -330,29 +309,28 @@ def sentinel2_sr_cloud_mask(input_img):
         .Or(qa_img.rightShift(11).bitwiseAnd(1).neq(0))
 
     # Set cloudy pixels to 0 and clear to 1
-    return cloud_mask.Not()
-
-
-# def sentinel2_toa_cloud_mask(input_img):
-#     # This function will be removed as of version 0.1
-#     warnings.warn(
-#         "common.sentinel2_toa_cloud_mask() is deprecated, "
-#         "use common.sentinel2_cloud_mask() instead",
-#         DeprecationWarning
-#     )
-#     return sentinel2_cloud_mask(input_img)
+    return cloud_mask.Not().rename(['cloud_mask'])
 
 
 def landsat_c2_sr_lst_correct(sr_image, ndvi):
-    """ Apply correction to Collection 2 LST by using ASTER emissivity and recalculating LST following the
-    procedure in the white paper by R.Allen and A.Kilic (2022) that is based on
+    """Apply correction to Collection 2 LST by using ASTER emissivity and recalculating LST following the
+    procedure in the white paper by R. Allen and A. Kilic (2022) that is based on
     Malakar, N.K., Hulley, G.C., Hook, S.J., Laraby, K., Cook, M. and Schott, J.R., 2018.
     An operational land surface temperature product for Landsat thermal data: Methodology and validation.
     IEEE Transactions on Geoscience and Remote Sensing, 56(10), pp.5717-5735.
 
-    :param sr_image: Surface reflectance image [ee.Image]
-    :param ndvi: NDVI image [ee.Image]
-    :return: L8_LST_smooth: LST recalculated from smoothed emissivity [ee.Image]
+    Parameters
+    ----------
+    sr_image : ee.Image
+        Image from a Landsat Collection 2 SR image collection
+        with the SPACECRAFT_ID and LANDSAT_SCENE_ID metadata properties
+        (e.g. LANDSAT/LC08/C02/T1_L2).
+    ndvi : ee.Image
+        Normalized difference vegetation index (NDVI)
+
+    Returns
+    -------
+    L8_LST_smooth: LST recalculated from smoothed emissivity [ee.Image]
 
     :authors: Peter ReVelle, Richard Allen, Ayse Kilic
     """
@@ -362,7 +340,7 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
     soil_emiss_fill = 0.97
 
     # Aster Global Emissivity Dataset
-    ged = ee.Image("NASA/ASTER_GED/AG100_003")
+    ged = ee.Image('NASA/ASTER_GED/AG100_003')
 
     # Set K1, K2 values
     k1 = ee.Dictionary({
@@ -457,7 +435,7 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
         return ee.Image(matched_image)
 
     def get_matched_c2_t1_image(input_image):
-        # Find Coll 2 T1 RT image matching the Collection image
+        # Find collection 2 tier 1 level 2 image matching the Collection image
         #   based on the LANDSAT_SCENE_ID property
 
         scene_id = input_image.get('LANDSAT_SCENE_ID')
@@ -473,8 +451,10 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
 
         return ee.Image(matched_image)
 
-    coll2RT = get_matched_c2_t1_rt_image(sr_image)
+    # Rebuilding the coll2 image here since the extra bands needed for the calculation
+    #   will likely have been dropped or excluded before getting to this function
     coll2 = get_matched_c2_t1_image(sr_image)
+    coll2RT = get_matched_c2_t1_rt_image(sr_image)
 
     # Apply Allen-Kilic Eq. 5 to calc. ASTER emiss. for Landsat
     # This is Eq. 4 of Malakar et al., 2018
