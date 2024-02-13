@@ -8,7 +8,7 @@ def c02_qa_pixel_mask(
         shadow_flag=True,
         snow_flag=False,
         ):
-    """Extract cloud mask from the Landsat Collection 2 Level 2 QA_PIXEL band
+    """Landsat Collection 2 QA_PIXEL band cloud mask
 
     Parameters
     ----------
@@ -93,13 +93,13 @@ def c02_qa_pixel_mask(
 
 
 def c02_cloud_score_mask(input_img, cloud_score_pct=100):
-    """Extract cloud mask from the Landsat Collection 2 SR QA_PIXEL band
+    """Landsat Collection 2 TOA simple cloud score based cloud mask
 
     Parameters
     ----------
     input_img : ee.Image
         Image from a Landsat Collection 2 SR image collection
-        (e.g. LANDSAT/LC08/C02/T1_L2) with the LANDSAT_PRODUCT_ID property.
+        (e.g. LANDSAT/LC08/C02/T1_L2).
     cloud_score_pct : float
         Pixels with a simple cloud score values greater than or equal to this
         parameter will be masked (the default is 100).
@@ -110,7 +110,7 @@ def c02_cloud_score_mask(input_img, cloud_score_pct=100):
 
     """
 
-    # Using the system:index requires an extra map calll but is probably more reliable
+    # Using the system:index requires an extra map call but might be more robust
     #   since the other properties may have been dropped
     toa_coll = c02_matched_toa_coll(input_img, 'system:index', 'system:index')
     # toa_coll = landsat_c2_l2_matched_toa_coll(input_img, 'LANDSAT_SCENE_ID', 'LANDSAT_SCENE_ID')
@@ -126,67 +126,8 @@ def c02_cloud_score_mask(input_img, cloud_score_pct=100):
     ).rename(['mask'])
 
 
-def c02_matched_toa_coll(
-        input_img,
-        sr_match_property='LANDSAT_SCENE_ID',
-        toa_match_property='LANDSAT_SCENE_ID',
-        ):
-    """
-
-    Parameters
-    ----------
-    input_img : ee.Image
-        Image with the "sr_match_property" metadata property.
-    sr_match_property : str
-        The metedata property name in input_img to use as a match criteria
-        (the default is "LANDSAT_SCENE_ID").
-    toa_match_property : str
-        The metadata property name in the Landsat Collection 2 TOA collections
-        to use as a match criteria (the default is "LANDSAT_SCENE_ID").
-
-    Returns
-    -------
-    ee.ImageCollection
-
-    Todo
-    ----
-    Try using LinkCollection instead
-
-    """
-
-    # Filter TOA collections to the target to image UTC day
-    # This filter range could be a lot tighter but keeping it to the day makes it easier to test
-    #   and will hopefully not impact the performance too much
-    start_date = ee.Date(input_img.get('system:time_start')).update(hour=0, minute=0, second=0)
-    end_date = start_date.advance(1, 'day')
-    # # Buffer the image time_start +/- 30 minutes (this could probably be set tighter)
-    # start_date = ee.Date(input_img.get('system:time_start')).advance(-0.5, 'hour')
-    # end_date = start_date.advance(1, 'hour')
-
-    l5_coll = ee.ImageCollection('LANDSAT/LT05/C02/T1_TOA').filterDate(start_date, end_date)
-    l7_coll = ee.ImageCollection('LANDSAT/LE07/C02/T1_TOA').filterDate(start_date, end_date)
-    l8_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA').filterDate(start_date, end_date)
-    l9_coll = ee.ImageCollection('LANDSAT/LC09/C02/T1_TOA').filterDate(start_date, end_date)
-
-    # The default system:index gets modified when the collections are merged below,
-    #   so save the system:index to a new "scene_id" property and use that for matching
-    if toa_match_property == 'system:index':
-        # def set_scene_id(img):
-        #     return img.set('scene_id', img.get('system:index'))
-        l5_coll = l5_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
-        l7_coll = l7_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
-        l8_coll = l8_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
-        l9_coll = l9_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
-        toa_match_property = 'scene_id'
-
-    return (
-        l9_coll.merge(l8_coll).merge(l7_coll).merge(l5_coll)
-        .filter(ee.Filter.eq(toa_match_property, ee.String(input_img.get(sr_match_property))))
-    )
-
-
 def c02_qa_radsat_mask(input_img):
-    """Extract cloud mask from the Landsat Collection 2 QA_RADSAT band
+    """Landsat Collection 2 QA_RADSAT band mask for saturated pixels
 
     Parameters
     ----------
@@ -221,7 +162,7 @@ def c02_qa_radsat_mask(input_img):
 
 
 def c02_l2_sr_cloud_qa_mask(input_img, adjacent_flag=True, shadow_flag=True, snow_flag=True):
-    """Extract cloud mask from the Landsat Collection 2 Level 2 SR_CLOUD_QA band
+    """Landsat Collection 2 Level 2 SR_CLOUD_QA band cloud mask (Landsat 4/5/7 only)
 
     Parameters
     ----------
@@ -273,3 +214,62 @@ def c02_l2_sr_cloud_qa_mask(input_img, adjacent_flag=True, shadow_flag=True, sno
             sr_cloud_qa_l57(input_img.select('SR_CLOUD_QA'))
         )
     ).rename(['mask'])
+
+
+def c02_matched_toa_coll(
+        input_img,
+        sr_match_property='LANDSAT_SCENE_ID',
+        toa_match_property='LANDSAT_SCENE_ID',
+        ):
+    """Return the Landsat Collection 2 TOA collection matching an image property
+
+    Parameters
+    ----------
+    input_img : ee.Image
+        Image with the "sr_match_property" metadata property.
+    sr_match_property : str
+        The metedata property name in input_img to use as a match criteria
+        (the default is "LANDSAT_SCENE_ID").
+    toa_match_property : str
+        The metadata property name in the Landsat Collection 2 TOA collections
+        to use as a match criteria (the default is "LANDSAT_SCENE_ID").
+
+    Returns
+    -------
+    ee.ImageCollection
+
+    Todo
+    ----
+    Try using LinkCollection instead
+
+    """
+
+    # Filter TOA collections to the target to image UTC day
+    # This filter range could be a lot tighter but keeping it to the day makes it easier to test
+    #   and will hopefully not impact the performance too much
+    start_date = ee.Date(input_img.get('system:time_start')).update(hour=0, minute=0, second=0)
+    end_date = start_date.advance(1, 'day')
+    # # Buffer the image time_start +/- 30 minutes (this could probably be set tighter)
+    # start_date = ee.Date(input_img.get('system:time_start')).advance(-0.5, 'hour')
+    # end_date = start_date.advance(1, 'hour')
+
+    l5_coll = ee.ImageCollection('LANDSAT/LT05/C02/T1_TOA').filterDate(start_date, end_date)
+    l7_coll = ee.ImageCollection('LANDSAT/LE07/C02/T1_TOA').filterDate(start_date, end_date)
+    l8_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA').filterDate(start_date, end_date)
+    l9_coll = ee.ImageCollection('LANDSAT/LC09/C02/T1_TOA').filterDate(start_date, end_date)
+
+    # The default system:index gets modified when the collections are merged below,
+    #   so save the system:index to a new "scene_id" property and use that for matching
+    if toa_match_property == 'system:index':
+        # def set_scene_id(img):
+        #     return img.set('scene_id', img.get('system:index'))
+        l5_coll = l5_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
+        l7_coll = l7_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
+        l8_coll = l8_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
+        l9_coll = l9_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
+        toa_match_property = 'scene_id'
+
+    return (
+        l9_coll.merge(l8_coll).merge(l7_coll).merge(l5_coll)
+        .filter(ee.Filter.eq(toa_match_property, ee.String(input_img.get(sr_match_property))))
+    )
