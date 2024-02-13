@@ -65,13 +65,13 @@ def landsat_c2_sr_cloud_mask(
     # Erode/dilate 1 cell to remove standalone pixels
     # This seems to mostly happen in the QA_PIXEL mask above,
     #   but it could be applied to the final mask before return
-    # The extra dilate might help, but would setting the radius to 2 do the same thing?
+    # Not sure if the extra pixel dilate is needed, but leaving for now
     # Does this call need the reproject?  If applied in a map call it might be needed
     if filter_flag:
         mask_img = (
             mask_img
             .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.circle(radius=1, units='pixels'))
-            .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.circle(radius=1, units='pixels'))
+            .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.circle(radius=2, units='pixels'))
             # .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.circle(radius=1, units='pixels'))
             # .reproject(input_img.projection())
         )
@@ -83,7 +83,7 @@ def landsat_c2_sr_cloud_mask(
         mask_img = mask_img.Or(landsat.c02_qa_radsat_mask(input_img))
     if sr_cloud_qa_flag:
         mask_img = mask_img.Or(landsat.c02_sr_cloud_qa_mask(input_img))
-        # # TODO: Should the QA_PIXEL flags be passed through to this function also?
+        # # Should the QA_PIXEL flags be passed through to the function also?
         # sr_cloud_qa_mask = landsat.c02_l2_sr_cloud_qa_mask(
         #     input_img, adjacent_flag=dilate_flag, shadow_flag=shadow_flag, snow_flag=snow_flag
         # )

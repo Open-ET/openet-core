@@ -73,43 +73,6 @@ def test_c02_qa_pixel_mask_flags(img_value, arg_name, flag_value, expected):
 
 
 @pytest.mark.parametrize(
-    "scene_id, time_start, sr_property, toa_property, expected",
-    [
-        ['LC80300362021206LGN00', '2021-07-25T17:20:21', 'LANDSAT_SCENE_ID', 'LANDSAT_SCENE_ID', 1],
-        ['LC08_030036_20210725', '2021-07-25T17:20:21', 'system:index', 'system:index', 1],
-        # This image does not have a corresponding TOA image
-        ['LT05_044029_20000615', '2000-06-15T18:20:26', 'system:index', 'system:index', 0],
-    ]
-)
-def test_c02_matched_toa_coll(scene_id, time_start, sr_property, toa_property, expected):
-    properties = {
-        sr_property: scene_id,
-        'system:time_start': ee.Date(time_start),
-    }
-    toa_coll = landsat.c02_matched_toa_coll(
-        ee.Image.constant([1]).rename(['QA_PIXEL']).set(properties), sr_property, toa_property
-    )
-    assert utils.get_info(toa_coll.size()) == expected
-
-
-@pytest.mark.parametrize(
-    "scene_id, time_start",
-    [
-        ['LC80300362021206LGN00', '2021-07-25T17:20:21'],
-    ]
-)
-def test_c02_matched_toa_coll_default_match_properties(scene_id, time_start):
-    properties = {
-        'LANDSAT_SCENE_ID': scene_id,
-        'system:time_start': ee.Date(time_start),
-    }
-    toa_coll = landsat.c02_matched_toa_coll(
-        ee.Image.constant(1).rename(['QA_PIXEL']).set(properties),
-    )
-    assert utils.get_info(toa_coll.size()) == 1
-
-
-@pytest.mark.parametrize(
     "scene_id, time_start",
     [
         ['LC08_030036_20210725', '2021-07-25T17:20:21'],
@@ -192,3 +155,79 @@ def test_c02_l2_sr_cloud_qa_mask(sr_cloud_qa, spacecraft_id, expected):
     )
     output_img = landsat.c02_l2_sr_cloud_qa_mask(input_img)
     assert utils.constant_image_value(output_img)['mask'] == expected
+
+
+@pytest.mark.parametrize(
+    "scene_id, time_start, image_property, match_property, expected",
+    [
+        ['LC80300362021206LGN00', '2021-07-25T17:20:21', 'LANDSAT_SCENE_ID', 'LANDSAT_SCENE_ID', 1],
+        ['LC08_030036_20210725', '2021-07-25T17:20:21', 'system:index', 'system:index', 1],
+        # This image does not have a corresponding TOA image
+        ['LT05_044029_20000615', '2000-06-15T18:20:26', 'system:index', 'system:index', 0],
+    ]
+)
+def test_c02_matched_toa_coll(scene_id, time_start, image_property, match_property, expected):
+    properties = {
+        image_property: scene_id,
+        'system:time_start': ee.Date(time_start),
+    }
+    output_coll = landsat.c02_matched_toa_coll(
+        ee.Image.constant([1]).rename(['QA_PIXEL']).set(properties),
+        image_property, match_property
+    )
+    assert utils.get_info(output_coll.size()) == expected
+
+
+@pytest.mark.parametrize(
+    "scene_id, time_start",
+    [
+        ['LC80300362021206LGN00', '2021-07-25T17:20:21'],
+    ]
+)
+def test_c02_matched_toa_coll_default_match_properties(scene_id, time_start):
+    # The function currently defaults to using the LANDSAT_SCENE_ID for matching
+    properties = {
+        'LANDSAT_SCENE_ID': scene_id,
+        'system:time_start': ee.Date(time_start),
+    }
+    output_coll = landsat.c02_matched_toa_coll(
+        ee.Image.constant(1).rename(['QA_PIXEL']).set(properties),
+    )
+    assert utils.get_info(output_coll.size()) == 1
+
+
+@pytest.mark.parametrize(
+    "scene_id, time_start, image_property, match_property, expected",
+    [
+        ['LC80300362021206LGN00', '2021-07-25T17:20:21', 'LANDSAT_SCENE_ID', 'LANDSAT_SCENE_ID', 1],
+        ['LC08_030036_20210725', '2021-07-25T17:20:21', 'system:index', 'system:index', 1],
+    ]
+)
+def test_c02_matched_l2_coll(scene_id, time_start, image_property, match_property, expected):
+    properties = {
+        image_property: scene_id,
+        'system:time_start': ee.Date(time_start),
+    }
+    output_coll = landsat.c02_matched_l2_coll(
+        ee.Image.constant([1]).rename(['QA_PIXEL']).set(properties),
+        image_property, match_property
+    )
+    assert utils.get_info(output_coll.size()) == expected
+
+
+@pytest.mark.parametrize(
+    "scene_id, time_start",
+    [
+        ['LC80300362021206LGN00', '2021-07-25T17:20:21'],
+    ]
+)
+def test_c02_matched_l2_coll_default_match_properties(scene_id, time_start):
+    # The function currently defaults to using the LANDSAT_SCENE_ID for matching
+    properties = {
+        'LANDSAT_SCENE_ID': scene_id,
+        'system:time_start': ee.Date(time_start),
+    }
+    output_coll = landsat.c02_matched_l2_coll(
+        ee.Image.constant(1).rename(['QA_PIXEL']).set(properties),
+    )
+    assert utils.get_info(output_coll.size()) == 1

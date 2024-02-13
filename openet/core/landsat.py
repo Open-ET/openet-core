@@ -218,19 +218,19 @@ def c02_l2_sr_cloud_qa_mask(input_img, adjacent_flag=True, shadow_flag=True, sno
 
 def c02_matched_toa_coll(
         input_img,
-        sr_match_property='LANDSAT_SCENE_ID',
-        toa_match_property='LANDSAT_SCENE_ID',
+        image_property='LANDSAT_SCENE_ID',
+        match_property='LANDSAT_SCENE_ID',
         ):
     """Return the Landsat Collection 2 TOA collection matching an image property
 
     Parameters
     ----------
     input_img : ee.Image
-        Image with the "sr_match_property" metadata property.
-    sr_match_property : str
+        Image with the "image_property" metadata property.
+    image_property : str
         The metedata property name in input_img to use as a match criteria
         (the default is "LANDSAT_SCENE_ID").
-    toa_match_property : str
+    match_property : str
         The metadata property name in the Landsat Collection 2 TOA collections
         to use as a match criteria (the default is "LANDSAT_SCENE_ID").
 
@@ -260,16 +260,75 @@ def c02_matched_toa_coll(
 
     # The default system:index gets modified when the collections are merged below,
     #   so save the system:index to a new "scene_id" property and use that for matching
-    if toa_match_property == 'system:index':
+    if match_property == 'system:index':
         # def set_scene_id(img):
         #     return img.set('scene_id', img.get('system:index'))
         l5_coll = l5_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
         l7_coll = l7_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
         l8_coll = l8_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
         l9_coll = l9_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
-        toa_match_property = 'scene_id'
+        match_property = 'scene_id'
 
     return (
         l9_coll.merge(l8_coll).merge(l7_coll).merge(l5_coll)
-        .filter(ee.Filter.eq(toa_match_property, ee.String(input_img.get(sr_match_property))))
+        .filter(ee.Filter.eq(match_property, ee.String(input_img.get(image_property))))
+    )
+
+
+def c02_matched_l2_coll(
+        input_img,
+        image_property='LANDSAT_SCENE_ID',
+        match_property='LANDSAT_SCENE_ID',
+        ):
+    """Return the Landsat Collection 2 Level 2 collection matching an image property
+
+    Parameters
+    ----------
+    input_img : ee.Image
+        Image with the "image_property" metadata property.
+    image_property : str
+        The metedata property name in input_img to use as a match criteria
+        (the default is "LANDSAT_SCENE_ID").
+    match_property : str
+        The metadata property name in the Landsat Collection 2 Level 2 collections
+        to use as a match criteria (the default is "LANDSAT_SCENE_ID").
+
+    Returns
+    -------
+    ee.ImageCollection
+
+    Todo
+    ----
+    Try using LinkCollection instead
+
+    """
+
+    # Filter TOA collections to the target to image UTC day
+    # This filter range could be a lot tighter but keeping it to the day makes it easier to test
+    #   and will hopefully not impact the performance too much
+    start_date = ee.Date(input_img.get('system:time_start')).update(hour=0, minute=0, second=0)
+    end_date = start_date.advance(1, 'day')
+    # # Buffer the image time_start +/- 30 minutes (this could probably be set tighter)
+    # start_date = ee.Date(input_img.get('system:time_start')).advance(-0.5, 'hour')
+    # end_date = start_date.advance(1, 'hour')
+
+    l5_coll = ee.ImageCollection('LANDSAT/LT05/C02/T1_L2').filterDate(start_date, end_date)
+    l7_coll = ee.ImageCollection('LANDSAT/LE07/C02/T1_L2').filterDate(start_date, end_date)
+    l8_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2').filterDate(start_date, end_date)
+    l9_coll = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2').filterDate(start_date, end_date)
+
+    # The default system:index gets modified when the collections are merged below,
+    #   so save the system:index to a new "scene_id" property and use that for matching
+    if match_property == 'system:index':
+        # def set_scene_id(img):
+        #     return img.set('scene_id', img.get('system:index'))
+        l5_coll = l5_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
+        l7_coll = l7_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
+        l8_coll = l8_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
+        l9_coll = l9_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
+        match_property = 'scene_id'
+
+    return (
+        l9_coll.merge(l8_coll).merge(l7_coll).merge(l5_coll)
+        .filter(ee.Filter.eq(match_property, ee.String(input_img.get(image_property))))
     )
