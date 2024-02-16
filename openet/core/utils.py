@@ -523,16 +523,22 @@ def list_2_str_ranges(i):
 # I'm not sure how to make them fixtures and allow input parameters
 def constant_image_value(image, crs='EPSG:32613', scale=1):
     """Extract the output value from a calculation done with constant images"""
-    return get_info(ee.Image(image).reduceRegion(
-        reducer=ee.Reducer.first(), scale=scale,
-        geometry=ee.Geometry.Rectangle([0, 0, 10, 10], crs, False)))
+    rr_params = {
+        'reducer': ee.Reducer.first(),
+        'geometry': ee.Geometry.Rectangle([0, 0, 10, 10], crs, False),
+        'scale': scale,
+    }
+    return get_info(ee.Image(image).reduceRegion(**rr_params))
 
 
 def point_image_value(image, xy, scale=1):
     """Extract the output value from a calculation at a point"""
-    return get_info(ee.Image(image).reduceRegion(
-        reducer=ee.Reducer.first(), geometry=ee.Geometry.Point(xy),
-        scale=scale))
+    rr_params = {
+        'reducer': ee.Reducer.first(),
+        'geometry': ee.Geometry.Point(xy),
+        'scale': scale,
+    }
+    return get_info(ee.Image(image).reduceRegion(**rr_params))
 
 
 def point_coll_value(coll, xy, scale=1):
@@ -550,5 +556,6 @@ def point_coll_value(coll, xy, scale=1):
         date = datetime.utcfromtimestamp(row[3] / 1000.0).strftime('%Y-%m-%d')
         for k, v in col_dict.items():
             info_dict[k][date] = row[col_dict[k]]
+
     return info_dict
     # return pd.DataFrame.from_dict(info_dict)

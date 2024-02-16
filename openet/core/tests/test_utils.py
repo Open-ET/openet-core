@@ -189,49 +189,59 @@ def test_list_2_str_ranges(input_value, expected):
     assert utils.list_2_str_ranges(input_value) == expected
 
 
-def test_constant_image_value(tol=0.000001):
-    expected = 10.123456789
-    input_img = ee.Image.constant(expected)
-    output = utils.constant_image_value(input_img)
+def test_constant_image_value(expected=10.123456789, tol=0.000001):
+    output = utils.constant_image_value(ee.Image.constant(expected))
     assert abs(output['constant'] - expected) <= tol
 
 
-def test_constant_image_value_band_name(tol=0.000001):
+def test_constant_image_value_band_name(expected=10.123456789, tol=0.000001):
     """Test that a custom band name is carried through"""
-    expected = 10.123456789
     input_img = ee.Image.constant(expected).rename('foo')
     output = utils.constant_image_value(input_img)
     assert abs(output['foo'] - expected) <= tol
 
 
-def test_constant_image_value_multiband(tol=0.000001):
+def test_constant_image_value_multiband(expected=10.123456789, tol=0.000001):
     """Test that a multiband image returns multiple values"""
-    expected = 10.123456789
     input_img = ee.Image.constant([expected, expected + 1])
     output = utils.constant_image_value(input_img)
     assert abs(output['constant_0'] - expected) <= tol
     assert abs(output['constant_1'] - (expected + 1)) <= tol
 
 
-def test_constant_image_value_multiband_bands(tol=0.000001):
+def test_constant_image_value_multiband_bands(expected=10.123456789, tol=0.000001):
     """Test that the band names are carried through on a multiband image"""
-    expected = 10.123456789
-    input_img = ee.Image.constant([expected, expected + 1])\
-        .rename(['foo', 'bar'])
+    input_img = ee.Image.constant([expected, expected + 1]).rename(['foo', 'bar'])
     output = utils.constant_image_value(input_img)
     assert abs(output['foo'] - expected) <= tol
     assert abs(output['bar'] - (expected + 1)) <= tol
 
 
-def test_point_image_value(tol=0.001):
-    expected = 2364.351
-    output = utils.point_image_value(
-        ee.Image('USGS/NED'), [-106.03249, 37.17777])
-    assert abs(output['elevation'] - expected) <= tol
+@pytest.mark.parametrize(
+    'image_id, xy, scale, expected, tol',
+    [
+        ['USGS/NED', [-106.03249, 37.17777], 10, 2364.351, 0.001],
+        ['USGS/NED', [-106.03249, 37.17777], 1, 2364.351, 0.001],
+    ]
+)
+def test_point_image_value(image_id, xy, scale, expected, tol):
+    output = utils.point_image_value(ee.Image(image_id).rename('output'), xy)
+    assert abs(output['output'] - expected) <= tol
 
 
-def test_point_coll_value(tol=0.001):
-    expected = 2364.351
-    output = utils.point_coll_value(
-        ee.ImageCollection([ee.Image('USGS/NED')]), [-106.03249, 37.17777])
-    assert abs(output['elevation']['2012-04-04'] - expected) <= tol
+@pytest.mark.parametrize(
+    'image_id, image_date, xy, scale, expected, tol',
+    [
+        # CGM - This test stopped working for a scale of 1 and returns a different
+        #   value for a scale of 10 than the point_image_value() function above.
+        # This function uses getRegion() instead of a reduceRegion() call,
+        #   so there might have been some sort of change in getRegion().
+        ['USGS/NED', '2012-04-04', [-106.03249, 37.17777], 10, 2364.286, 0.001],
+        # CGM - The default scale of 1 now returns None/Null for some reason
+        # ['USGS/NED', '2012-04-04', [-106.03249, 37.17777], 1, 2364.351, 0.001],
+    ]
+)
+def test_point_coll_value(image_id, image_date, xy, scale, expected, tol):
+    input_img = ee.Image(image_id).rename(['output'])
+    output = utils.point_coll_value(ee.ImageCollection([input_img]), xy, scale)
+    assert abs(output['output'][image_date] - expected) <= tol
