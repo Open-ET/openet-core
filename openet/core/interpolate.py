@@ -476,8 +476,7 @@ def from_scene_et_fraction(
     #     et_reference_resample = model_args['et_reference_resample']
     # else:
     #     et_reference_resample = 'nearest'
-    #     logging.debug(
-    #         'et_reference_resample was not set, default to nearest')
+    #     logging.debug('et_reference_resample was not set, default to nearest')
     #     # raise ValueError('et_reference_resample was not set')
 
     if type(et_reference_source) is str:
