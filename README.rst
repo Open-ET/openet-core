@@ -18,8 +18,6 @@ The OpenET "common" module provides functions that are common across many of the
 
 Examples of the cloud masking functions are provided in the "examples" folder.
 
-+ `Landsat Collection 1 TOA cloud mask <examples/landsat_c1_toa_cloud_mask.ipynb>`__
-+ `Landsat Collection 1 SR cloud mask <examples/landsat_c1_sr_cloud_mask.ipynb>`__
 + `Landsat Collection 2 SR cloud mask <examples/landsat_c2_sr_cloud_mask.ipynb>`__
 + `Sentinel 2 TOA cloud mask <examples/sentinel2_toa_cloud_mask.ipynb>`__
 
