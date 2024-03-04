@@ -98,7 +98,7 @@ def c02_cloud_score_mask(input_img, cloud_score_pct=100):
     Parameters
     ----------
     input_img : ee.Image
-        Image from a Landsat Collection 2 SR image collection
+        Image from a Landsat Collection 2 image collection
         (e.g. LANDSAT/LC08/C02/T1_L2).
     cloud_score_pct : float
         Pixels with a simple cloud score values greater than or equal to this
@@ -110,20 +110,22 @@ def c02_cloud_score_mask(input_img, cloud_score_pct=100):
 
     """
 
+    # TODO: Add a check to make sure cloud_score_pct is a number in the range [0-100]
+
     # Using the system:index requires an extra map call but might be more robust
     #   since the other properties may have been dropped
     toa_coll = c02_matched_toa_coll(input_img, 'system:index', 'system:index')
     # toa_coll = landsat_c2_l2_matched_toa_coll(input_img, 'LANDSAT_SCENE_ID', 'LANDSAT_SCENE_ID')
     # toa_coll = landsat_c2_l2_matched_toa_coll(input_img)
 
-    return ee.Image(
-        ee.Algorithms.If(
-            toa_coll.size().gt(0),
-            ee.Algorithms.Landsat.simpleCloudScore(toa_coll.first())
-                .select('cloud').gte(cloud_score_pct),
-            input_img.select('QA_PIXEL').multiply(0),
-        )
-    ).rename(['mask'])
+    output = ee.Algorithms.If(
+        toa_coll.size().gt(0),
+        ee.Algorithms.Landsat.simpleCloudScore(ee.Image(toa_coll.first()))
+            .select('cloud').gte(cloud_score_pct),
+        input_img.select('QA_PIXEL').multiply(0),
+    )
+
+    return ee.Image(output).rename(['mask'])
 
 
 def c02_qa_radsat_mask(input_img):
