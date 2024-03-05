@@ -49,8 +49,7 @@ def src_images(src_values, src_times):
     return src_images
 
 
-def scene_coll(variables, et_fraction=[0.4, 0.4, 0.4], et=[5, 5, 5],
-               ndvi=[0.6, 0.6, 0.6]):
+def scene_coll(variables, et_fraction=[0.4, 0.4, 0.4], et=[5, 5, 5], ndvi=[0.6, 0.6, 0.6]):
     """Return a generic scene collection to test scene interpolation functions
 
     Parameters
@@ -144,8 +143,7 @@ def scene_coll(variables, et_fraction=[0.4, 0.4, 0.4], et=[5, 5, 5],
         ],
     ]
 )
-def test_daily_collection(tgt_value, tgt_time, src_values, src_times,
-                          expected, tol=0.01):
+def test_daily_collection(tgt_value, tgt_time, src_values, src_times, expected, tol=0.01):
     """Test the daily method for collections of constant images"""
     tgt_coll = ee.ImageCollection([tgt_image(tgt_value, tgt_time)])
     src_coll = ee.ImageCollection.fromImages(src_images(src_values, src_times))
@@ -159,12 +157,11 @@ def test_daily_collection(tgt_value, tgt_time, src_values, src_times,
 @pytest.mark.parametrize(
     "tgt_value, tgt_time, src_values, src_times, expected",
     [
-        [10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222],
-         0.1],
+        [10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.1],
     ]
 )
-def test_daily_compute_product_true(tgt_value, tgt_time, src_values, src_times,
-                                    expected, tol=0.01):
+def test_daily_compute_product_true(tgt_value, tgt_time, src_values, src_times, expected,
+                                    tol=0.01):
     """Test if the compute_product flag returns the product bands"""
     tgt_coll = ee.ImageCollection([tgt_image(tgt_value, tgt_time)])
     src_coll = ee.ImageCollection.fromImages(
@@ -198,8 +195,7 @@ def test_daily_compute_product_true(tgt_value, tgt_time, src_values, src_times,
          [1438277862725, 1439660268614, 1441042674222, 1442425082323], 1.7],
     ]
 )
-def test_daily_use_joins_true(tgt_value, tgt_time, src_values, src_times,
-                              expected, tol=0.01):
+def test_daily_use_joins_true(tgt_value, tgt_time, src_values, src_times, expected, tol=0.01):
     """Test that output with use_joins=True is the same as use_joins=False"""
     tgt_coll = ee.ImageCollection([tgt_image(tgt_value, tgt_time)])
     src_coll = ee.ImageCollection.fromImages(src_images(src_values, src_times))
@@ -552,7 +548,7 @@ def test_from_scene_et_fraction_t_interval_monthly_et_reference_factor(tol=0.000
     assert output['count']['2017-07-01'] == 3
 
 
-# CGM - Resampling is not being applied so this should be equal to nearest
+
 def test_from_scene_et_fraction_t_interval_monthly_et_reference_resampling(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
@@ -568,9 +564,36 @@ def test_from_scene_et_fraction_t_interval_monthly_et_reference_resampling(tol=0
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
     assert abs(output['ndvi']['2017-07-01'] - 0.6) <= tol
+    # CGM - Reference ET and ET test values are slightly different with bilinear resampling
+    #   but ET fraction should be the same
     assert abs(output['et_fraction']['2017-07-01'] - 0.4) <= tol
-    assert abs(output['et_reference']['2017-07-01'] - 310.3) <= tol
-    assert abs(output['et']['2017-07-01'] - (310.3 * 0.4)) <= tol
+    assert abs(output['et_reference']['2017-07-01'] - 309.4364929) <= tol
+    assert abs(output['et']['2017-07-01'] - (309.43649 * 0.4)) <= tol
+    assert output['count']['2017-07-01'] == 3
+
+
+def test_from_scene_et_fraction_t_interval_monthly_interp_args_et_reference(tol=0.0001):
+    # Check that the et_reference parameters can be set through the interp_args
+    output_coll = interpolate.from_scene_et_fraction(
+        scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et', 'et_reference', 'et_fraction', 'ndvi', 'count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 32,
+                     'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                     'et_reference_band': 'etr',
+                     'et_reference_factor': 1.0,
+                     'et_reference_resample': 'bilinear'},
+        model_args={},
+        t_interval='monthly')
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
+    assert abs(output['ndvi']['2017-07-01'] - 0.6) <= tol
+    # CGM - Reference ET and ET test values are slightly different with bilinear resampling
+    #   but ET fraction should be the same
+    assert abs(output['et_fraction']['2017-07-01'] - 0.4) <= tol
+    assert abs(output['et_reference']['2017-07-01'] - 309.4364929) <= tol
+    assert abs(output['et']['2017-07-01'] - (309.43649 * 0.4)) <= tol
     assert output['count']['2017-07-01'] == 3
 
 
@@ -669,7 +692,6 @@ def test_from_scene_et_actual_t_interval_monthly_et_reference_factor(tol=0.0001)
     assert output['count']['2017-07-01'] == 3
 
 
-# CGM - Resampling is not being applied so this should be equal to nearest
 def test_from_scene_et_actual_t_interval_monthly_et_reference_resample(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et', 'time', 'mask']),
@@ -687,9 +709,9 @@ def test_from_scene_et_actual_t_interval_monthly_et_reference_resample(tol=0.000
 
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
-    assert abs(output['et']['2017-07-01'] - 142.9622039794922) <= tol
-    assert abs(output['et_reference']['2017-07-01'] - 310.3 * 0.5) <= tol
-    assert abs(output['et_fraction']['2017-07-01'] - 142.9622039794922 / 310.3 / 0.5) <= tol
+    assert abs(output['et']['2017-07-01'] - 142.994354) <= tol
+    assert abs(output['et_reference']['2017-07-01'] - 309.436493 * 0.5) <= tol
+    assert abs(output['et_fraction']['2017-07-01'] - 142.994354 / 309.436493 / 0.5) <= tol
     assert output['count']['2017-07-01'] == 3
 
 

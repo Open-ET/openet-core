@@ -95,6 +95,8 @@ def test_c02_cloud_score_mask(scene_id, time_start):
         # Pixel has a cloud score of 56, so mask if threshold is 50 but don't mask at 60
         ['LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016', [-119.963613, 37.217444], 50, 1],
         ['LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016', [-119.963613, 37.217444], 60, 0],
+        # To TOA image
+        ['LANDSAT/LT05/C02/T1_L2/LT05_044029_20000615', [-120.0, 45.0], 100, 0],
     ]
 )
 def test_c02_cloud_score_mask_values(image_id, xy, threshold, expected):
@@ -179,12 +181,13 @@ def test_c02_matched_toa_coll(scene_id, time_start, image_property, match_proper
 
 
 @pytest.mark.parametrize(
-    "scene_id, time_start",
+    "scene_id, time_start, expected",
     [
-        ['LC80300362021206LGN00', '2021-07-25T17:20:21'],
+        ['LC80300362021206LGN00', '2021-07-25T17:20:21', 1],
+        ['LT50440292000167XXX02', '2000-06-15T18:20:26', 0],  # No TOA image
     ]
 )
-def test_c02_matched_toa_coll_default_match_properties(scene_id, time_start):
+def test_c02_matched_toa_coll_default_match_properties(scene_id, time_start, expected):
     # The function currently defaults to using the LANDSAT_SCENE_ID for matching
     properties = {
         'LANDSAT_SCENE_ID': scene_id,
@@ -193,7 +196,7 @@ def test_c02_matched_toa_coll_default_match_properties(scene_id, time_start):
     output_coll = landsat.c02_matched_toa_coll(
         ee.Image.constant(1).rename(['QA_PIXEL']).set(properties),
     )
-    assert utils.get_info(output_coll.size()) == 1
+    assert utils.get_info(output_coll.size()) == expected
 
 
 @pytest.mark.parametrize(
