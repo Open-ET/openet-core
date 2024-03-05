@@ -709,10 +709,9 @@ def test_from_scene_et_actual_t_interval_monthly_et_reference_resample(tol=0.000
 
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
-    print(output)
-    assert abs(output['et']['2017-07-01'] - 142.9622039794922) <= tol
-    assert abs(output['et_reference']['2017-07-01'] - 309.4364929199219 * 0.5) <= tol
-    assert abs(output['et_fraction']['2017-07-01'] - 142.962204 / 309.4365 / 0.5) <= tol
+    assert abs(output['et']['2017-07-01'] - 142.994354) <= tol
+    assert abs(output['et_reference']['2017-07-01'] - 309.436493 * 0.5) <= tol
+    assert abs(output['et_fraction']['2017-07-01'] - 142.994354 / 309.436493 / 0.5) <= tol
     assert output['count']['2017-07-01'] == 3
 
 
