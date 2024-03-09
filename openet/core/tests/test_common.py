@@ -123,7 +123,7 @@ def test_landsat_c2_sr_lst_correct():
     ndvi_img = sr_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
     output_img = common.landsat_c2_sr_lst_correct(sr_img, ndvi_img)
     output = utils.get_info(output_img)
-    assert output['bands'][0]['id'] == 'surface_temperature'
+    assert output['bands'][0]['id'] == 'lst'
 
 
 def test_landsat_c2_sr_lst_parameter_keywords():
@@ -132,31 +132,41 @@ def test_landsat_c2_sr_lst_parameter_keywords():
     ndvi_img = sr_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
     output_img = common.landsat_c2_sr_lst_correct(ndvi=ndvi_img, sr_image=sr_img)
     output = utils.get_info(output_img)
-    assert output['bands'][0]['id'] == 'surface_temperature'
+    assert output['bands'][0]['id'] == 'lst'
 
 
 # TODO: Consider reworking this test to compare the before and after value
 #   instead of testing the values themselves
 @pytest.mark.parametrize(
-    "image_id, xy, expected",
+    "image_id, xy, expected, uncorrected",
     [
         # First two points are in the same field but the second one is in an
         # area of bad emissivity data and needs correction
-        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.266679, 34.368470], 309.95],
-        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.266754, 34.367682], 309.93],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.266679, 34.368470], 309.95, 310.0],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.266754, 34.367682], 309.93, 312.1],
         # This point is just outside the field and should stay the same
-        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.269769, 34.366115], 318.10],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.269769, 34.366115], 317.75, 318.1],
         # These two points are in the ASTER GED hole and have no L2 temperature
         # The first his a high NDVI field, the second is a low NDVI field
-        ['LANDSAT/LC08/C02/T1_L2/LC08_031034_20160702', [-102.08284, 37.81728], 306.83],
-        ['LANDSAT/LC08/C02/T1_L2/LC08_031034_20160702', [-102.04696, 37.81796], 297.88],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_031034_20160702', [-102.08284, 37.81728], 306.83, None],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_031034_20160702', [-102.04696, 37.81796], 297.88, None],
+        # This scene (and path/row) is having issues when used in the LST sharpening
+        # Test four points in each quadrant of the scene and one point outside
+        ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-107.4, 42.2], 321.0, 321.2],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-106.3, 42.0], 323.0, 323.2],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-107.4, 41.5], 318.0, 317.8],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-106.5, 41.3], 306.0, 305.9],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-107.9, 42.6], None, None],
     ]
 )
-def test_landsat_c2_sr_lst_correct_values(image_id, xy, expected, tol=0.25):
+def test_landsat_c2_sr_lst_correct_values(image_id, xy, expected, uncorrected, tol=0.25):
     input_img = ee.Image(image_id)
     ndvi_img = input_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
     # lst_img = input_img.select(['ST_B10']).multiply(0.00341802).add(149.0)
     # original = utils.point_image_value(lst_img, xy, scale=30)['ST_B10']
     output_img = common.landsat_c2_sr_lst_correct(input_img, ndvi_img)
     corrected = utils.point_image_value(output_img, xy, scale=30)
-    assert abs(corrected['surface_temperature'] - expected) <= tol
+    if expected is None:
+        assert corrected['lst'] is None
+    else:
+        assert abs(corrected['lst'] - expected) <= tol

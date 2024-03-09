@@ -168,11 +168,7 @@ def sentinel2_sr_cloud_mask(input_img):
 
 
 def landsat_c2_sr_lst_correct(sr_image, ndvi):
-    """Apply correction to Collection 2 LST by using ASTER emissivity and recalculating LST following the
-    procedure in the white paper by R. Allen and A. Kilic (2022) that is based on
-    Malakar, N.K., Hulley, G.C., Hook, S.J., Laraby, K., Cook, M. and Schott, J.R., 2018.
-    An operational land surface temperature product for Landsat thermal data: Methodology and validation.
-    IEEE Transactions on Geoscience and Remote Sensing, 56(10), pp.5717-5735.
+    """Apply correction to Collection 2 LST using adjusted ASTER emissivity
 
     Parameters
     ----------
@@ -185,17 +181,65 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
 
     Returns
     -------
-    L8_LST_smooth: LST recalculated from smoothed emissivity [ee.Image]
+    lst : ee.Image
 
-    :authors: Peter ReVelle, Richard Allen, Ayse Kilic
+    Authors
+    -------
+    Peter ReVelle, Richard Allen, Ayse Kilic
+
+    References
+    ----------
+    Malakar, N., Hulley, G., Hook, S., Laraby, K., Cook, M. and Schott, J., 2018.
+    An operational land surface temperature product for Landsat thermal data:
+    Methodology and validation.
+    IEEE Transactions on Geoscience and Remote Sensing, 56(10), pp.5717-5735.
+
+    Allen, R and Kilic, A. 2022.
+
+    Hulley, G. 2023.
+
     """
     spacecraft_id = ee.String(sr_image.get('SPACECRAFT_ID'))
 
-    veg_emis = 0.99
-    soil_emiss_fill = 0.97
+    # For ASTER GED clipping and resample/reproject
+    image_proj = sr_image.projection()
+    image_crs = image_proj.crs()
+    image_geo = ee.List(ee.Dictionary(ee.Algorithms.Describe(image_proj)).get('transform'))
 
     # Aster Global Emissivity Dataset
     ged = ee.Image('NASA/ASTER_GED/AG100_003')
+
+    # TODO: Test exports with and without clipping being applied
+    # # Simple clip extent from image geometry bounds
+    # ged = ged.clip(sr_image.geometry().bounds(1, 'EPSG:4326'))
+
+    # # Server side approach for getting image extent snapped to the ASTER GED grid
+    # image_extent = sr_image.geometry().bounds(1, 'EPSG:4326')
+    # image_xy = ee.Array(image_extent.coordinates().get(0)).transpose().toList()
+    # xmin = ee.Number(ee.List(image_xy.get(0)).reduce(ee.Reducer.min()))
+    # ymin = ee.Number(ee.List(image_xy.get(1)).reduce(ee.Reducer.min()))
+    # xmax = ee.Number(ee.List(image_xy.get(0)).reduce(ee.Reducer.max()))
+    # ymax = ee.Number(ee.List(image_xy.get(1)).reduce(ee.Reducer.max()))
+    # # Adjust the extent parameters to be buffered and snapped to the output grid
+    # buffer_cells = 1
+    # cellsize = 0.1
+    # xmin = xmin.divide(cellsize * buffer_cells).floor().multiply(cellsize * buffer_cells)
+    # ymin = ymin.divide(cellsize * buffer_cells).floor().multiply(cellsize * buffer_cells)
+    # xmax = xmax.divide(cellsize * buffer_cells).ceil().multiply(cellsize * buffer_cells)
+    # ymax = ymax.divide(cellsize * buffer_cells).ceil().multiply(cellsize * buffer_cells)
+    # # Compute the new extent, transform, and image shape
+    # # extent = ee.List([xmin, ymin, xmax, ymax])
+    # # transform = ee.List([cellsize, 0.0, xmin, 0.0, -cellsize, ymax])
+    # # shape = ee.List([
+    # #     xmax.subtract(xmin).abs().divide(cellsize).int(),
+    # #     ymax.subtract(ymin).abs().divide(cellsize).int()
+    # # ])
+    # # dimensions = ee.Number(shape.get(0)).format('%d').cat('x').cat(ee.Number(shape.get(1)).format('%d'))
+    # clip_extent = ee.Geometry.Rectangle([xmin, ymin, xmax, ymax], 'EPSG:4326', False)
+    # ged = ged.clip(clip_extent)
+
+    veg_emis = 0.99
+    soil_emiss_fill = 0.97
 
     # Set K1, K2 values
     k1 = ee.Dictionary({
@@ -222,147 +266,156 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
         'LANDSAT_8': 0.0584, 'LANDSAT_9': 0.0457,
     })
 
-    def get_matched_c2_t1_rt_image(input_image):
-        # Find Coll 2 T1 raw and RT image matching the Collection image
+    def get_matched_c2_t1_image(input_img):
+        # Find matching Landsat Collection 2 Tier 1 Level 2 image
         #   based on the LANDSAT_SCENE_ID property
-        scene_id = input_image.get('LANDSAT_SCENE_ID')
-        landsat_bands = ['blue', 'green', 'red', 'nir', 'swir1', 'thermal', 'swir2']
 
-        l4 = ee.ImageCollection('LANDSAT/LT04/C01/T1')
-        l5 = ee.ImageCollection('LANDSAT/LT05/C02/T1')
-        l7 = ee.ImageCollection('LANDSAT/LE07/C02/T1_RT')
-        l8 = ee.ImageCollection('LANDSAT/LC08/C02/T1_RT')
-        l9 = ee.ImageCollection('LANDSAT/LC09/C02/T1')
-        coll2 = l4.merge(l5).merge(l7).merge(l8).merge(l9)
+        return ee.Image(
+            ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
+            .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_L2'))
+            .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1_L2'))
+            .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1_L2'))
+            .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1_L2'))
+            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', input_img.get('LANDSAT_SCENE_ID')))
+            .first()
+        )
+        # TODO: Test if it is any faster to filter each collection separately
+        #   and/or try using a .filterDate() call on the separate collections
+        # scene_id = input_img.get('LANDSAT_SCENE_ID')
+        # return ee.Image(
+        #     ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
+        #     .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id))
+        #     .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+        #     .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1_L2')
+        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+        #     .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1_L2')
+        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+        #     .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1_L2')
+        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+        #     .first()
+        # )
 
-        image_raw = coll2.filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)).first()
+    def get_matched_c2_t1_radiance_image(input_img):
+        # Find matching Landsat Collection 2 Tier 1 radiance (and RT) image
+        #   based on the LANDSAT_SCENE_ID property
 
-        l4_spacecraft_id = 'LANDSAT_4'
-        l5_spacecraft_id = 'LANDSAT_5'
-        l7_spacecraft_id = 'LANDSAT_7'
-        l8_spacecraft_id = 'LANDSAT_8'
-        l9_spacecraft_id = 'LANDSAT_9'
-
-        ADD_THERMAL = {
-            l4_spacecraft_id: image_raw.get('RADIANCE_ADD_BAND_6'),
-            l5_spacecraft_id: image_raw.get('RADIANCE_ADD_BAND_6'),
-            l7_spacecraft_id: image_raw.get('RADIANCE_ADD_BAND_6_VCID_1'),
-            l8_spacecraft_id: image_raw.get('RADIANCE_ADD_BAND_10'),
-            l9_spacecraft_id: image_raw.get('RADIANCE_ADD_BAND_10'),
-
-        }
-        MUL_THERMAL = {
-            l4_spacecraft_id: image_raw.get('RADIANCE_MULT_BAND_6'),
-            l5_spacecraft_id: image_raw.get('RADIANCE_MULT_BAND_6'),
-            l7_spacecraft_id: image_raw.get('RADIANCE_MULT_BAND_6_VCID_1'),
-            l8_spacecraft_id: image_raw.get('RADIANCE_MULT_BAND_10'),
-            l9_spacecraft_id: image_raw.get('RADIANCE_MULT_BAND_10'),
-        }
-
-        def props(landsat):
-            return {
-                'RADIANCE_ADD_BAND_thermal': ADD_THERMAL[landsat],
-                'RADIANCE_MULT_BAND_thermal': MUL_THERMAL[landsat],
-            }
-
-        rename_band = ee.Dictionary({
-            l4_spacecraft_id: ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-            l5_spacecraft_id: ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-            l7_spacecraft_id: ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1', 'B7'],
-            l8_spacecraft_id: ['B2', 'B3', 'B4', 'B5', 'B6', 'B10', 'B7'],
-            l9_spacecraft_id: ['B2', 'B3', 'B4', 'B5', 'B6', 'B10', 'B7'],
-        })
-        set_prop = ee.Dictionary({
-            l4_spacecraft_id: props(l4_spacecraft_id),
-            l5_spacecraft_id: props(l5_spacecraft_id),
-            l7_spacecraft_id: props(l7_spacecraft_id),
-            l8_spacecraft_id: props(l8_spacecraft_id),
-            l9_spacecraft_id: props(l9_spacecraft_id),
-        })
         # TODO: Fix error when images that are in the T1_L2 collections but not in the T1,
-        #  will fail with a .get() error because image_raw is 'None',
+        #  will fail with a .get() error because matched_img is 'None',
         #  could cause issues if trying to map over a collection
-        satellite = image_raw.get('SPACECRAFT_ID')
+        satellite = ee.String(input_img.get('SPACECRAFT_ID'))
+        scene_id = ee.String(input_img.get('LANDSAT_SCENE_ID'))
 
-        matched_image = image_raw.select(rename_band.get(satellite), landsat_bands)\
-            .set(set_prop.get(satellite))
+        matched_img = ee.Image(
+            ee.ImageCollection('LANDSAT/LC09/C02/T1')
+            .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_RT'))
+            .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1'))
+            .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1'))
+            .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1'))
+            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id))
+            .first()
+        )
+        # TODO: Test if it is any faster to filter each collection separately
+        #   and/or try using a .filterDate() call on the separate collections
+        # matched_img = ee.Image(
+        #     ee.ImageCollection('LANDSAT/LC09/C02/T1')
+        #     .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id))
+        #     .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_RT')
+        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+        #     .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1')
+        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+        #     .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1')
+        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+        #     .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1')
+        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+        #     .first()
+        # )
 
-        return ee.Image(matched_image)
+        input_bands = ee.Dictionary({
+            'LANDSAT_4': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'B6'],
+            'LANDSAT_5': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'B6'],
+            'LANDSAT_7': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'B6_VCID_1'],
+            'LANDSAT_8': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B10'],
+            'LANDSAT_9': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B10'],
+        })
+        output_bands = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'thermal']
 
-    def get_matched_c2_t1_image(input_image):
-        # Find collection 2 tier 1 level 2 image matching the Collection image
-        #   based on the LANDSAT_SCENE_ID property
+        add_thermal_properties = ee.Dictionary({
+            'LANDSAT_4': 'RADIANCE_ADD_BAND_6',
+            'LANDSAT_5': 'RADIANCE_ADD_BAND_6',
+            'LANDSAT_7': 'RADIANCE_ADD_BAND_6_VCID_1',
+            'LANDSAT_8': 'RADIANCE_ADD_BAND_10',
+            'LANDSAT_9': 'RADIANCE_ADD_BAND_10',
+        })
+        mul_thermal_properties = ee.Dictionary({
+            'LANDSAT_4': 'RADIANCE_MULT_BAND_6',
+            'LANDSAT_5': 'RADIANCE_MULT_BAND_6',
+            'LANDSAT_7': 'RADIANCE_MULT_BAND_6_VCID_1',
+            'LANDSAT_8': 'RADIANCE_MULT_BAND_10',
+            'LANDSAT_9': 'RADIANCE_MULT_BAND_10',
+        })
+        add_thermal_prop = ee.String(add_thermal_properties.get(satellite))
+        mul_thermal_prop = ee.String(mul_thermal_properties.get(satellite))
 
-        scene_id = input_image.get('LANDSAT_SCENE_ID')
-
-        l4 = ee.ImageCollection('LANDSAT/LT04/C02/T1_L2')
-        l5 = ee.ImageCollection('LANDSAT/LT05/C02/T1_L2')
-        l7 = ee.ImageCollection('LANDSAT/LE07/C02/T1_L2')
-        l8 = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
-        l9 = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
-        coll2 = l4.merge(l5).merge(l7).merge(l8).merge(l9)
-
-        matched_image = coll2.filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)).first()
-
-        return ee.Image(matched_image)
+        return (
+            matched_img
+            .select(ee.List(input_bands.get(satellite)), output_bands)
+            .set({
+                'RADIANCE_ADD_BAND_thermal': ee.Number(matched_img.get(add_thermal_prop)),
+                'RADIANCE_MULT_BAND_thermal': ee.Number(matched_img.get(mul_thermal_prop)),
+            })
+        )
 
     # Rebuilding the coll2 image here since the extra bands needed for the calculation
     #   will likely have been dropped or excluded before getting to this function
     coll2 = get_matched_c2_t1_image(sr_image)
-    coll2RT = get_matched_c2_t1_rt_image(sr_image)
+    coll2RT = get_matched_c2_t1_radiance_image(sr_image)
 
     # Apply Allen-Kilic Eq. 5 to calc. ASTER emiss. for Landsat
     # This is Eq. 4 of Malakar et al., 2018
-    def ged_emis(ged_col):
-        eb13 = ged_col.select('emissivity_band13').multiply(0.001)
-        eb14 = ged_col.select('emissivity_band14').multiply(0.001)
-        emAsLs = (
-            eb13.multiply(ee.Number(c13.get(spacecraft_id)))
-            .add(eb14.multiply(ee.Number(c14.get(spacecraft_id))))
-            .add(ee.Number(c.get(spacecraft_id)))
-            .rename('EmisAsL8')
-        )
-        return emAsLs
-
-    l8_As_Em = ged_emis(ged)
+    ged_emis = (
+        ged.select(['emissivity_band13']).multiply(0.001)
+        .multiply(ee.Number(c13.get(spacecraft_id)))
+        .add(ged.select(['emissivity_band14']).multiply(0.001)
+             .multiply(ee.Number(c14.get(spacecraft_id))))
+        .add(ee.Number(c.get(spacecraft_id)))
+    )
 
     # Apply Eq. 4 and 3 of Allen-Kilic to estimate the ASTER emissivity for bare soil
     # (this is Eq. 5 of Malakar et al., 2018) with settings by Allen-Kilic.
     # This uses NDVI of ASTER over the same period as ASTER emissivity.
-    fc_ASTER = ged.select(['ndvi']).multiply(0.01).subtract(0.15).divide(0.65).clamp(0, 1.0)
+    fc_aster = ged.select(['ndvi']).multiply(0.01).subtract(0.15).divide(0.65).clamp(0, 1.0)
 
     # The 0.9798 is average from ASTER spectral response for bands 13/14 for vegetation
-    # derived from Glynn Hulley (2023)
+    #   derived from Glynn Hulley (2023)
     # CGM - Reordered equation to avoid needing a constant image that would not have a projection
     #   X.multiply(-1).add(1) is equivalent to "1-X" or ee.Image.constant(1).subtract(X)
-    em_soil = l8_As_Em.subtract(fc_ASTER.multiply(0.9798)).divide(fc_ASTER.multiply(-1).add(1))
+    em_soil = ged_emis.subtract(fc_aster.multiply(0.9798)).divide(fc_aster.multiply(-1).add(1))
 
-    # Added accounting for instability in (1-fc_ASTER) denominator when fc_ASTER is large by fixing bare
-    # component to spectral library emissivity of soil
-    em_soil = em_soil.where(fc_ASTER.gt(0.8), soil_emiss_fill)
+    # Added accounting for instability in (1-fc_ASTER) denominator when fc_ASTER is large
+    # by fixing bare component to spectral library emissivity of soil
+    em_soil = em_soil.where(fc_aster.gt(0.8), soil_emiss_fill)
 
-    # Fill in soil emissivity gaps using the footprint of the landsat NDVI image
-    # Need to set flag for footprint to False since the footprint of the ASTER emissivity data is undefined
-    fill_img = ndvi.multiply(0).add(soil_emiss_fill)
-    em_soil = em_soil.unmask(fill_img, False)
+    # Fill in soil emissivity gaps using the default value
+    em_soil = em_soil.unmask(soil_emiss_fill)
 
     # Resample soil emissivity using bilinear interpolation
-    em_soil = em_soil.resample('bilinear')
+    # CGM - Having the resample without a reproject seems to cause problems
+    #   when called from other modules/functions
+    em_soil = (
+        em_soil.resample('bilinear')
+        .reproject(crs=image_crs, crsTransform=image_geo)
+    )
 
     # Apply Eq. 4 and 6 of Allen-Kilic to estimate Landsat-based emissivity
     # Using the ASTER-based soil emissivity from above
     # The following estimate for emissivity to use with Landsat may need to be clamped
-    # to some predefined safe limits (for example, 0.5 and 1.0).
+    #   to some predefined safe limits (for example, 0.5 and 1.0).
+    # CGM - Is the .multiply(1.0) needed?
     fc_Landsat = ndvi.multiply(1.0).subtract(0.15).divide(0.65).clamp(0, 1.0)
 
     # calc_smoothed_em_soil
-    em_soil_clipped = em_soil.clip(fc_Landsat.geometry())
-    LS_EM = (
-        fc_Landsat.multiply(-1).add(1).multiply(em_soil_clipped)
-        .add(fc_Landsat.multiply(veg_emis))
-    )
-    # LS_EM = image.multiply(veg_emis)
-    #     .add(ee.Image.constant(1).subtract(image).multiply(em_soil_smooth_clipped))
+    LS_EM = fc_Landsat.multiply(-1).add(1).multiply(em_soil).add(fc_Landsat.multiply(veg_emis))
 
     # Apply Eq. 8 to get thermal surface radiance, Rc, from C2 Real time band 10
     # (Eq. 7 of Malakar et al. but without the emissivity to produce actual radiance)
@@ -377,15 +430,10 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
     )
 
     # Apply Eq. 7 to convert Rs to LST (similar to Malakar et al., but with emissivity)
-    # def calc_LST_smooth(image):
-    L8_LST = (
+    return (
         LS_EM.multiply(ee.Number(k1.get(spacecraft_id)))
         .divide(Rc).add(1.0).log().pow(-1)
         .multiply(ee.Number(k2.get(spacecraft_id)))
+        .rename('lst')
+        # .set({'system:time_start': sr_image.get('system:time_start')})
     )
-    # L8_LST = ee.Image.constant(ee.Number(k2.get(spacecraft_id))) \
-    #     .divide(LS_EM.multiply(ee.Number(k1.get(spacecraft_id)))
-    #             .divide(Rc_smooth).add(ee.Number(1.0)).log())
-
-    return L8_LST.rename('surface_temperature')
-    #     .set('system:time_start', image.get('system:time_start'))

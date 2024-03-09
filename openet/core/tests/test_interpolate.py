@@ -582,18 +582,16 @@ def test_from_scene_et_fraction_t_interval_monthly_interp_args_et_reference(tol=
                      'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                      'et_reference_band': 'etr',
                      'et_reference_factor': 1.0,
-                     'et_reference_resample': 'bilinear'},
+                     'et_reference_resample': 'nearest'},
         model_args={},
         t_interval='monthly')
 
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
     assert abs(output['ndvi']['2017-07-01'] - 0.6) <= tol
-    # CGM - Reference ET and ET test values are slightly different with bilinear resampling
-    #   but ET fraction should be the same
     assert abs(output['et_fraction']['2017-07-01'] - 0.4) <= tol
-    assert abs(output['et_reference']['2017-07-01'] - 309.4364929) <= tol
-    assert abs(output['et']['2017-07-01'] - (309.43649 * 0.4)) <= tol
+    assert abs(output['et_reference']['2017-07-01'] - 310.3) <= tol
+    assert abs(output['et']['2017-07-01'] - (310.3 * 0.4)) <= tol
     assert output['count']['2017-07-01'] == 3
 
 

@@ -559,3 +559,24 @@ def point_coll_value(coll, xy, scale=1):
 
     return info_dict
     # return pd.DataFrame.from_dict(info_dict)
+
+
+# def build_parent_folders(folder_id, set_public=False):
+#     """Build the asset folder including parents"""
+#     # Build any parent folders above the "3rd" level
+#     # i.e. after "projects/openet/assets" or "projects/openet/folder"
+#     public_policy = {'bindings': [{'role': 'roles/viewer', 'members': ['allUsers']}]}
+#     folder_id_split = folder_id.replace('projects/earthengine-legacy/assets/', '').split('/')
+#     for i in range(len(folder_id_split)):
+#         if i <= 3:
+#             continue
+#         folder_id = '/'.join(folder_id_split[:i])
+#         if not ee.data.getInfo(folder_id):
+#             print(f'  Building folder: {folder_id}')
+#             ee.data.createAsset({'type': 'FOLDER'}, folder_id)
+#             if set_public:
+#                 ee.data.setIamPolicy(folder_id, public_policy)
+
+
+# def get_transform(image):
+#     return ee.List(ee.Dictionary(ee.Algorithms.Describe(image.projection())).get('transform'))

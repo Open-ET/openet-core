@@ -19,9 +19,6 @@ def test_init():
         EE_KEY_FILE = 'privatekey.json'
         with open(EE_KEY_FILE, 'w') as f:
             f.write(content)
-        ee.Initialize(ee.ServiceAccountCredentials('test', key_file=EE_KEY_FILE))
+        ee.Initialize(ee.ServiceAccountCredentials('', key_file=EE_KEY_FILE))
     else:
         ee.Initialize()
-
-    # Make a simple EE request
-    # logging.debug(ee.Number(1).getInfo())
