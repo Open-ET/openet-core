@@ -1,9 +1,9 @@
 import datetime
 import logging
-import pprint
+# import pprint
 
-import ee
 from dateutil.relativedelta import relativedelta
+import ee
 
 from . import utils
 # import openet.core.utils as utils
@@ -283,11 +283,6 @@ def daily(
     return interp_coll
 
 
-# @deprecated
-def aggregate_daily(image_coll, start_date=None, end_date=None, agg_type='mean'):
-    return aggregate_to_daily(image_coll, start_date, end_date, agg_type)
-
-
 def aggregate_to_daily(
         image_coll,
         start_date=None,
@@ -446,8 +441,8 @@ def from_scene_et_fraction(
     if 'use_joins' in interp_args.keys():
         use_joins = interp_args['use_joins']
     else:
-        use_joins = False
-        logging.debug('use_joins was not set in interp_args, default to False')
+        use_joins = True
+        logging.debug('use_joins was not set in interp_args, default to True')
 
     # Check that the input parameters are valid
     if t_interval.lower() not in ['daily', 'monthly', 'annual', 'custom']:
@@ -581,12 +576,12 @@ def from_scene_et_fraction(
     interp_vars = list(set(interp_vars) & set(variables))
 
     # To return ET, the ETf must be interpolated
-    if 'et' in variables and 'et_fraction' not in interp_vars:
+    if ('et' in variables) and ('et_fraction' not in interp_vars):
         interp_vars.append('et_fraction')
 
     # With the current interpolate.daily() function,
     #   something has to be interpolated in order to return et_reference
-    if 'et_reference' in variables and 'et_fraction' not in interp_vars:
+    if ('et_reference' in variables) and ('et_fraction' not in interp_vars):
         interp_vars.append('et_fraction')
 
     # The time band is always needed for interpolation
@@ -871,8 +866,8 @@ def from_scene_et_actual(
     if 'use_joins' in interp_args.keys():
         use_joins = interp_args['use_joins']
     else:
-        use_joins = False
-        logging.debug('use_joins was not set in interp_args, default to False')
+        use_joins = True
+        logging.debug('use_joins was not set in interp_args, default to True')
 
     # Check that the input parameters are valid
     if t_interval.lower() not in ['daily', 'monthly', 'annual', 'custom']:
@@ -987,8 +982,6 @@ def from_scene_et_actual(
         .select([interp_args['interp_band']])
     )
 
-    interp_vars = ['et'] + ['mask', 'time']
-
     # For count, compute the composite/mosaic image for the mask band only
     if 'count' in variables:
         aggregate_coll = aggregate_to_daily(
@@ -1049,41 +1042,10 @@ def from_scene_et_actual(
 
         return img.addBands([et_norm_img.double(), target_img.rename(['norm'])])
 
-    scene_coll = scene_coll.select(interp_vars).map(normalize_et)
+    # The time band is always needed for interpolation
+    interp_vars = ['et'] + ['mask', 'time']
 
-    # # DEADBEEF - Changed to the join approach above
-    # #   so  that scenes without target images will get dropped
-    # def normalize_et(img):
-    #     img_date = ee.Date(img.get('system:time_start')).update(hour=0, minute=0, second=0)
-    #     img_date = ee.Date(img_date.millis().divide(1000).floor().multiply(1000))
-    #     target_coll = daily_target_coll.filterDate(img_date, img_date.advance(1, 'day'))
-    #     target_img = ee.Image(target_coll.first())
-    #
-    #     # CGM - This is causing weird artifacts in the output images
-    #     # if interp_args['interp_resample'].lower() in ['bilinear', 'bicubic']:
-    #     #     target_img = target_img.resample(interp_args['interp_resample'])
-    #
-    #     et_norm_img = img.select(['et']).divide(target_img).rename(['et_norm'])
-    #
-    #     # Clamp the normalized ET image (et_fraction)
-    #     if 'et_fraction_max' in interp_args.keys():
-    #         et_norm_img = et_norm_img.min(float(interp_args['et_fraction_max']))
-    #     if 'et_fraction_min' in interp_args.keys():
-    #         et_norm_img = et_norm_img.max(float(interp_args['et_fraction_min']))
-    #     # if ('et_fraction_min' in interp_args.keys() and
-    #     #     'et_fraction_max' in interp_args.keys()):
-    #     #     et_norm_img = et_norm_img.clamp(
-    #     #         float(interp_args['et_fraction_min']),
-    #     #         float(interp_args['et_fraction_max'])
-    #     #     )
-    #
-    #     return img.addBands([et_norm_img.double(), target_img.rename(['norm'])])
-    #
-    # # The time band is always needed for interpolation
-    # scene_coll = (
-    #     scene_coll.filterDate(interp_start_date, interp_end_date).select(interp_vars)
-    #     .map(normalize_et)
-    # )
+    scene_coll = scene_coll.select(interp_vars).map(normalize_et)
 
     # Interpolate to a daily time step
     daily_coll = daily(
