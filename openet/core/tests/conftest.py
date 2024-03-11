@@ -12,7 +12,7 @@ def test_init():
     logging.getLogger('googleapiclient').setLevel(logging.ERROR)
     logging.debug('Test Setup')
 
-    # On Travis-CI authenticate using private key environment variable
+    # For GitHub Actions authenticate using private key environment variable
     if 'EE_PRIVATE_KEY_B64' in os.environ:
         print('Writing privatekey.json from environmental variable ...')
         content = base64.b64decode(os.environ['EE_PRIVATE_KEY_B64']).decode('ascii')
