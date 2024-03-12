@@ -669,12 +669,7 @@ def from_scene_et_fraction(
 
         """
         if ('et' in variables) or ('et_fraction' in variables):
-            et_img = (
-                daily_coll
-                .filterDate(agg_start_date, agg_end_date)
-                .select(['et'])
-                .sum()
-            )
+            et_img = daily_coll.filterDate(agg_start_date, agg_end_date).select(['et']).sum()
 
         if ('et_reference' in variables) or ('et_fraction' in variables):
             et_reference_img = (
@@ -954,15 +949,13 @@ def from_scene_et_actual(
 
         # Assume a string source is a single image collection ID
         #   not a list of collection IDs or ee.ImageCollection
-        daily_et_ref_coll_id = model_args['et_reference_source']
         daily_et_ref_coll = (
-            ee.ImageCollection(daily_et_ref_coll_id)
+            ee.ImageCollection(model_args['et_reference_source'])
             .filterDate(start_date, end_date)
             .select([model_args['et_reference_band']], ['et_reference'])
         )
 
         # Scale reference ET images (if necessary)
-        # CGM - Resampling is not working correctly when applied here
         if et_reference_factor and (et_reference_factor != 1):
             def et_reference_adjust(input_img):
                 return (
@@ -1097,21 +1090,13 @@ def from_scene_et_actual(
 
         """
         if ('et' in variables) or ('et_fraction' in variables):
-            et_img = (
-                daily_coll
-                .filterDate(agg_start_date, agg_end_date)
-                .select(['et'])
-                .sum()
-            )
+            et_img = daily_coll.filterDate(agg_start_date, agg_end_date).select(['et']).sum()
 
         if ('et_reference' in variables) or ('et_fraction' in variables):
             # Get the reference ET image from the reference ET collection,
             #   not the interpolated collection
-            et_reference_img = (
-                daily_et_ref_coll
-                .filterDate(agg_start_date, agg_end_date)
-                .sum()
-            )
+            et_reference_img = daily_et_ref_coll.filterDate(agg_start_date, agg_end_date).sum()
+
             if et_reference_resample and (et_reference_resample in ['bilinear', 'bicubic']):
                 et_reference_img = (
                     et_reference_img
