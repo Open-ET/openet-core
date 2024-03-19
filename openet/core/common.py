@@ -201,42 +201,35 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
     """
     spacecraft_id = ee.String(sr_image.get('SPACECRAFT_ID'))
 
-    # For ASTER GED clipping and resample/reproject
-    image_proj = sr_image.projection()
-    image_crs = image_proj.crs()
-    image_geo = ee.List(ee.Dictionary(ee.Algorithms.Describe(image_proj)).get('transform'))
+    # Landsat image geometry for clipping ASTER GED
+    image_geom = sr_image.geometry()
+    image_extent = image_geom.bounds(1, 'EPSG:4326')
 
-    # Aster Global Emissivity Dataset
-    ged = ee.Image('NASA/ASTER_GED/AG100_003')
-
-    # TODO: Test exports with and without clipping being applied
     # # Simple clip extent from image geometry bounds
-    # ged = ged.clip(sr_image.geometry().bounds(1, 'EPSG:4326'))
+    # clip_extent = image_geom.bounds(1, 'EPSG:4326')
 
     # # Server side approach for getting image extent snapped to the ASTER GED grid
-    # image_extent = sr_image.geometry().bounds(1, 'EPSG:4326')
-    # image_xy = ee.Array(image_extent.coordinates().get(0)).transpose().toList()
-    # xmin = ee.Number(ee.List(image_xy.get(0)).reduce(ee.Reducer.min()))
-    # ymin = ee.Number(ee.List(image_xy.get(1)).reduce(ee.Reducer.min()))
-    # xmax = ee.Number(ee.List(image_xy.get(0)).reduce(ee.Reducer.max()))
-    # ymax = ee.Number(ee.List(image_xy.get(1)).reduce(ee.Reducer.max()))
-    # # Adjust the extent parameters to be buffered and snapped to the output grid
-    # buffer_cells = 1
-    # cellsize = 0.1
-    # xmin = xmin.divide(cellsize * buffer_cells).floor().multiply(cellsize * buffer_cells)
-    # ymin = ymin.divide(cellsize * buffer_cells).floor().multiply(cellsize * buffer_cells)
-    # xmax = xmax.divide(cellsize * buffer_cells).ceil().multiply(cellsize * buffer_cells)
-    # ymax = ymax.divide(cellsize * buffer_cells).ceil().multiply(cellsize * buffer_cells)
-    # # Compute the new extent, transform, and image shape
-    # # extent = ee.List([xmin, ymin, xmax, ymax])
-    # # transform = ee.List([cellsize, 0.0, xmin, 0.0, -cellsize, ymax])
-    # # shape = ee.List([
-    # #     xmax.subtract(xmin).abs().divide(cellsize).int(),
-    # #     ymax.subtract(ymin).abs().divide(cellsize).int()
-    # # ])
-    # # dimensions = ee.Number(shape.get(0)).format('%d').cat('x').cat(ee.Number(shape.get(1)).format('%d'))
-    # clip_extent = ee.Geometry.Rectangle([xmin, ymin, xmax, ymax], 'EPSG:4326', False)
-    # ged = ged.clip(clip_extent)
+    buffer_cells = 1
+    cellsize = 0.1
+    image_xy = ee.Array(image_extent.coordinates().get(0)).transpose().toList()
+    xmin = ee.Number(ee.List(image_xy.get(0)).reduce(ee.Reducer.min()))
+    ymin = ee.Number(ee.List(image_xy.get(1)).reduce(ee.Reducer.min()))
+    xmax = ee.Number(ee.List(image_xy.get(0)).reduce(ee.Reducer.max()))
+    ymax = ee.Number(ee.List(image_xy.get(1)).reduce(ee.Reducer.max()))
+    xmin = xmin.divide(cellsize * buffer_cells).floor().multiply(cellsize * buffer_cells)
+    ymin = ymin.divide(cellsize * buffer_cells).floor().multiply(cellsize * buffer_cells)
+    xmax = xmax.divide(cellsize * buffer_cells).ceil().multiply(cellsize * buffer_cells)
+    ymax = ymax.divide(cellsize * buffer_cells).ceil().multiply(cellsize * buffer_cells)
+    clip_extent = ee.Geometry.Rectangle([xmin, ymin, xmax, ymax], 'EPSG:4326', False)
+
+    # Landsat image projection for resample/reproject (
+    # image_proj = sr_image.projection()
+    # image_crs = image_proj.crs()
+    # image_geo = ee.List(ee.Dictionary(ee.Algorithms.Describe(image_proj)).get('transform'))
+
+    # Aster Global Emissivity Dataset
+
+    ged = ee.Image('NASA/ASTER_GED/AG100_003').clip(clip_extent)
 
     veg_emis = 0.99
     soil_emiss_fill = 0.97
@@ -270,29 +263,29 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
         # Find matching Landsat Collection 2 Tier 1 Level 2 image
         #   based on the LANDSAT_SCENE_ID property
 
+        # Testing if it is any faster to filter each collection separately
+        # TODO: Test if adding an extra .filterDate() call helps
+        scene_id = input_img.get('LANDSAT_SCENE_ID')
         return ee.Image(
             ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
-            .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_L2'))
-            .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1_L2'))
-            .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1_L2'))
-            .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1_L2'))
-            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', input_img.get('LANDSAT_SCENE_ID')))
+            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id))
+            .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+            .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1_L2')
+                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+            .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1_L2')
+                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+            .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1_L2')
+                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
             .first()
         )
-        # TODO: Test if it is any faster to filter each collection separately
-        #   and/or try using a .filterDate() call on the separate collections
-        # scene_id = input_img.get('LANDSAT_SCENE_ID')
         # return ee.Image(
         #     ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
-        #     .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id))
-        #     .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
-        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
-        #     .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1_L2')
-        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
-        #     .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1_L2')
-        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
-        #     .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1_L2')
-        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+        #     .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_L2'))
+        #     .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1_L2'))
+        #     .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1_L2'))
+        #     .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1_L2'))
+        #     .filter(ee.Filter.eq('LANDSAT_SCENE_ID', input_img.get('LANDSAT_SCENE_ID')))
         #     .first()
         # )
 
@@ -306,28 +299,28 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
         satellite = ee.String(input_img.get('SPACECRAFT_ID'))
         scene_id = ee.String(input_img.get('LANDSAT_SCENE_ID'))
 
+        #  Testing if it is any faster to filter each collection separately
+        # TODO: Test if adding an extra .filterDate() call helps
         matched_img = ee.Image(
             ee.ImageCollection('LANDSAT/LC09/C02/T1')
-            .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_RT'))
-            .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1'))
-            .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1'))
-            .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1'))
             .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id))
+            .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_RT')
+                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+            .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1')
+                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+            .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1')
+                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+            .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1')
+                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
             .first()
         )
-        # TODO: Test if it is any faster to filter each collection separately
-        #   and/or try using a .filterDate() call on the separate collections
         # matched_img = ee.Image(
         #     ee.ImageCollection('LANDSAT/LC09/C02/T1')
+        #     .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_RT'))
+        #     .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1'))
+        #     .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1'))
+        #     .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1'))
         #     .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id))
-        #     .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_RT')
-        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
-        #     .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1')
-        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
-        #     .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1')
-        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
-        #     .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1')
-        #            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
         #     .first()
         # )
 
@@ -397,29 +390,32 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
     em_soil = em_soil.where(fc_aster.gt(0.8), soil_emiss_fill)
 
     # Fill in soil emissivity gaps using the default value
+    # CGM - Not sure if the sameFootprint parameter is needed or does anything
+    #   when unmasking with a value,
+    # The default of True should be fine when GED is clipped
     em_soil = em_soil.unmask(soil_emiss_fill)
 
     # Resample soil emissivity using bilinear interpolation
-    # CGM - Having the resample without a reproject seems to cause problems
-    #   when called from other modules/functions
-    em_soil = (
-        em_soil.resample('bilinear')
-        .reproject(crs=image_crs, crsTransform=image_geo)
-    )
+    em_soil = em_soil.resample('bilinear')
+    # # CGM - Having the resample without a reproject seemed to cause problems
+    # #   when called from other modules/functions, but testing without it
+    # em_soil = (
+    #     em_soil.resample('bilinear')
+    #     .reproject(crs=image_crs, crsTransform=image_geo)
+    # )
 
     # Apply Eq. 4 and 6 of Allen-Kilic to estimate Landsat-based emissivity
     # Using the ASTER-based soil emissivity from above
     # The following estimate for emissivity to use with Landsat may need to be clamped
     #   to some predefined safe limits (for example, 0.5 and 1.0).
     # CGM - Is the .multiply(1.0) needed?
-    fc_Landsat = ndvi.multiply(1.0).subtract(0.15).divide(0.65).clamp(0, 1.0)
+    fc_landsat = ndvi.multiply(1.0).subtract(0.15).divide(0.65).clamp(0, 1.0)
 
     # calc_smoothed_em_soil
-    LS_EM = fc_Landsat.multiply(-1).add(1).multiply(em_soil).add(fc_Landsat.multiply(veg_emis))
+    LS_EM = fc_landsat.multiply(-1).add(1).multiply(em_soil).add(fc_landsat.multiply(veg_emis))
 
     # Apply Eq. 8 to get thermal surface radiance, Rc, from C2 Real time band 10
     # (Eq. 7 of Malakar et al. but without the emissivity to produce actual radiance)
-    # def calc_Rc_smooth(LS_EM):
     Rc = (
         coll2RT.select(['thermal'])
         .multiply(ee.Number(coll2RT.get('RADIANCE_MULT_BAND_thermal')))
