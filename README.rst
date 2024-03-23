@@ -63,7 +63,7 @@ Development and Testing
 
 Please see the `CONTRIBUTING.rst <CONTRIBUTING.rst>`__.
 
-.. |build| image:: https://github.com/Open-ET/openet-core/actions/workflows/test.yml/badge.svg
+.. |build| image:: https://github.com/Open-ET/openet-core/actions/workflows/tests.yml/badge.svg
    :alt: Build status
    :target: https://github.com/Open-ET/openet-core
 .. |version| image:: https://badge.fury.io/py/openet-core.svg
