@@ -519,10 +519,8 @@ def list_2_str_ranges(i):
     return ','.join(output)
 
 
-# Should these be test fixtures instead?
-# I'm not sure how to make them fixtures and allow input parameters
 def constant_image_value(image, crs='EPSG:32613', scale=1):
-    """Extract the output value from a calculation done with constant images"""
+    """Extract the output value from a "constant" image"""
     rr_params = {
         'reducer': ee.Reducer.first(),
         'geometry': ee.Geometry.Rectangle([0, 0, 10, 10], crs, False),
@@ -532,7 +530,7 @@ def constant_image_value(image, crs='EPSG:32613', scale=1):
 
 
 def point_image_value(image, xy, scale=1):
-    """Extract the output value from a calculation at a point"""
+    """Extract the output value from an image at a point"""
     rr_params = {
         'reducer': ee.Reducer.first(),
         'geometry': ee.Geometry.Point(xy),
@@ -542,9 +540,8 @@ def point_image_value(image, xy, scale=1):
 
 
 def point_coll_value(coll, xy, scale=1):
-    """Extract the output value from a calculation at a point"""
+    """Extract the output value from a collection at a point"""
     output = get_info(coll.getRegion(ee.Geometry.Point(xy), scale=scale))
-
     # Structure output to easily be converted to a Pandas dataframe
     # First key is band name, second key is the date string
     col_dict = {}
@@ -552,7 +549,9 @@ def point_coll_value(coll, xy, scale=1):
     for i, k in enumerate(output[0][4:]):
         col_dict[k] = i + 4
         info_dict[k] = {}
+
     for row in output[1:]:
+        # TODO: Add support for images that don't have a system:time_start
         date = datetime.utcfromtimestamp(row[3] / 1000.0).strftime('%Y-%m-%d')
         for k, v in col_dict.items():
             info_dict[k][date] = row[col_dict[k]]
