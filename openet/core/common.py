@@ -174,7 +174,7 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
     ----------
     sr_image : ee.Image
         Image from a Landsat Collection 2 SR image collection
-        with the SPACECRAFT_ID and LANDSAT_SCENE_ID metadata properties
+        with the SPACECRAFT_ID and LANDSAT_PRODUCT_ID metadata properties
         (e.g. LANDSAT/LC08/C02/T1_L2).
     ndvi : ee.Image
         Normalized difference vegetation index (NDVI)
@@ -261,68 +261,62 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
 
     def get_matched_c2_t1_image(input_img):
         # Find matching Landsat Collection 2 Tier 1 Level 2 image
-        #   based on the LANDSAT_SCENE_ID property
+        #   based on the "LANDSAT_PRODUCT_ID" property
+        # Build the system:index format scene ID from the LANDSAT_PRODUCT_ID
+        scene_id = ee.List(ee.String(input_img.get('LANDSAT_PRODUCT_ID')).split('_'))
+        scene_id = (
+            ee.String(scene_id.get(0)).cat('_').cat(ee.String(scene_id.get(2)))
+            .cat('_').cat(ee.String(scene_id.get(3)))
+        )
+        # scene_id = ee.String(input_img.get('system:index'))
 
         # Testing if it is any faster to filter each collection separately
         # TODO: Test if adding an extra .filterDate() call helps
-        scene_id = input_img.get('LANDSAT_SCENE_ID')
         return ee.Image(
             ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
-            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id))
+            .filter(ee.Filter.eq('system:index', scene_id))
             .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
-                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+                   .filter(ee.Filter.eq('system:index', scene_id)))
             .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1_L2')
-                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+                   .filter(ee.Filter.eq('system:index', scene_id)))
             .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1_L2')
-                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+                   .filter(ee.Filter.eq('system:index', scene_id)))
             .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1_L2')
-                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+                   .filter(ee.Filter.eq('system:index', scene_id)))
             .first()
         )
-        # return ee.Image(
-        #     ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
-        #     .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_L2'))
-        #     .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1_L2'))
-        #     .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1_L2'))
-        #     .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1_L2'))
-        #     .filter(ee.Filter.eq('LANDSAT_SCENE_ID', input_img.get('LANDSAT_SCENE_ID')))
-        #     .first()
-        # )
 
     def get_matched_c2_t1_radiance_image(input_img):
-        # Find matching Landsat Collection 2 Tier 1 radiance (and RT) image
-        #   based on the LANDSAT_SCENE_ID property
+        # Find matching Landsat Collection 2 Tier 1 Level 2 image
+        #   based on the "LANDSAT_PRODUCT_ID" property
+        # Build the system:index format scene ID from the LANDSAT_PRODUCT_ID
+        satellite = ee.String(input_img.get('SPACECRAFT_ID'))
+        scene_id = ee.List(ee.String(input_img.get('LANDSAT_PRODUCT_ID')).split('_'))
+        scene_id = (
+            ee.String(scene_id.get(0)).cat('_').cat(ee.String(scene_id.get(2)))
+            .cat('_').cat(ee.String(scene_id.get(3)))
+        )
+        # scene_id = ee.String(input_img.get('system:index'))
 
         # TODO: Fix error when images that are in the T1_L2 collections but not in the T1,
         #  will fail with a .get() error because matched_img is 'None',
         #  could cause issues if trying to map over a collection
-        satellite = ee.String(input_img.get('SPACECRAFT_ID'))
-        scene_id = ee.String(input_img.get('LANDSAT_SCENE_ID'))
 
         #  Testing if it is any faster to filter each collection separately
         # TODO: Test if adding an extra .filterDate() call helps
         matched_img = ee.Image(
             ee.ImageCollection('LANDSAT/LC09/C02/T1')
-            .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id))
+            .filter(ee.Filter.eq('system:index', scene_id))
             .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_RT')
-                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+                   .filter(ee.Filter.eq('system:index', scene_id)))
             .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1')
-                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+                   .filter(ee.Filter.eq('system:index', scene_id)))
             .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1')
-                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+                   .filter(ee.Filter.eq('system:index', scene_id)))
             .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1')
-                   .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id)))
+                   .filter(ee.Filter.eq('system:index', scene_id)))
             .first()
         )
-        # matched_img = ee.Image(
-        #     ee.ImageCollection('LANDSAT/LC09/C02/T1')
-        #     .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_RT'))
-        #     .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1'))
-        #     .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1'))
-        #     .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1'))
-        #     .filter(ee.Filter.eq('LANDSAT_SCENE_ID', scene_id))
-        #     .first()
-        # )
 
         input_bands = ee.Dictionary({
             'LANDSAT_4': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'B6'],

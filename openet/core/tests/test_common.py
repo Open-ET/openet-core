@@ -157,6 +157,9 @@ def test_landsat_c2_sr_lst_parameter_keywords():
         ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-107.4, 41.5], 318.0, 317.8],
         ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-106.5, 41.3], 306.0, 305.9],
         ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-107.9, 42.6], None, None],
+        # This scene will not run if matching collections are built using the LANDSAT_SCENE_ID
+        # since the ID has a different version number in the TOA and radiance collections
+        ['LANDSAT/LC09/C02/T1_L2/LC09_035025_20230608', [-103.5, 50.4], 306.55, 306.55],
     ]
 )
 def test_landsat_c2_sr_lst_correct_values(image_id, xy, expected, uncorrected, tol=0.25):
