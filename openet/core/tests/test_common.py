@@ -173,3 +173,12 @@ def test_landsat_c2_sr_lst_correct_values(image_id, xy, expected, uncorrected, t
         assert corrected['lst'] is None
     else:
         assert abs(corrected['lst'] - expected) <= tol
+
+
+def test_landsat_c2_sr_lst_correct_no_toa():
+    input_img = ee.Image('LANDSAT/LE07/C02/T1_L2/LE07_030026_20200628')
+    output_img = common.landsat_c2_sr_lst_correct(
+        input_img, input_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B4', 'SR_B3'])
+    )
+    with pytest.raises(Exception):
+        utils.point_coll_value(output_img, [-96.7, 48.9], scale=30)
