@@ -78,10 +78,11 @@ def scene_coll(variables, etf=[0.4, 0.4, 0.4], et=[5, 5, 5], ndvi=[0.6, 0.6, 0.6
     mask = img.add(1).updateMask(1).uint8()
 
     # The "date" is used for the time band since it needs to be the 0 UTC time
-    # The "time" is advanced to match the typical Landsat overpass time
     date1 = ee.Number(ee.Date.fromYMD(2017, 7, 8).millis())
     date2 = ee.Number(ee.Date.fromYMD(2017, 7, 16).millis())
     date3 = ee.Number(ee.Date.fromYMD(2017, 7, 24).millis())
+
+    # The "time" is advanced to match the typical Landsat overpass time
     time1 = ee.Number(ee.Date.fromYMD(2017, 7, 8).advance(18, 'hours').millis())
     time2 = ee.Number(ee.Date.fromYMD(2017, 7, 16).advance(18, 'hours').millis())
     time3 = ee.Number(ee.Date.fromYMD(2017, 7, 24).advance(18, 'hours').millis())
@@ -89,19 +90,33 @@ def scene_coll(variables, etf=[0.4, 0.4, 0.4], et=[5, 5, 5], ndvi=[0.6, 0.6, 0.6
     # TODO: Add code to convert et, et_fraction, and ndvi to lists if they
     #   are set as a single value
 
+    # # Don't add mask or time band to scene collection
+    # # since they are now added in the interpolation calls
+    # scene_coll = ee.ImageCollection.fromImages([
+    #     ee.Image([img.add(etf[0]), img.add(et[0]), img.add(ndvi[0])])
+    #     .rename(['et_fraction', 'et', 'ndvi'])
+    #     .set({'system:index': 'LE07_044033_20170708', 'system:time_start': time1}),
+    #     ee.Image([img.add(etf[1]), img.add(et[1]), img.add(ndvi[1])])
+    #     .rename(['et_fraction', 'et', 'ndvi'])
+    #     .set({'system:index': 'LC08_044033_20170716', 'system:time_start': time2}),
+    #     ee.Image([img.add(etf[2]), img.add(et[2]), img.add(ndvi[2])])
+    #     .rename(['et_fraction', 'et', 'ndvi'])
+    #     .set({'system:index': 'LE07_044033_20170724', 'system:time_start': time3}),
+    # ])
     # Mask and time bands currently get added on to the scene collection
     #   and images are unscaled just before interpolating in the export tool
     scene_coll = ee.ImageCollection.fromImages([
         ee.Image([img.add(etf[0]), img.add(et[0]), img.add(ndvi[0]), img.add(date1), mask])
-            .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
-            .set({'system:index': 'LE07_044033_20170708', 'system:time_start': time1}),
+        .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
+        .set({'system:index': 'LE07_044033_20170708', 'system:time_start': time1}),
         ee.Image([img.add(etf[1]), img.add(et[1]), img.add(ndvi[1]), img.add(date2), mask])
-            .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
-            .set({'system:index': 'LC08_044033_20170716', 'system:time_start': time2}),
+        .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
+        .set({'system:index': 'LC08_044033_20170716', 'system:time_start': time2}),
         ee.Image([img.add(etf[2]), img.add(et[2]), img.add(ndvi[2]), img.add(date3), mask])
-            .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
-            .set({'system:index': 'LE07_044033_20170724', 'system:time_start': time3}),
+        .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
+        .set({'system:index': 'LE07_044033_20170724', 'system:time_start': time3}),
     ])
+
     return scene_coll.select(variables)
 
 
@@ -429,7 +444,7 @@ def test_aggregate_to_daily_values_multi_band(src_values, time_values, expected,
 
 def test_aggregate_to_daily_properties():
     """Test daily aggregation image properties"""
-    source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
+    source_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')\
         .filterDate('2017-06-30', '2017-08-02')\
         .filterBounds(ee.Geometry.Point(-121.9, 39))
     output = utils.get_info(interpolate.aggregate_to_daily(source_coll).first())
@@ -440,7 +455,7 @@ def test_aggregate_to_daily_properties():
 
 def test_aggregate_to_daily_date_filtering():
     """Test daily aggregation start/end date filtering"""
-    source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
+    source_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')\
         .filterDate('2017-01-01', '2018-01-01')\
         .filterBounds(ee.Geometry.Point(-121.9, 39))\
         .select(['B1'])
@@ -464,6 +479,7 @@ def test_aggregate_to_daily_date_filtering():
 
 def test_from_scene_et_fraction_t_interval_daily_values_interpolated(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
+        # scene_coll(['et_fraction', 'ndvi'], ndvi=[0.2, 0.4, 0.6]),
         scene_coll(['et_fraction', 'ndvi', 'time', 'mask'], ndvi=[0.2, 0.4, 0.6]),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi'],
@@ -500,6 +516,7 @@ def test_from_scene_et_fraction_t_interval_daily_values_interpolated(tol=0.0001)
 def test_from_scene_et_fraction_t_interval_daily_values_et_reference(
         et_reference_band, et_reference_date, et_reference, tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
+        # scene_coll(['et_fraction', 'ndvi'], ndvi=[0.2, 0.4, 0.6]),
         scene_coll(['et_fraction', 'ndvi', 'time', 'mask'], ndvi=[0.2, 0.4, 0.6]),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi'],
@@ -526,6 +543,7 @@ def test_from_scene_et_fraction_t_interval_daily_values_et_reference(
 def test_from_scene_et_fraction_t_interval_monthly_values(
         et_reference_band, et_reference, tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
+        # scene_coll(['et_fraction', 'ndvi']),
         scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi', 'count'],
@@ -547,6 +565,7 @@ def test_from_scene_et_fraction_t_interval_monthly_values(
 
 def test_from_scene_et_fraction_t_interval_custom_values(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
+        # scene_coll(['et_fraction', 'ndvi']),
         scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi', 'count'],
@@ -568,6 +587,7 @@ def test_from_scene_et_fraction_t_interval_custom_values(tol=0.0001):
 
 def test_from_scene_et_fraction_t_interval_monthly_et_reference_factor(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
+        # scene_coll(['et_fraction', 'ndvi']),
         scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi', 'count'],
@@ -597,6 +617,7 @@ def test_from_scene_et_fraction_t_interval_monthly_et_reference_factor(tol=0.000
 def test_from_scene_et_fraction_t_interval_monthly_et_reference_resample(
         et_reference_band, et_reference, tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
+        # scene_coll(['et_fraction', 'ndvi']),
         scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi', 'count'],
@@ -621,6 +642,7 @@ def test_from_scene_et_fraction_t_interval_monthly_et_reference_resample(
 def test_from_scene_et_fraction_t_interval_monthly_interp_args_et_reference(tol=0.0001):
     # Check that the et_reference parameters can be set through the interp_args
     output_coll = interpolate.from_scene_et_fraction(
+        # scene_coll(['et_fraction', 'ndvi']),
         scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi', 'count'],
@@ -643,6 +665,7 @@ def test_from_scene_et_fraction_t_interval_monthly_interp_args_et_reference(tol=
 
 def test_from_scene_et_actual_t_interval_daily_values_eto(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
+        # scene_coll(['et']),
         scene_coll(['et', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction'],
@@ -669,6 +692,7 @@ def test_from_scene_et_actual_t_interval_daily_values_eto(tol=0.0001):
 
 def test_from_scene_et_actual_t_interval_daily_values_etr(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
+        # scene_coll(['et']),
         scene_coll(['et', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction'],
@@ -703,6 +727,7 @@ def test_from_scene_et_actual_t_interval_daily_values_etr(tol=0.0001):
 def test_from_scene_et_actual_t_interval_monthly_values(
         et_reference_band, et_reference, et, tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
+        # scene_coll(['et']),
         scene_coll(['et', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'count'],
@@ -727,6 +752,7 @@ def test_from_scene_et_actual_t_interval_monthly_values(
 def test_from_scene_et_actual_t_interval_custom_values_monthly(tol=0.0001):
     # Check that the custom time interval and monthly time interval match
     output_coll = interpolate.from_scene_et_actual(
+        # scene_coll(['et']),
         scene_coll(['et', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'count'],
@@ -750,6 +776,7 @@ def test_from_scene_et_actual_t_interval_custom_values_monthly(tol=0.0001):
 
 def test_from_scene_et_actual_t_interval_monthly_et_reference_factor(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
+        # scene_coll(['et']),
         scene_coll(['et', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'count'],
@@ -781,6 +808,7 @@ def test_from_scene_et_actual_t_interval_monthly_et_reference_factor(tol=0.0001)
 def test_from_scene_et_actual_t_interval_monthly_et_reference_resample(
         et_reference_band, et_reference, et, tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
+        # scene_coll(['et']),
         scene_coll(['et', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'count'],
@@ -802,8 +830,34 @@ def test_from_scene_et_actual_t_interval_monthly_et_reference_resample(
     assert output['count']['2017-07-01'] == 3
 
 
+def test_from_scene_et_actual_t_interval_monthly_interp_args_et_reference(tol=0.0001):
+    output_coll = interpolate.from_scene_et_actual(
+        # scene_coll(['et']),
+        scene_coll(['et', 'time', 'mask']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et', 'et_reference', 'et_fraction', 'count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 32,
+                     'interp_source': 'IDAHO_EPSCOR/GRIDMET',
+                     'interp_band': 'etr',
+                     'interp_resample': 'nearest',
+                     'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                     'et_reference_band': 'etr',
+                     'et_reference_factor': 1.0,
+                     'et_reference_resample': 'nearest'},
+        model_args={},
+        t_interval='monthly')
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
+    assert abs(output['et']['2017-07-01'] - 142.9622039794922) <= tol
+    assert abs(output['et_reference']['2017-07-01'] - 310.3) <= tol
+    assert abs(output['et_fraction']['2017-07-01'] - 142.9622039794922 / 310.3) <= tol
+    assert output['count']['2017-07-01'] == 3
+
+
 def test_from_scene_et_actual_t_interval_daily_et_fraction_max(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
+        # scene_coll(['et'], et=[100, 100, 100]),
         scene_coll(['et', 'time', 'mask'], et=[100, 100, 100]),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction'],
@@ -830,6 +884,7 @@ def test_from_scene_et_fraction_t_interval_bad_value():
     # Function should raise a ValueError if t_interval is not supported
     with pytest.raises(ValueError):
         interpolate.from_scene_et_fraction(
+            # scene_coll(['et']),
             scene_coll(['et', 'time', 'mask']),
             start_date='2017-07-01', end_date='2017-08-01', variables=['et'],
             interp_args={'interp_method': 'linear', 'interp_days': 32},
@@ -844,6 +899,7 @@ def test_from_scene_et_fraction_t_interval_no_value():
     # Function should raise an Exception if t_interval is not set
     with pytest.raises(TypeError):
         interpolate.from_scene_et_fraction(
+            # scene_coll(['et']),
             scene_coll(['et', 'time', 'mask']),
             start_date='2017-07-01', end_date='2017-08-01',
             variables=['et', 'et_reference', 'et_fraction', 'count'],
@@ -858,6 +914,7 @@ def test_from_scene_et_actual_t_interval_bad_value():
     # Function should raise a ValueError if t_interval is not supported
     with pytest.raises(ValueError):
         interpolate.from_scene_et_actual(
+            # scene_coll(['et']),
             scene_coll(['et', 'time', 'mask']),
             start_date='2017-07-01', end_date='2017-08-01', variables=['et'],
             interp_args={'interp_method': 'linear', 'interp_days': 32,
@@ -874,6 +931,7 @@ def test_from_scene_et_actual_t_interval_no_value():
     # Function should raise an Exception if t_interval is not set
     with pytest.raises(TypeError):
         interpolate.from_scene_et_actual(
+            # scene_coll(['et']),
             scene_coll(['et', 'time', 'mask']),
             start_date='2017-07-01', end_date='2017-08-01', variables=['et'],
             interp_args={'interp_method': 'linear', 'interp_days': 32,
@@ -889,6 +947,7 @@ def test_from_scene_et_actual_t_interval_no_value():
 def test_from_scene_et_fraction_interp_args_use_joins_true(tol=0.01):
     # Check that the use_joins interp_args parameter works
     output_coll = interpolate.from_scene_et_fraction(
+        # scene_coll(['et_fraction']),
         scene_coll(['et_fraction', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'count'],
@@ -909,6 +968,7 @@ def test_from_scene_et_fraction_interp_args_use_joins_true(tol=0.01):
 def test_from_scene_et_fraction_interp_args_use_joins_false(tol=0.01):
     # Check that the use_joins interp_args parameter works
     output_coll = interpolate.from_scene_et_fraction(
+        # scene_coll(['et_fraction']),
         scene_coll(['et_fraction', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'count'],
@@ -929,6 +989,7 @@ def test_from_scene_et_fraction_interp_args_use_joins_false(tol=0.01):
 def test_from_scene_et_actual_interp_args_use_joins_true(tol=0.01):
     # Check that the use_joins interp_args parameter works
     output_coll = interpolate.from_scene_et_actual(
+        # scene_coll(['et']),
         scene_coll(['et', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'count'],
@@ -951,6 +1012,7 @@ def test_from_scene_et_actual_interp_args_use_joins_true(tol=0.01):
 def test_from_scene_et_actual_interp_args_use_joins_false(tol=0.01):
     # Check that the use_joins interp_args parameter works
     output_coll = interpolate.from_scene_et_actual(
+        # scene_coll(['et']),
         scene_coll(['et', 'time', 'mask']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et', 'et_reference', 'count'],
@@ -970,7 +1032,6 @@ def test_from_scene_et_actual_interp_args_use_joins_false(tol=0.01):
     assert output['count']['2017-07-01'] == 3
 
 
-
 """
 These tests were attempts at making "full" interpolation calls.
 They could be removed but are being left in case we want to explore this again
@@ -978,19 +1039,23 @@ at some point in the future.
 """
 # def test_daily_values_collection_a():
 #     """Test the daily interpolation using real images"""
-#     target_coll = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\
-#         .filterDate('2017-06-30', '2017-08-02')\
+#     target_coll = (
+#         ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')
+#         .filterDate('2017-06-30', '2017-08-02')
 #         .select(['etr'])
-#     source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
-#         .filterDate('2017-06-30', '2017-08-02')\
-#         .filterBounds(ee.Geometry.Point(-121.9, 39))\
-#         .select(['B1'])
+#     )
+#     source_coll = (
+#         ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+#         .filterDate('2017-06-30', '2017-08-02')
+#         .filterBounds(ee.Geometry.Point(-121.9, 39))
+#         .select(['SR_B2'])
+#     )
 #
 #     def add_time_band(image):
 #         date_0utc = utils.date_0utc(ee.Date(image.get('system:time_start')))
 #         return image.addBands([
-#             image.select([0]).double().multiply(0).add(date_0utc.millis())\
-#                 .rename(['time'])])
+#             image.select([0]).double().multiply(0).add(date_0utc.millis()).rename(['time'])
+#         ])
 #     source_coll = ee.ImageCollection(source_coll.map(add_time_band))
 #
 #     # print('\nTARGET')
@@ -1007,26 +1072,30 @@ at some point in the future.
 #     output = utils.point_coll_value(
 #         interpolate.daily(target_coll, source_coll, interp_days=32),
 #         xy=(-121.5265, 38.7399), scale=30)
-#     pprint.pprint(output['B1'])
+#     pprint.pprint(output['SR_B2'])
 #
 #     assert True
 #
 #
 # def test_daily_values_collection_b():
 #     """Test the daily interpolation for short interp_days values"""
-#     target_coll = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\
-#         .filterDate('2017-06-30', '2017-08-02')\
+#     target_coll = (
+#         ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')
+#         .filterDate('2017-06-30', '2017-08-02')
 #         .select(['etr'])
-#     source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
-#         .filterDate('2017-06-30', '2017-08-02')\
-#         .filterBounds(ee.Geometry.Point(-121.9, 39))\
-#         .select(['B1'])
+#     )
+#     source_coll = (
+#         ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+#         .filterDate('2017-06-30', '2017-08-02')
+#         .filterBounds(ee.Geometry.Point(-121.9, 39))
+#         .select(['SR_B2'])
+#     )
 #
 #     def add_time_band(image):
 #         date_0utc = utils.date_0utc(ee.Date(image.get('system:time_start')))
 #         return image.addBands([
-#             image.select([0]).double().multiply(0).add(date_0utc.millis())\
-#                 .rename(['time'])])
+#             image.select([0]).double().multiply(0).add(date_0utc.millis()).rename(['time'])
+#         ])
 #     source_coll = ee.ImageCollection(source_coll.map(add_time_band))
 #
 #     # print('\nTARGET')
@@ -1043,26 +1112,30 @@ at some point in the future.
 #     output = utils.point_coll_value(
 #         interpolate.daily(target_coll, source_coll, interp_days=4),
 #         xy=(-121.5265, 38.7399), scale=30)
-#     pprint.pprint(output['B1'])
+#     pprint.pprint(output['SR_B2'])
 #
 #     assert True
 #
 #
 # def test_daily_values_collection_c():
 #     """Test if the daily interpolation holds the last known value"""
-#     target_coll = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\
-#         .filterDate('2017-07-01', '2017-08-05')\
+#     target_coll = (
+#         ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')
+#         .filterDate('2017-07-01', '2017-08-05')
 #         .select(['etr'])
-#     source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
-#         .filterDate('2017-06-30', '2017-07-17')\
-#         .filterBounds(ee.Geometry.Point(-121.9, 39))\
-#         .select(['B1'])
+#     )
+#     source_coll = (
+#         ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+#         .filterDate('2017-06-30', '2017-07-17')
+#         .filterBounds(ee.Geometry.Point(-121.9, 39))
+#         .select(['SR_B2'])
+#     )
 #
 #     def add_time_band(image):
 #         date_0utc = utils.date_0utc(ee.Date(image.get('system:time_start')))
 #         return image.addBands([
-#             image.select([0]).double().multiply(0).add(date_0utc.millis())\
-#                 .rename(['time'])])
+#             image.select([0]).double().multiply(0).add(date_0utc.millis()).rename(['time'])
+#         ])
 #     source_coll = ee.ImageCollection(source_coll.map(add_time_band))
 #
 #     # print('\nTARGET')
@@ -1079,6 +1152,6 @@ at some point in the future.
 #     output = utils.point_coll_value(
 #         interpolate.daily(target_coll, source_coll, interp_days=16),
 #         xy=(-121.5265, 38.7399), scale=30)
-#     pprint.pprint(output['B1'])
+#     pprint.pprint(output['SR_B2'])
 #
 #     assert True
