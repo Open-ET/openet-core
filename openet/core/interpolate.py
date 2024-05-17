@@ -419,8 +419,7 @@ def from_scene_et_fraction(
 
     Notes
     -----
-    This function currently assumes that "mask" and "time" bands already exist
-    in the scene collection.
+    This function assumes that "mask" and "time" bands are not in the scene collection.
 
     """
     # Get interp_method
@@ -584,59 +583,53 @@ def from_scene_et_fraction(
     if ('et_reference' in variables) and ('et_fraction' not in interp_vars):
         interp_vars.append('et_fraction')
 
-    # The time band is needed for interpolation
-    # (until interpolate_prep below is added)
-    interp_vars.append('time')
-
     # TODO: Look into implementing et_fraction clamping here
     #   (similar to et_actual below)
 
-    # ############
-    # def interpolate_prep(img):
-    #     """Prep WRS2 scene images for interpolation
-    #
-    #     "Unscale" the images using the "scale_factor" property and convert to double.
-    #     Add a mask and time band to each image in the scene_coll since
-    #         interpolator is assuming time and mask bands exist.
-    #     The interpolation could be modified to get the mask from the
-    #         time band instead of setting it here.
-    #     The time image must be the 0 UTC time
-    #
-    #     """
-    #     mask_img = (
-    #         img.select(['et_fraction']).multiply(0).add(1).updateMask(1).uint8()
-    #         .rename('mask')
-    #     )
-    #     time_img = (
-    #         img.select(['et_fraction']).double().multiply(0)
-    #         .add(utils.date_0utc(ee.Date(img.get('system:time_start'))).millis())
-    #         .rename('time')
-    #     )
-    #
-    #     # Set the default scale factor to 1 if the image does not have the property
-    #     scale_factor = (
-    #         ee.Dictionary({'scale_factor': img.get('scale_factor')})
-    #         .combine({'scale_factor': 1.0}, overwrite=False)
-    #     )
-    #
-    #     return (
-    #         img.select(interp_vars)
-    #         .double().multiply(ee.Number(scale_factor.get('scale_factor')))
-    #         .addBands([mask_img, time_img])
-    #         .set({
-    #             'system:time_start': ee.Number(img.get('system:time_start')),
-    #             'image_id': ee.String(img.get('system:index')),
-    #         })
-    #     )
-    #
-    # # Filter scene collection to the interpolation range
-    # #   This probably isn't needed since scene_coll was built to this range
-    # # Then add the time and mask bands needed for interpolation
-    # scene_coll = ee.ImageCollection(
-    #     scene_coll.filterDate(interp_start_date, interp_end_date)
-    #     .map(interpolate_prep)
-    # )
-    # ############
+    def interpolate_prep(img):
+        """Prep WRS2 scene images for interpolation
+
+        "Unscale" the images using the "scale_factor" property and convert to double.
+        Add a mask and time band to each image in the scene_coll since
+            interpolator is assuming time and mask bands exist.
+        The interpolation could be modified to get the mask from the
+            time band instead of setting it here.
+        The time image must be the 0 UTC time
+
+        """
+        mask_img = (
+            img.select(['et_fraction']).multiply(0).add(1).updateMask(1).uint8()
+            .rename(['mask'])
+        )
+        time_img = (
+            img.select(['et_fraction']).double().multiply(0)
+            .add(utils.date_0utc(ee.Date(img.get('system:time_start'))).millis())
+            .rename(['time'])
+        )
+
+        # Set the default scale factor to 1 if the image does not have the property
+        scale_factor = (
+            ee.Dictionary({'scale_factor': img.get('scale_factor')})
+            .combine({'scale_factor': 1.0}, overwrite=False)
+        )
+
+        return (
+            img.select(interp_vars)
+            .double().multiply(ee.Number(scale_factor.get('scale_factor')))
+            .addBands([mask_img, time_img])
+            .set({
+                'system:time_start': ee.Number(img.get('system:time_start')),
+                'system:index': ee.String(img.get('system:index')),
+            })
+        )
+
+    # Filter scene collection to the interpolation range
+    #   This probably isn't needed since scene_coll was built to this range
+    # Then add the time and mask bands needed for interpolation
+    scene_coll = ee.ImageCollection(
+        scene_coll.filterDate(interp_start_date, interp_end_date)
+        .map(interpolate_prep)
+    )
 
     # For count, compute the composite/mosaic image for the mask band only
     if 'count' in variables:
@@ -656,18 +649,11 @@ def from_scene_et_fraction(
             .set({'system:time_start': ee.Date(start_date).millis()})
         )
 
-    # import pprint
-    # print('Prep Collection')
-    # pprint.pprint(scene_coll.select(['et_fraction']).getInfo())
-    # pprint.pprint(scene_coll.select(['ndvi']).getInfo())
-    # pprint.pprint(scene_coll.select(['time']).getInfo())
-    # pprint.pprint(scene_coll.select(['mask']).getInfo())
-    # print('DEADBEEF 3')
-
     # Interpolate to a daily time step
+    # The time band is needed for interpolation
     daily_coll = daily(
         target_coll=daily_et_ref_coll,
-        source_coll=scene_coll.select(interp_vars),
+        source_coll=scene_coll.select(interp_vars + ['time']),
         interp_method=interp_method,
         interp_days=interp_days,
         use_joins=use_joins,
@@ -864,6 +850,17 @@ def from_scene_et_actual(
         interp_source : str
         interp_band : str
         interp_resample : {'nearest', 'bilinear', 'bicubic'}
+        et_reference_source : str
+            Reference ET collection ID.
+            Must be set if computing reference ET or ET fraction.
+        et_reference_band : str
+            Reference ET band name.
+            Must be set if computing reference ET or ET fraction.
+        et_reference_factor : float, None, optional
+            Reference ET scaling factor.  The default is 1.0 which is
+            equivalent to no scaling.
+        et_reference_resample : {'nearest', 'bilinear', 'bicubic', None}, optional
+            Reference ET resampling.  The default is 'nearest'.
         et_fraction_min : float
         et_fraction_max : float
         use_joins : bool, optional
@@ -872,8 +869,6 @@ def from_scene_et_actual(
             This parameter is passed through to interpolate.daily().
     model_args : dict
         Parameters from the MODEL section of the INI file.
-        The reference source and other parameters will need to be set here if computing
-        reference ET or ET fraction.
     t_interval : {'daily', 'monthly', 'annual', 'custom'}
         Time interval over which to interpolate and aggregate values.
         The 'custom' interval will aggregate all days within the start and end
@@ -889,8 +884,7 @@ def from_scene_et_actual(
 
     Notes
     -----
-    This function currently assumes that "mask" and "time" bands already exist
-    in the scene collection.
+    This function assumes that "mask" and "time" bands are not in the scene collection.
 
     """
     # Get interp_method
@@ -1067,46 +1061,46 @@ def from_scene_et_actual(
         .select([interp_args['interp_band']])
     )
 
-    # ############
-    # def interpolate_prep(img):
-    #     """Prep WRS2 scene images for interpolation
-    #
-    #     "Unscale" the images using the "scale_factor" property and convert to double.
-    #     Add a mask and time band to each image in the scene_coll since
-    #         interpolator is assuming time and mask bands exist.
-    #     The interpolation could be modified to get the mask from the
-    #         time band instead of setting it here.
-    #     The time image must be the 0 UTC time
-    #
-    #     """
-    #     mask_img = (
-    #         img.select(['et']).multiply(0).add(1).updateMask(1).uint8()
-    #         .rename('mask')
-    #     )
-    #     time_img = (
-    #         img.select(['et']).double().multiply(0)
-    #         .add(utils.date_0utc(ee.Date(img.get('system:time_start'))).millis())
-    #         .rename('time')
-    #     )
-    #
-    #     # Set the default scale factor to 1 if the image does not have the property
-    #     scale_factor = (
-    #         ee.Dictionary({'scale_factor': img.get('scale_factor')})
-    #         .combine({'scale_factor': 1.0}, overwrite=False)
-    #     )
-    #
-    #     return (
-    #         img.select(['et'])
-    #         .double().multiply(ee.Number(scale_factor.get('scale_factor')))
-    #         .addBands([mask_img, time_img])
-    #         .set({
-    #             'system:time_start': ee.Number(img.get('system:time_start')),
-    #             'system:index': ee.String(img.get('system:index')),
-    #         })
-    #     )
-    #
-    # scene_coll = scene_coll.map(interpolate_prep)
-    # ###########
+    ############
+    def interpolate_prep(img):
+        """Prep WRS2 scene images for interpolation
+
+        "Unscale" the images using the "scale_factor" property and convert to double.
+        Add a mask and time band to each image in the scene_coll since
+            interpolator is assuming time and mask bands exist.
+        The interpolation could be modified to get the mask from the
+            time band instead of setting it here.
+        The time image must be the 0 UTC time
+
+        """
+        mask_img = (
+            img.select(['et']).multiply(0).add(1).updateMask(1).uint8()
+            .rename('mask')
+        )
+        time_img = (
+            img.select(['et']).double().multiply(0)
+            .add(utils.date_0utc(ee.Date(img.get('system:time_start'))).millis())
+            .rename('time')
+        )
+
+        # Set the default scale factor to 1 if the image does not have the property
+        scale_factor = (
+            ee.Dictionary({'scale_factor': img.get('scale_factor')})
+            .combine({'scale_factor': 1.0}, overwrite=False)
+        )
+
+        return (
+            img.select(['et'])
+            .double().multiply(ee.Number(scale_factor.get('scale_factor')))
+            .addBands([mask_img, time_img])
+            .set({
+                'system:time_start': ee.Number(img.get('system:time_start')),
+                'system:index': ee.String(img.get('system:index')),
+            })
+        )
+
+    scene_coll = scene_coll.map(interpolate_prep)
+    ###########
 
     # For count, compute the composite/mosaic image for the mask band only
     if 'count' in variables:
