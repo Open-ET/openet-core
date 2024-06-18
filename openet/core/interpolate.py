@@ -576,12 +576,12 @@ def from_scene_et_fraction(
 
     # To return ET, the ETf must be interpolated
     if ('et' in variables) and ('et_fraction' not in interp_vars):
-        interp_vars.append('et_fraction')
+        interp_vars = interp_vars + ['et_fraction']
 
     # With the current interpolate.daily() function,
     #   something has to be interpolated in order to return et_reference
     if ('et_reference' in variables) and ('et_fraction' not in interp_vars):
-        interp_vars.append('et_fraction')
+        interp_vars = interp_vars + ['et_fraction']
 
     # TODO: Look into implementing et_fraction clamping here
     #   (similar to et_actual below)
