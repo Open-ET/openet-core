@@ -32,6 +32,11 @@ def test_get_info_empty_list():
     assert utils.get_info(ee.List([])) == []
 
 
+def test_affine_transform():
+    output = utils.get_info(utils.affine_transform(ee.Image('NASA/NASADEM_HGT/001')))
+    assert output == [0.0002777777777777778, 0, -179.0001388888889, 0, -0.0002777777777777778, 61.00013888888889]
+
+
 def test_date_0utc(date='2015-07-13'):
     assert utils.get_info(utils.date_0utc(
         ee.Date(date).advance(2, 'hour')).format('yyyy-MM-dd')) == date

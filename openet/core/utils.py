@@ -10,6 +10,21 @@ import time
 import ee
 
 
+def affine_transform(image):
+    """Get the affine transform of the image as an EE object
+
+    Parameters
+    ----------
+    image : ee.Image
+
+    Returns
+    -------
+    ee.List
+
+    """
+    return ee.List(ee.Dictionary(ee.Algorithms.Describe(image.projection())).get('transform'))
+
+
 def arg_valid_date(input_date):
     """Check that a date string is ISO format (YYYY-MM-DD)
 
@@ -575,7 +590,3 @@ def point_coll_value(coll, xy, scale=1):
 #             ee.data.createAsset({'type': 'FOLDER'}, folder_id)
 #             if set_public:
 #                 ee.data.setIamPolicy(folder_id, public_policy)
-
-
-# def get_transform(image):
-#     return ee.List(ee.Dictionary(ee.Algorithms.Describe(image.projection())).get('transform'))
