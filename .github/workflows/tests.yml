@@ -41,10 +41,10 @@ jobs:
         create_credentials_file: true
         workload_identity_provider: 'projects/470570065811/locations/global/workloadIdentityPools/gitaction-pool/providers/gitaction-provider'
         service_account: 'github-actions@openet.iam.gserviceaccount.com'
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
-    - name: EE token
-      run: echo "ACTION_EE_TOKEN=$(gcloud auth print-access-token)" >> $GITHUB_ENV
+    #- name: Set up Cloud SDK
+    #  uses: google-github-actions/setup-gcloud@v2
+    #- name: EE token
+    #  run: echo "ACTION_EE_TOKEN=$(gcloud auth print-access-token)" >> $GITHUB_ENV
     - name: Test with pytest
       run: |
         python -m pytest
