@@ -34,6 +34,10 @@ def test_ee_init():
         ['0000000000100000', '0000', {'snow_flag': False}, 1],
         ['0000000000100000', '0000', {'snow_flag': True}, 0],
         ['0000000000100000', '0000', {'snow_flag': None}, 1],
+        # Water flag
+        ['0000000010000000', '0000', {'water_flag': False}, 1],
+        ['0000000010000000', '0000', {'water_flag': True}, 0],
+        ['0000000010000000', '0000', {'water_flag': None}, 1],
         # Test the saturated flag
         # Using a "snowy" QA_PIXEL bit mask that should be unmasked by default
         ['0000000000100000', '0000', {'saturated_flag': False}, 1],

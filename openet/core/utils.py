@@ -385,7 +385,7 @@ def millis(input_dt):
 
     Parameters
     ----------
-    input_df : datetime
+    input_dt : datetime
 
     Returns
     -------

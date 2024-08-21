@@ -7,6 +7,7 @@ def c02_qa_pixel_mask(
         dilate_flag=False,
         shadow_flag=True,
         snow_flag=False,
+        water_flag=False,
         ):
     """Landsat Collection 2 QA_PIXEL band cloud mask
 
@@ -25,6 +26,8 @@ def c02_qa_pixel_mask(
         If true, mask shadow pixels (the default is True).
     snow_flag : bool
         If true, mask snow pixels (the default is False).
+    water_flag : bool
+        If true, mask water pixels (the default is False).
 
     Returns
     -------
@@ -88,6 +91,8 @@ def c02_qa_pixel_mask(
         mask_img = mask_img.Or(qa_img.rightShift(4).bitwiseAnd(1).neq(0))
     if snow_flag:
         mask_img = mask_img.Or(qa_img.rightShift(5).bitwiseAnd(1).neq(0))
+    if water_flag:
+        mask_img = mask_img.Or(qa_img.rightShift(7).bitwiseAnd(1).neq(0))
 
     return mask_img.rename(['mask'])
 

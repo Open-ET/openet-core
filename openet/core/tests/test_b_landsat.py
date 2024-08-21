@@ -61,6 +61,10 @@ def test_c02_qa_pixel_mask_defaults(qa_pixel, expected):
         ['0000000000100000', 'snow_flag', None, 0],
         ['0000000000100000', 'snow_flag', False, 0],
         ['0000000000100000', 'snow_flag', True, 1],
+        # Water
+        ['0000000010000000', 'water_flag', None, 0],
+        ['0000000010000000', 'water_flag', False, 0],
+        ['0000000010000000', 'water_flag', True, 1],
     ]
 )
 def test_c02_qa_pixel_mask_flags(img_value, arg_name, flag_value, expected):

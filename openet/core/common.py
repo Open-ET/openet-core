@@ -9,6 +9,7 @@ def landsat_c2_sr_cloud_mask(
         dilate_flag=False,
         shadow_flag=True,
         snow_flag=False,
+        water_flag=False,
         cloud_score_flag=False,
         cloud_score_pct=100,
         filter_flag=False,
@@ -33,6 +34,8 @@ def landsat_c2_sr_cloud_mask(
         If true, mask shadow pixels (the default is True).
     snow_flag : bool
         If true, mask snow pixels (the default is False).
+    water_flag : bool
+        If true, mask water pixels (the default is False).
     cloud_score_flag : bool
         If true, mask pixels that have a TOA simple cloud score >= cloud_score_pct
         (the default is False).
@@ -59,7 +62,12 @@ def landsat_c2_sr_cloud_mask(
     """
     # Use the QA_PIXEL band to build the initial/default cloud mask
     mask_img = landsat.c02_qa_pixel_mask(
-        input_img, cirrus_flag, dilate_flag, shadow_flag, snow_flag
+        input_img,
+        cirrus_flag=cirrus_flag,
+        dilate_flag=dilate_flag,
+        shadow_flag=shadow_flag,
+        snow_flag=snow_flag,
+        water_flag=water_flag,
     )
 
     # Erode/dilate 1 cell to remove standalone pixels
