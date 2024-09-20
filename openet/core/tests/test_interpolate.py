@@ -1,6 +1,6 @@
 import datetime
 import logging
-# import pprint
+import pprint
 
 import ee
 import pytest
@@ -18,10 +18,12 @@ def test_ee_init():
 def tgt_image(tgt_value, tgt_time):
     # tgt_images = []
     # for tgt_value, tgt_time in zip(tgt_values, tgt_timess):
-    return ee.Image.constant(tgt_value).rename(['tgt'])\
+    return (
+        ee.Image.constant(tgt_value).rename(['tgt'])
         .set({'system:time_start': tgt_time,
               'system:index': datetime.datetime.utcfromtimestamp(
                   tgt_time / 1000.0).strftime('%Y%m%d')})
+    )
 
 
 def src_images(src_values, src_times):
@@ -184,8 +186,7 @@ def test_daily_collection(tgt_value, tgt_time, src_values, src_times, expected, 
         [10, 1439704800000, [0.0, 1.6], [1439660268614, 1441042674222], 0.1],
     ]
 )
-def test_daily_compute_product_true(tgt_value, tgt_time, src_values, src_times, expected,
-                                    tol=0.01):
+def test_daily_compute_product_true(tgt_value, tgt_time, src_values, src_times, expected, tol=0.01):
     """Test if the compute_product flag returns the product bands"""
     tgt_coll = ee.ImageCollection([tgt_image(tgt_value, tgt_time)])
     src_coll = ee.ImageCollection.fromImages(
@@ -581,6 +582,42 @@ def test_from_scene_et_fraction_t_interval_custom_values(tol=0.0001):
     assert output['count']['2017-07-01'] == 3
 
 
+def test_from_scene_et_fraction_t_interval_custom_daily_count(tol=0.0001):
+    output_coll = interpolate.from_scene_et_fraction(
+        scene_coll(['et_fraction', 'ndvi']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et_fraction', 'daily_count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 32},
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_factor': 1.0,
+                    'et_reference_resample': 'nearest'},
+        t_interval='custom')
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
+    #assert abs(output['et_fraction']['2017-07-01'] - 0.4) <= tol
+    assert output['daily_count']['2017-07-01'] == 31
+
+
+def test_from_scene_et_fraction_t_interval_custom_daily_count_low(tol=0.0001):
+    output_coll = interpolate.from_scene_et_fraction(
+        scene_coll(['et_fraction', 'ndvi']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et_fraction', 'daily_count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 2},
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_factor': 1.0,
+                    'et_reference_resample': 'nearest'},
+        t_interval='custom')
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
+    # 3 Landsat scenes with +/-2 days around each should be 15 days
+    assert output['daily_count']['2017-07-01'] == 18
+
+
 def test_from_scene_et_fraction_t_interval_monthly_et_reference_factor(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi']),
@@ -761,6 +798,28 @@ def test_from_scene_et_actual_t_interval_custom_values_monthly(tol=0.0001):
     assert abs(output['et_reference']['2017-07-01'] - 310.3) <= tol
     assert abs(output['et_fraction']['2017-07-01'] - 142.9622039794922 / 310.3) <= tol
     assert output['count']['2017-07-01'] == 3
+
+
+def test_from_scene_et_actual_t_interval_custom_values_monthly(tol=0.0001):
+    # Check that the custom time interval and monthly time interval match
+    output_coll = interpolate.from_scene_et_actual(
+        scene_coll(['et']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et', 'daily_count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 32,
+                     'interp_source': 'IDAHO_EPSCOR/GRIDMET',
+                     'interp_band': 'etr',
+                     'interp_resample': 'nearest'},
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_factor': 1.0,
+                    'et_reference_resample': 'nearest'},
+        t_interval='custom')
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
+    #assert abs(output['et']['2017-07-01'] - 142.9622039794922) <= tol
+    assert output['daily_count']['2017-07-01'] == 31
 
 
 def test_from_scene_et_actual_t_interval_monthly_et_reference_factor(tol=0.0001):
