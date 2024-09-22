@@ -509,6 +509,11 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
     if 'et_reference' in variables and 'et_fraction' not in interp_vars:
         interp_vars.append('et_fraction')
 
+    # To return daily count, the ETf must be interpolated
+    if ('daily_count' in variables) and ('et_fraction' not in interp_vars):
+        interp_vars = interp_vars + ['et_fraction']
+
+
     # The time band is always needed for interpolation
     interp_vars.append('time')
 
@@ -599,8 +604,8 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
         if 'et_fraction' in variables:
             # Compute average et fraction over the aggregation period
             image_list.append(
-                et_img.divide(et_reference_img).rename(
-                    ['et_fraction']).float())
+                et_img.divide(et_reference_img).rename(['et_fraction']).float()
+            )
         if 'ndvi' in variables:
             # Compute average ndvi over the aggregation period
             ndvi_img = daily_coll \
@@ -612,6 +617,11 @@ def from_scene_et_fraction(scene_coll, start_date, end_date, variables,
                 .filterDate(agg_start_date, agg_end_date) \
                 .select(['mask']).sum().rename('count').uint8()
             image_list.append(count_img)
+        if 'daily_count' in variables:
+            daily_count_img = daily_coll \
+                .filterDate(agg_start_date, agg_end_date) \
+                .select(['et_fraction']).count().rename('daily_count').uint8()
+            image_list.append(daily_count_img)
 
         return ee.Image(image_list) \
             .set({
@@ -872,6 +882,10 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
 
     interp_vars = ['et'] + ['mask', 'time']
 
+    # # To return daily count, the ET must be interpolated
+    # if ('daily_count' in variables) and ('et' not in interp_vars):
+    #     interp_vars = interp_vars + ['et']
+
     # For count, compute the composite/mosaic image for the mask band only
     if 'count' in variables:
         aggregate_coll = aggregate_to_daily(
@@ -1002,8 +1016,8 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
         if 'et_fraction' in variables:
             # Compute average et fraction over the aggregation period
             image_list.append(
-                et_img.divide(et_reference_img)
-                    .rename(['et_fraction']).float())
+                et_img.divide(et_reference_img).rename(['et_fraction']).float()
+            )
         # if 'ndvi' in variables:
         #     # Compute average ndvi over the aggregation period
         #     ndvi_img = daily_coll \
@@ -1015,6 +1029,11 @@ def from_scene_et_actual(scene_coll, start_date, end_date, variables,
                 .filterDate(agg_start_date, agg_end_date) \
                 .select(['mask']).sum().rename('count').uint8()
             image_list.append(count_img)
+        if 'daily_count' in variables:
+            daily_count_img = daily_coll \
+                .filterDate(agg_start_date, agg_end_date) \
+                .select(['et']).count().rename('daily_count').uint8()
+            image_list.append(daily_count_img)
 
         return ee.Image(image_list) \
             .set({

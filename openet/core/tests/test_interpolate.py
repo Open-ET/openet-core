@@ -65,7 +65,7 @@ def scene_coll(variables, et_fraction=[0.4, 0.4, 0.4], et=[5, 5, 5],
     ee.ImageCollection
 
     """
-    img = ee.Image('LANDSAT/LC08/C01/T1_TOA/LC08_044033_20170716') \
+    img = ee.Image('LANDSAT/LC08/C02/T1_TOA/LC08_044033_20170716') \
         .select(['B2']).double().multiply(0)
     mask = img.add(1).updateMask(1).uint8()
 
@@ -434,7 +434,7 @@ def test_aggregate_to_daily_values_multi_band(src_values, time_values, expected,
 
 def test_aggregate_to_daily_properties():
     """Test daily aggregation image properties"""
-    source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
+    source_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')\
         .filterDate('2017-06-30', '2017-08-02')\
         .filterBounds(ee.Geometry.Point(-121.9, 39))
     output = utils.get_info(interpolate.aggregate_to_daily(source_coll).first())
@@ -445,7 +445,7 @@ def test_aggregate_to_daily_properties():
 
 def test_aggregate_to_daily_date_filtering():
     """Test daily aggregation start/end date filtering"""
-    source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
+    source_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')\
         .filterDate('2017-01-01', '2018-01-01')\
         .filterBounds(ee.Geometry.Point(-121.9, 39))\
         .select(['B1'])
@@ -722,7 +722,6 @@ def test_from_scene_et_actual_daily_et_fraction_max(tol=0.0001):
 
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=10)
-    print(output)
     assert abs(output['et_fraction']['2017-07-10'] - 1.4) <= tol
 
 
@@ -786,6 +785,66 @@ def test_from_scene_et_actual_t_interval_no_value():
                         'et_reference_resample': 'nearest'})
 
 
+def test_from_scene_et_fraction_t_interval_custom_daily_count(tol=0.0001):
+    # Check that the custom time interval and monthly time interval match
+    output_coll = interpolate.from_scene_et_fraction(
+        scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et_fraction', 'daily_count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 32,
+                     'interp_source': 'IDAHO_EPSCOR/GRIDMET',
+                     'interp_band': 'etr',
+                     'interp_resample': 'nearest'},
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_factor': 1.0,
+                    'et_reference_resample': 'nearest'},
+        t_interval='custom')
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
+    assert output['daily_count']['2017-07-01'] == 31
+
+
+def test_from_scene_et_fraction_t_interval_custom_daily_count_low(tol=0.0001):
+    # Check that the custom time interval and monthly time interval match
+    output_coll = interpolate.from_scene_et_fraction(
+        scene_coll(['et_fraction', 'ndvi', 'time', 'mask']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et_fraction', 'daily_count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 2,
+                     'interp_source': 'IDAHO_EPSCOR/GRIDMET',
+                     'interp_band': 'etr',
+                     'interp_resample': 'nearest'},
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_factor': 1.0,
+                    'et_reference_resample': 'nearest'},
+        t_interval='custom')
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
+    assert output['daily_count']['2017-07-01'] == 15
+
+
+def test_from_scene_et_actual_t_interval_custom_daily_count(tol=0.0001):
+    # Check that the custom time interval and monthly time interval match
+    output_coll = interpolate.from_scene_et_actual(
+        scene_coll(['et', 'time', 'mask']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et', 'daily_count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 32,
+                     'interp_source': 'IDAHO_EPSCOR/GRIDMET',
+                     'interp_band': 'etr',
+                     'interp_resample': 'nearest'},
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_factor': 1.0,
+                    'et_reference_resample': 'nearest'},
+        t_interval='custom')
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
+    assert output['daily_count']['2017-07-01'] == 31
+
+
 """
 These tests were attempts at making "full" interpolation calls.
 They could be removed but are being left in case we want to explore this again 
@@ -796,7 +855,7 @@ at some point in the future.
 #     target_coll = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\
 #         .filterDate('2017-06-30', '2017-08-02')\
 #         .select(['etr'])
-#     source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
+#     source_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')\
 #         .filterDate('2017-06-30', '2017-08-02')\
 #         .filterBounds(ee.Geometry.Point(-121.9, 39))\
 #         .select(['B1'])
@@ -832,7 +891,7 @@ at some point in the future.
 #     target_coll = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\
 #         .filterDate('2017-06-30', '2017-08-02')\
 #         .select(['etr'])
-#     source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
+#     source_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')\
 #         .filterDate('2017-06-30', '2017-08-02')\
 #         .filterBounds(ee.Geometry.Point(-121.9, 39))\
 #         .select(['B1'])
@@ -868,7 +927,7 @@ at some point in the future.
 #     target_coll = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')\
 #         .filterDate('2017-07-01', '2017-08-05')\
 #         .select(['etr'])
-#     source_coll = ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')\
+#     source_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')\
 #         .filterDate('2017-06-30', '2017-07-17')\
 #         .filterBounds(ee.Geometry.Point(-121.9, 39))\
 #         .select(['B1'])
