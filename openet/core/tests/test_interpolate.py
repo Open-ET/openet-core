@@ -486,7 +486,6 @@ def test_from_scene_et_fraction_t_interval_daily_values_interpolated(tol=0.0001)
         interp_args={'interp_method': 'linear', 'interp_days': 32},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'eto',
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='daily')
 
@@ -522,7 +521,6 @@ def test_from_scene_et_fraction_t_interval_daily_values_et_reference(
         interp_args={'interp_method': 'linear', 'interp_days': 32},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': et_reference_band,
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='daily')
 
@@ -548,7 +546,6 @@ def test_from_scene_et_fraction_t_interval_monthly_values(
         interp_args={'interp_method': 'linear', 'interp_days': 32},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': et_reference_band,
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='monthly')
 
@@ -569,7 +566,6 @@ def test_from_scene_et_fraction_t_interval_custom_values(tol=0.0001):
         interp_args={'interp_method': 'linear', 'interp_days': 32},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='custom')
 
@@ -582,7 +578,7 @@ def test_from_scene_et_fraction_t_interval_custom_values(tol=0.0001):
     assert output['count']['2017-07-01'] == 3
 
 
-def test_from_scene_et_fraction_t_interval_custom_daily_count(tol=0.0001):
+def test_from_scene_et_fraction_t_interval_custom_daily_count():
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi']),
         start_date='2017-07-01', end_date='2017-08-01',
@@ -590,31 +586,47 @@ def test_from_scene_et_fraction_t_interval_custom_daily_count(tol=0.0001):
         interp_args={'interp_method': 'linear', 'interp_days': 32},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='custom')
 
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
-    #assert abs(output['et_fraction']['2017-07-01'] - 0.4) <= tol
     assert output['daily_count']['2017-07-01'] == 31
 
 
-def test_from_scene_et_fraction_t_interval_custom_daily_count_low(tol=0.0001):
+def test_from_scene_et_fraction_t_interval_custom_mask_partial_aggregations_true():
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi']),
         start_date='2017-07-01', end_date='2017-08-01',
         variables=['et_fraction', 'daily_count'],
-        interp_args={'interp_method': 'linear', 'interp_days': 2},
+        interp_args={'interp_method': 'linear', 'interp_days': 2,
+                     'mask_partial_aggregations': True},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='custom')
 
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
-    # 3 Landsat scenes with +/-2 days around each should be 15 days
+    assert output['daily_count']['2017-07-01'] is None
+
+
+def test_from_scene_et_fraction_t_interval_custom_mask_partial_aggregations_false():
+    output_coll = interpolate.from_scene_et_fraction(
+        scene_coll(['et_fraction', 'ndvi']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et_fraction', 'daily_count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 2,
+                     'mask_partial_aggregations': False},
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_resample': 'nearest'},
+        t_interval='custom')
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
+    # CGM - 3 Landsat scenes with +/-2 days around each should be 15 days
+    #   There is probably an off by one error/bug in the interpolation somewhere
     assert output['daily_count']['2017-07-01'] == 18
 
 
@@ -655,7 +667,6 @@ def test_from_scene_et_fraction_t_interval_monthly_et_reference_resample(
         interp_args={'interp_method': 'linear', 'interp_days': 32},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': et_reference_band,
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'bilinear'},
         t_interval='monthly')
 
@@ -679,7 +690,6 @@ def test_from_scene_et_fraction_t_interval_monthly_interp_args_et_reference(tol=
         interp_args={'interp_method': 'linear', 'interp_days': 32,
                      'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                      'et_reference_band': 'etr',
-                     'et_reference_factor': 1.0,
                      'et_reference_resample': 'nearest'},
         model_args={},
         t_interval='monthly')
@@ -704,7 +714,6 @@ def test_from_scene_et_actual_t_interval_daily_values_eto(tol=0.0001):
                      'interp_resample': 'nearest'},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'eto',
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='daily')
 
@@ -730,7 +739,6 @@ def test_from_scene_et_actual_t_interval_daily_values_etr(tol=0.0001):
                      'interp_resample': 'nearest'},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='daily')
 
@@ -764,7 +772,6 @@ def test_from_scene_et_actual_t_interval_monthly_values(
                      'interp_resample': 'nearest'},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': et_reference_band,
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='monthly')
 
@@ -788,7 +795,6 @@ def test_from_scene_et_actual_t_interval_custom_values_monthly(tol=0.0001):
                      'interp_resample': 'nearest'},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='custom')
 
@@ -800,7 +806,7 @@ def test_from_scene_et_actual_t_interval_custom_values_monthly(tol=0.0001):
     assert output['count']['2017-07-01'] == 3
 
 
-def test_from_scene_et_actual_t_interval_custom_values_monthly(tol=0.0001):
+def test_from_scene_et_actual_t_interval_custom_daily_count():
     # Check that the custom time interval and monthly time interval match
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et']),
@@ -812,15 +818,54 @@ def test_from_scene_et_actual_t_interval_custom_values_monthly(tol=0.0001):
                      'interp_resample': 'nearest'},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='custom')
 
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
-    #assert abs(output['et']['2017-07-01'] - 142.9622039794922) <= tol
     assert output['daily_count']['2017-07-01'] == 31
 
+
+def test_from_scene_et_actual_t_interval_custom_mask_partial_aggregations_true():
+    # Check that the custom time interval and monthly time interval match
+    output_coll = interpolate.from_scene_et_actual(
+        scene_coll(['et']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et', 'daily_count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 2,
+                     'interp_source': 'IDAHO_EPSCOR/GRIDMET',
+                     'interp_band': 'etr',
+                     'interp_resample': 'nearest',
+                     'mask_partial_aggregations': True},
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_resample': 'nearest'},
+        t_interval='custom')
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
+    assert output['daily_count']['2017-07-01'] is None
+
+
+def test_from_scene_et_actual_t_interval_custom_mask_partial_aggregations_false():
+    # Check that the custom time interval and monthly time interval match
+    output_coll = interpolate.from_scene_et_actual(
+        scene_coll(['et']),
+        start_date='2017-07-01', end_date='2017-08-01',
+        variables=['et', 'daily_count'],
+        interp_args={'interp_method': 'linear', 'interp_days': 2,
+                     'interp_source': 'IDAHO_EPSCOR/GRIDMET',
+                     'interp_band': 'etr',
+                     'interp_resample': 'nearest',
+                     'mask_partial_aggregations': False},
+        model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
+                    'et_reference_band': 'etr',
+                    'et_reference_resample': 'nearest'},
+        t_interval='custom')
+
+    TEST_POINT = (-121.5265, 38.7399)
+    output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
+    assert output['daily_count']['2017-07-01'] == 18
 
 def test_from_scene_et_actual_t_interval_monthly_et_reference_factor(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
@@ -864,7 +909,6 @@ def test_from_scene_et_actual_t_interval_monthly_et_reference_resample(
                      'interp_resample': 'bilinear'},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': et_reference_band,
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'bilinear'},
         t_interval='monthly')
 
@@ -887,7 +931,6 @@ def test_from_scene_et_actual_t_interval_monthly_interp_args_et_reference(tol=0.
                      'interp_resample': 'nearest',
                      'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                      'et_reference_band': 'etr',
-                     'et_reference_factor': 1.0,
                      'et_reference_resample': 'nearest'},
         model_args={},
         t_interval='monthly')
@@ -910,13 +953,10 @@ def test_from_scene_et_actual_t_interval_daily_et_fraction_max(tol=0.0001):
                      'interp_band': 'etr',
                      'interp_resample': 'nearest',
                      'et_fraction_min': 0.0,
-                     'et_fraction_max': 1.4,
-                     },
+                     'et_fraction_max': 1.4},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
-                    'et_reference_resample': 'nearest',
-                    'et_reference_factor': 1.0,
-                    },
+                    'et_reference_resample': 'nearest'},
         t_interval='daily')
 
     TEST_POINT = (-121.5265, 38.7399)
@@ -963,7 +1003,6 @@ def test_from_scene_et_actual_t_interval_bad_value():
                          'interp_band': 'etr', 'interp_resample': 'nearest'},
             model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                         'et_reference_band': 'etr',
-                        'et_reference_factor': 1.0,
                         'et_reference_resample': 'nearest'},
             t_interval='deadbeef')
 
@@ -980,7 +1019,6 @@ def test_from_scene_et_actual_t_interval_no_value():
                          'interp_resample': 'nearest'},
             model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                         'et_reference_band': 'etr',
-                        'et_reference_factor': 1.0,
                         'et_reference_resample': 'nearest'})
 
 
@@ -993,7 +1031,6 @@ def test_from_scene_et_fraction_interp_args_use_joins_true(tol=0.01):
         interp_args={'interp_method': 'linear', 'interp_days': 32, 'use_joins': True},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='monthly')
 
@@ -1013,7 +1050,6 @@ def test_from_scene_et_fraction_interp_args_use_joins_false(tol=0.01):
         interp_args={'interp_method': 'linear', 'interp_days': 32, 'use_joins': False},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='monthly')
 
@@ -1035,7 +1071,6 @@ def test_from_scene_et_actual_interp_args_use_joins_true(tol=0.01):
                      'use_joins': True},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='monthly')
 
@@ -1057,7 +1092,6 @@ def test_from_scene_et_actual_interp_args_use_joins_false(tol=0.01):
                      'use_joins': True},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
-                    'et_reference_factor': 1.0,
                     'et_reference_resample': 'nearest'},
         t_interval='monthly')
 
