@@ -15,8 +15,7 @@ def landsat_c2_sr_cloud_mask(
         filter_flag=False,
         saturated_flag=False,
         sr_cloud_qa_flag=False,
-        # cloud_confidence=3,
-        ):
+):
     """Compute cloud mask for a Landsat Coll. 2 Level 2 (SR) image using multiple approaches
 
     Parameters
@@ -213,10 +212,7 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
     image_geom = sr_image.geometry()
     image_extent = image_geom.bounds(1, 'EPSG:4326')
 
-    # # Simple clip extent from image geometry bounds
-    # clip_extent = image_geom.bounds(1, 'EPSG:4326')
-
-    # # Server side approach for getting image extent snapped to the ASTER GED grid
+    # Server side approach for getting image extent snapped to the ASTER GED grid
     buffer_cells = 1
     cellsize = 0.1
     image_xy = ee.Array(image_extent.coordinates().get(0)).transpose().toList()
@@ -230,13 +226,7 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
     ymax = ymax.divide(cellsize * buffer_cells).ceil().multiply(cellsize * buffer_cells)
     clip_extent = ee.Geometry.Rectangle([xmin, ymin, xmax, ymax], 'EPSG:4326', False)
 
-    # Landsat image projection for resample/reproject (
-    # image_proj = sr_image.projection()
-    # image_crs = image_proj.crs()
-    # image_geo = ee.List(ee.Dictionary(ee.Algorithms.Describe(image_proj)).get('transform'))
-
     # Aster Global Emissivity Dataset
-
     ged = ee.Image('NASA/ASTER_GED/AG100_003').clip(clip_extent)
 
     veg_emis = 0.99
@@ -276,7 +266,6 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
             ee.String(scene_id.get(0)).cat('_').cat(ee.String(scene_id.get(2)))
             .cat('_').cat(ee.String(scene_id.get(3)))
         )
-        # scene_id = ee.String(input_img.get('system:index'))
 
         # Testing if it is any faster to filter each collection separately
         # TODO: Test if adding an extra .filterDate() call helps
@@ -304,7 +293,6 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
             ee.String(scene_id.get(0)).cat('_').cat(ee.String(scene_id.get(2)))
             .cat('_').cat(ee.String(scene_id.get(3)))
         )
-        # scene_id = ee.String(input_img.get('system:index'))
 
         # TODO: Fix error when images that are in the T1_L2 collections but not in the T1,
         #  will fail with a .get() error because matched_img is 'None',
@@ -433,5 +421,4 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
         .divide(Rc).add(1.0).log().pow(-1)
         .multiply(ee.Number(k2.get(spacecraft_id)))
         .rename('lst')
-        # .set({'system:time_start': sr_image.get('system:time_start')})
     )

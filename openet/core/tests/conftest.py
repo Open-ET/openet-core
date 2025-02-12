@@ -15,7 +15,8 @@ def test_init():
 
     # For GitHub Actions authenticate using workload identify federation
     if "ACTION_EE_TOKEN" in os.environ:
-        ee.Initialize(google.oauth2.credentials.Credentials(os.getenv('ACTION_EE_TOKEN')))
+        creds = google.oauth2.credentials.Credentials(os.getenv('ACTION_EE_TOKEN'))
+        ee.Initialize(creds, project=os.getenv('PROJECT_ID'))
     elif 'EE_PRIVATE_KEY_B64' in os.environ:
         print('Writing privatekey.json from environmental variable ...')
         content = base64.b64decode(os.environ['EE_PRIVATE_KEY_B64']).decode('ascii')
