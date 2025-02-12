@@ -1,19 +1,8 @@
-# import datetime
-# import logging
-# import pprint
-
 import ee
 import pytest
 
 import openet.core.ensemble as ensemble
 import openet.core.utils as utils
-
-# logging.basicConfig(level=logging.DEBUG, format='%(message)s')
-
-
-# TODO: Write a test to check that the output bandnames
-# def test_mad_bandname():
-#     assert False
 
 
 @pytest.mark.parametrize(
@@ -87,7 +76,7 @@ import openet.core.utils as utils
         [[224, 231, 210, 194, 235, 242], 2, 228.4],
 
         # Check that the scale term does something
-        # CGM - This might be better as a separate test function
+        # This might be better as a separate test function
         [[87, 55, 23, 25, 41, 12], 2.5, 40.5],
 
         # Check that dropping an image works (dropped SIMS None)
@@ -95,11 +84,9 @@ import openet.core.utils as utils
     ]
 )
 def test_mad_values(model_values, made_scale, expected, tol=0.001):
-    print(model_values)
     # TODO: Check if using constant images is faster and works
     images = []
-    mask_img = ee.Image('IDAHO_EPSCOR/GRIDMET/20200101')\
-        .select(['tmmx']).multiply(0)
+    mask_img = ee.Image('IDAHO_EPSCOR/GRIDMET/20200101').select(['tmmx']).multiply(0)
     for i, value in enumerate(model_values):
         if value is None:
             images.append(mask_img.updateMask(0).rename([f'B{i+1}']))
@@ -126,10 +113,8 @@ def test_mad_values(model_values, made_scale, expected, tol=0.001):
     ]
 )
 def test_mad_other_stats(model_values, made_scale, mn, mx, count, tol=0.001):
-    # print(model_values)
     images = []
-    mask_img = ee.Image('IDAHO_EPSCOR/GRIDMET/20200101')\
-        .select(['tmmx']).multiply(0)
+    mask_img = ee.Image('IDAHO_EPSCOR/GRIDMET/20200101').select(['tmmx']).multiply(0)
     for i, value in enumerate(model_values):
         if value is None:
             images.append(mask_img.updateMask(0).rename([f'B{i+1}']))
@@ -147,34 +132,22 @@ def test_mad_other_stats(model_values, made_scale, mn, mx, count, tol=0.001):
     "model_values, made_scale, index",
     [
         # Same test values as in stats test
-        [{'disalexi': 118, 'eemetric': 111, 'geesebal': 57, 'ptjpl': 75,
-          'sims': 99, 'ssebop': 58}, 2, 63],
-        [{'disalexi': 87, 'eemetric': 55, 'geesebal': 23, 'ptjpl': 25,
-          'sims': 41, 'ssebop': 12}, 2, 62],
-        [{'disalexi': 55, 'eemetric': 23, 'geesebal': 25, 'ptjpl': 41,
-          'sims': None, 'ssebop': 12}, 2, 47],
-        [{'disalexi': 100, 'eemetric': 23, 'geesebal': 25, 'ptjpl': 41,
-          'sims': None, 'ssebop': 12}, 2, 46],
-        [{'disalexi': 0, 'eemetric': 0, 'geesebal': 1, 'ptjpl': 15,
-          'sims': None, 'ssebop': 0}, 2, 39],
-        [{'disalexi': 0, 'eemetric': 0, 'geesebal': 13, 'ptjpl': 8,
-          'sims': None, 'ssebop': 0}, 2, 43],
-        [{'disalexi': 0, 'eemetric': 0, 'geesebal': 0, 'ptjpl': 12,
-          'sims': None, 'ssebop': 0}, 2, 39],
+        [{'disalexi': 118, 'eemetric': 111, 'geesebal': 57, 'ptjpl': 75, 'sims': 99, 'ssebop': 58}, 2, 63],
+        [{'disalexi': 87, 'eemetric': 55, 'geesebal': 23, 'ptjpl': 25, 'sims': 41, 'ssebop': 12}, 2, 62],
+        [{'disalexi': 55, 'eemetric': 23, 'geesebal': 25, 'ptjpl': 41, 'sims': None, 'ssebop': 12}, 2, 47],
+        [{'disalexi': 100, 'eemetric': 23, 'geesebal': 25, 'ptjpl': 41, 'sims': None, 'ssebop': 12}, 2, 46],
+        [{'disalexi': 0, 'eemetric': 0, 'geesebal': 1, 'ptjpl': 15, 'sims': None, 'ssebop': 0}, 2, 39],
+        [{'disalexi': 0, 'eemetric': 0, 'geesebal': 13, 'ptjpl': 8, 'sims': None, 'ssebop': 0}, 2, 43],
+        [{'disalexi': 0, 'eemetric': 0, 'geesebal': 0, 'ptjpl': 12, 'sims': None, 'ssebop': 0}, 2, 39],
         # Check that 5 band image with SIMS totally excluded
-        [{'disalexi': 55, 'eemetric': 23, 'geesebal': 25, 'ptjpl': 41,
-          'ssebop': 12}, 2, 47],
+        [{'disalexi': 55, 'eemetric': 23, 'geesebal': 25, 'ptjpl': 41, 'ssebop': 12}, 2, 47],
         # Check that order doesn't matter
-        [{'eemetric': 23, 'sims': None, 'ptjpl': 41, 'disalexi': 55,
-          'geesebal': 25, 'ssebop': 12}, 2, 47],
-
+        [{'eemetric': 23, 'sims': None, 'ptjpl': 41, 'disalexi': 55, 'geesebal': 25, 'ssebop': 12}, 2, 47],
     ]
 )
 def test_mad_index(model_values, made_scale, index):
-    # print(model_values)
     images = []
-    mask_img = ee.Image('IDAHO_EPSCOR/GRIDMET/20200101')\
-        .select(['tmmx']).multiply(0)
+    mask_img = ee.Image('IDAHO_EPSCOR/GRIDMET/20200101').select(['tmmx']).multiply(0)
     for name, value in model_values.items():
         if value is None:
             images.append(mask_img.updateMask(0).rename([name]))
@@ -196,8 +169,6 @@ def test_mad_index(model_values, made_scale, index):
     ]
 )
 def test_mean_values(model_values, expected, tol=0.0001):
-    # input_img = ee.Image.constant(int(img_value, 2)).rename(['BQA'])
-    # input_args = {'input_img': input_img}
     images = []
     for value in model_values:
         if value is None:

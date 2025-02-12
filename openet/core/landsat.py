@@ -8,7 +8,7 @@ def c02_qa_pixel_mask(
         shadow_flag=True,
         snow_flag=False,
         water_flag=False,
-        ):
+):
     """Landsat Collection 2 QA_PIXEL band cloud mask
 
     Parameters
@@ -78,11 +78,13 @@ def c02_qa_pixel_mask(
     ----------
     https://prd-wret.s3.us-west-2.amazonaws.com/assets/palladium/production/atoms/files/LSDS-1328_Landsat8-9-OLI-TIRS-C2-L2-DFCB-v6.pdf
 
-
     """
     qa_img = input_img.select(['QA_PIXEL'])
     mask_img = qa_img.rightShift(3).bitwiseAnd(1).neq(0)
-    #     .Or(qa_img.rightShift(8).bitwiseAnd(3).gte(cloud_confidence))
+    # The following line could be added to the mask_img call
+    #     to include the cloud confidence bits
+    # .Or(qa_img.rightShift(8).bitwiseAnd(3).gte(cloud_confidence))
+
     if cirrus_flag:
         mask_img = mask_img.Or(qa_img.rightShift(2).bitwiseAnd(1).neq(0))
     if dilate_flag:
@@ -120,8 +122,6 @@ def c02_cloud_score_mask(input_img, cloud_score_pct=100):
     # Using the system:index requires an extra map call but might be more robust
     #   since the other properties may have been dropped
     toa_coll = c02_matched_toa_coll(input_img, 'system:index', 'system:index')
-    # toa_coll = landsat_c2_l2_matched_toa_coll(input_img, 'LANDSAT_SCENE_ID', 'LANDSAT_SCENE_ID')
-    # toa_coll = landsat_c2_l2_matched_toa_coll(input_img)
 
     output = ee.Algorithms.If(
         toa_coll.size().gt(0),
@@ -227,7 +227,7 @@ def c02_matched_toa_coll(
         input_img,
         image_property='LANDSAT_SCENE_ID',
         match_property='LANDSAT_SCENE_ID',
-        ):
+):
     """Return the Landsat Collection 2 TOA collection matching an image property
 
     Parameters
@@ -251,14 +251,11 @@ def c02_matched_toa_coll(
 
     """
 
-    # Filter TOA collections to the target to image UTC day
+    # Filter TOA collections to the target image UTC day
     # This filter range could be a lot tighter but keeping it to the day makes it easier to test
     #   and will hopefully not impact the performance too much
     start_date = ee.Date(input_img.get('system:time_start')).update(hour=0, minute=0, second=0)
     end_date = start_date.advance(1, 'day')
-    # # Buffer the image time_start +/- 30 minutes (this could probably be set tighter)
-    # start_date = ee.Date(input_img.get('system:time_start')).advance(-0.5, 'hour')
-    # end_date = start_date.advance(1, 'hour')
 
     l5_coll = ee.ImageCollection('LANDSAT/LT05/C02/T1_TOA').filterDate(start_date, end_date)
     l7_coll = ee.ImageCollection('LANDSAT/LE07/C02/T1_TOA').filterDate(start_date, end_date)
@@ -268,8 +265,6 @@ def c02_matched_toa_coll(
     # The default system:index gets modified when the collections are merged below,
     #   so save the system:index to a new "scene_id" property and use that for matching
     if match_property == 'system:index':
-        # def set_scene_id(img):
-        #     return img.set('scene_id', img.get('system:index'))
         l5_coll = l5_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
         l7_coll = l7_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
         l8_coll = l8_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
@@ -286,7 +281,7 @@ def c02_matched_l2_coll(
         input_img,
         image_property='LANDSAT_SCENE_ID',
         match_property='LANDSAT_SCENE_ID',
-        ):
+):
     """Return the Landsat Collection 2 Level 2 collection matching an image property
 
     Parameters
@@ -315,9 +310,6 @@ def c02_matched_l2_coll(
     #   and will hopefully not impact the performance too much
     start_date = ee.Date(input_img.get('system:time_start')).update(hour=0, minute=0, second=0)
     end_date = start_date.advance(1, 'day')
-    # # Buffer the image time_start +/- 30 minutes (this could probably be set tighter)
-    # start_date = ee.Date(input_img.get('system:time_start')).advance(-0.5, 'hour')
-    # end_date = start_date.advance(1, 'hour')
 
     l5_coll = ee.ImageCollection('LANDSAT/LT05/C02/T1_L2').filterDate(start_date, end_date)
     l7_coll = ee.ImageCollection('LANDSAT/LE07/C02/T1_L2').filterDate(start_date, end_date)
@@ -327,8 +319,6 @@ def c02_matched_l2_coll(
     # The default system:index gets modified when the collections are merged below,
     #   so save the system:index to a new "scene_id" property and use that for matching
     if match_property == 'system:index':
-        # def set_scene_id(img):
-        #     return img.set('scene_id', img.get('system:index'))
         l5_coll = l5_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
         l7_coll = l7_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
         l8_coll = l8_coll.map(lambda img: img.set('scene_id', img.get('system:index')))

@@ -83,11 +83,9 @@ def mad(ensemble_img, made_scale=2):
     # Map the band names to the model index
     # The extra combine is to try and account for the ensemble images having
     #   band names that don't map to one of the model names/indexes
-    # band_dict = ee.Dictionary(model_index)
     band_dict = ee.Dictionary(model_index).combine(ee.Dictionary.fromLists(
         output_bands, ee.List.sequence(9, model_count.add(9).subtract(1))))
     band_index = model_names.map(lambda x: band_dict.get(x))
-    # band_index = ee.List.sequence(1, model_count)
 
     # Bit encode the models using the model index values
     # Build the index array from the ensemble images so that the index
@@ -109,22 +107,6 @@ def mad(ensemble_img, made_scale=2):
     output_img = output_img.addBands(index_img)
 
     return output_img
-
-    # DEADBEEF
-    # print(utils.point_image_value(ee.Image(images), [-120, 39], scale=1))
-    # print(utils.point_image_value(ens_median, [-120, 39], scale=1))
-    # print(utils.point_image_value(MADe, [-120, 39], scale=1))
-    # print(utils.point_image_value(upper, [-120, 39], scale=1))
-    # print(utils.point_image_value(lower, [-120, 39], scale=1))
-    # print(utils.point_image_value(count_img, [-120, 39], scale=1))
-    # print(utils.point_image_value(sort_img, [-120, 39], scale=1))
-    # print(utils.point_image_value(model_drop_mean, [-120, 39], scale=1))
-
-    # # Add mean, ens_median, made, upper and lower to ensemble for map display
-    # ens_mean = ensemble_img.reduce(ee.Reducer.mean()).rename(["mean"])
-    # ensemble = ensemble_sims_crop.addBands(ens_mean).addBands(ens_median)
-    #     .addBands(MADe).addBands(upper).addBands(lower)
-    #     .addBands(model_drop_mean)
 
 
 def mean(ensemble_img):

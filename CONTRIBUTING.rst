@@ -4,11 +4,6 @@ Contributing to OpenET
 
 Thank you for your interest in supporting the OpenET project.
 
-Versioning
-==========
-
-The OpenET project is currently in Beta and the version numbers will be "0.0.X" until a non-Beta release is made.
-
 Coding Conventions
 ==================
 

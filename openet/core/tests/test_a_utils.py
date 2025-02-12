@@ -16,6 +16,7 @@ def arg_valid_date_exception():
         assert utils.arg_valid_date('3/10/2010')
 
 
+# TODO: Write this test
 # def arg_valid_file():
 #     assert False
 
@@ -88,10 +89,12 @@ def test_date_range_skip_leap_days(start_dt, end_dt, skip_leap_days, expected):
         start_dt, end_dt, skip_leap_days=skip_leap_days))) == expected
 
 
+# TODO: Write this test
 # def test_delay_task():
 #     assert False
 
 
+# TODO: Write this test
 # def test_get_ee_assets():
 #     assert False
 
@@ -101,10 +104,12 @@ def test_get_ee_assets_exception():
         assert utils.get_ee_assets('deadbeef', retries=1)
 
 
+# TODO: Write this test
 # def test_get_ee_tasks():
 #     assert False
 
 
+# TODO: Write this test
 # def test_ee_task_start():
 #     assert False
 
@@ -232,9 +237,7 @@ def test_constant_image_value_multiband_bands(expected=10.123456789, tol=0.00000
     ]
 )
 def test_point_image_value(image_id, xy, scale, expected, tol):
-    output = utils.point_image_value(
-        ee.Image(image_id).select(['elevation'], ['output']), xy, scale
-    )
+    output = utils.point_image_value(ee.Image(image_id).select(['elevation'], ['output']), xy, scale)
     assert abs(output['output'] - expected) <= tol
 
 

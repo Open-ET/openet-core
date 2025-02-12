@@ -1,12 +1,10 @@
 import datetime
 import logging
-# import pprint
 
 from dateutil.relativedelta import relativedelta
 import ee
 
 from . import utils
-# import openet.core.utils as utils
 
 RESAMPLE_METHODS = ['nearest', 'bilinear', 'bicubic']
 
@@ -112,14 +110,13 @@ def daily(
             )
         )
 
-    # # DEADBEEF - This module is assuming that the time band is already in
-    # #   the source collection.
-    # # Uncomment the following to add a time band here instead.
+    # # This module is assuming that the time band is already in the source collection
+    # # Uncomment the following to add a time band here instead
     # def add_utc0_time_band(image):
     #     date_0utc = utils.date_0utc(ee.Date(image.get('system:time_start')))
     #     return image.addBands([
-    #         image.select([0]).double().multiply(0).add(date_0utc.millis())\
-    #             .rename(['time'])])
+    #         image.select([0]).double().multiply(0).add(date_0utc.millis()).rename(['time'])
+    #     ])
     # source_coll = ee.ImageCollection(source_coll.map(add_utc0_time_band))
 
     if interp_method.lower() == 'linear':
@@ -148,8 +145,6 @@ def daily(
 
             # All filtering will be done based on 0 UTC dates
             utc0_date = utils.date_0utc(target_date)
-            # utc0_time = target_date.update(hour=0, minute=0, second=0)\
-            #     .millis().divide(1000).floor().multiply(1000)
             time_img = ee.Image.constant(utc0_date.millis()).double()
 
             # Build nodata images/masks that can be placed at the front/back of
@@ -158,16 +153,12 @@ def daily(
             prev_qm_mask = (
                 ee.Image.constant(ee.List.repeat(1, bands.length()))
                 .double().rename(bands).updateMask(0)
-                .set({
-                    'system:time_start': utc0_date.advance(-interp_days - 1, 'day').millis(),
-                })
+                .set({'system:time_start': utc0_date.advance(-interp_days - 1, 'day').millis()})
             )
             next_qm_mask = (
                 ee.Image.constant(ee.List.repeat(1, bands.length()))
                 .double().rename(bands).updateMask(0)
-                .set({
-                    'system:time_start': utc0_date.advance(interp_days + 2, 'day').millis(),
-                })
+                .set({'system:time_start': utc0_date.advance(interp_days + 2, 'day').millis()})
             )
 
             if use_joins:
@@ -201,15 +192,8 @@ def daily(
 
                 # Flatten the previous/next collections to single images
                 # The closest image in time should be on "top"
-                # CGM - Is the previous collection already sorted?
-                # prev_qm_img = prev_qm_coll.mosaic()
                 prev_qm_img = prev_qm_coll.sort('system:time_start', True).mosaic()
                 next_qm_img = next_qm_coll.sort('system:time_start', False).mosaic()
-
-            # DEADBEEF - It might be easier to interpolate all bands instead of
-            #   separating the value and time bands
-            # prev_value_img = ee.Image(prev_qm_img).double()
-            # next_value_img = ee.Image(next_qm_img).double()
 
             # Interpolate all bands except the "time" band
             prev_bands = prev_qm_img.bandNames().filter(ee.Filter.notEquals('item', 'time'))
@@ -247,15 +231,6 @@ def daily(
             # Pass the target image back out as a new band
             target_img = image.select([0]).double()
 
-            # CGM - This approach might work but the time/mask bands tend to be masked
-            #   but the current expectation is that the reference will not be masked
-            # # Map the target values onto the interpolated image
-            # # Apply resampling if needed and rename to match the target image
-            # if resample_method in ['bilinear', 'bicubic']:
-            #     target_img = target_img.resample(resample_method)
-            # target_band = ee.String(ee.List(image.select([0]).bandNames()).get(0))
-            # target_img = interp_img.multiply(0).double().add(target_img).rename(target_band)
-
             # TODO: Come up with a dynamic way to name the "product" bands
             # The product bands will have a "_1" appended to the name
             # i.e. "et_fraction" -> "et_fraction_1"
@@ -271,12 +246,9 @@ def daily(
             return output_img.set({
                 'system:index': image.get('system:index'),
                 'system:time_start': image.get('system:time_start'),
-                # 'system:time_start': utc0_time,
-                })
+            })
 
         interp_coll = ee.ImageCollection(target_coll.map(_linear))
-    # elif interp_method.lower() == 'nearest':
-    #     interp_coll = ee.ImageCollection(target_coll.map(_nearest))
     else:
         raise ValueError(f'invalid interpolation method: {interp_method}')
 
@@ -288,7 +260,7 @@ def aggregate_to_daily(
         start_date=None,
         end_date=None,
         agg_type='mean',
-        ):
+):
     """Aggregate images by day without using joins
 
     The primary purpose of this function is to join separate Landsat images
@@ -346,8 +318,8 @@ def aggregate_to_daily(
 
         if agg_type.lower() == 'mean':
             agg_img = agg_coll.mean()
-        # elif agg_type.lower() == 'median':
-        #     agg_img = agg_coll.median()
+        elif agg_type.lower() == 'median':
+            agg_img = agg_coll.median()
         else:
             raise ValueError(f'unsupported agg_type "{agg_type}"')
 
@@ -459,7 +431,7 @@ def from_scene_et_fraction(
     elif interp_method.lower() not in ['linear']:
         raise ValueError(f'unsupported interp_method: {interp_method}')
 
-    if ((type(interp_days) is str or type(interp_days) is float) and
+    if (((type(interp_days) is str) or (type(interp_days) is float)) and
             utils.is_number(interp_days)):
         interp_days = int(interp_days)
     elif not type(interp_days) is int:
@@ -479,13 +451,6 @@ def from_scene_et_fraction(
         end_dt -= relativedelta(days=+1)
         end_dt = datetime.datetime(end_dt.year, end_dt.month, 1)
         end_dt += relativedelta(months=+1)
-    # elif t_interval.lower() == 'annual':
-    #     start_dt = datetime.datetime(start_dt.year, 1, 1)
-    #     # Covert end date to inclusive, flatten to beginning of year,
-    #     # then add a year which will make it exclusive
-    #     end_dt -= relativedelta(days=+1)
-    #     end_dt = datetime.datetime(end_dt.year, 1, 1)
-    #     end_dt += relativedelta(years=+1)
     start_date = start_dt.strftime('%Y-%m-%d')
     end_date = end_dt.strftime('%Y-%m-%d')
 
@@ -534,7 +499,7 @@ def from_scene_et_fraction(
             et_reference_factor = model_args['et_reference_factor']
         else:
             et_reference_factor = 1.0
-            logging.debug('interp_factor was not set, default to 1.0')
+            logging.debug('et_reference_factor was not set, default to 1.0')
 
         if 'et_reference_resample' in model_args.keys():
             et_reference_resample = model_args['et_reference_resample'].lower()
@@ -672,7 +637,6 @@ def from_scene_et_fraction(
         interp_days=interp_days,
         use_joins=use_joins,
         compute_product=False,
-        # resample_method=et_reference_resample,
     )
 
     # The interpolate.daily() function can/will return the product of
@@ -698,7 +662,7 @@ def from_scene_et_fraction(
 
     daily_coll = daily_coll.map(compute_et)
 
-    # CGM - This function is being declared here to avoid passing in all the common parameters
+    # This function is being declared here to avoid passing in all the common parameters
     #   such as: daily_coll, daily_et_ref_coll, interp_properties, variables, etc.
     # Long term it should probably be declared outside of this function
     #   so it can be called directly and tested separately
@@ -780,7 +744,6 @@ def from_scene_et_fraction(
         if mask_partial_aggregations:
             aggregation_days = ee.Date(agg_end_date).difference(ee.Date(agg_start_date), 'day')
             aggregation_count_mask = aggregation_count_img.gte(aggregation_days.subtract(1))
-            # aggregation_count_mask = agg_count_img.gte(aggregation_days)
             output_img = output_img.updateMask(aggregation_count_mask)
 
         return (
@@ -789,7 +752,6 @@ def from_scene_et_fraction(
                 'system:index': ee.Date(agg_start_date).format(date_format),
                 'system:time_start': ee.Date(agg_start_date).millis()
             })
-            # .set(interp_properties)
         )
 
     # Combine input, interpolated, and derived values
@@ -806,7 +768,7 @@ def from_scene_et_fraction(
             # It should be since it is coming from the interpolate source
             #   collection, but what if source is GRIDMET (+6 UTC)?
             agg_start_date = ee.Date(daily_img.get('system:time_start'))
-            # CGM - This calls .sum() on collections with only one image
+            # This calls .sum() on collections with only one image
             return aggregate_image(
                 agg_start_date=agg_start_date,
                 agg_end_date=ee.Date(agg_start_date).advance(1, 'day'),
@@ -959,13 +921,6 @@ def from_scene_et_actual(
         end_dt -= relativedelta(days=+1)
         end_dt = datetime.datetime(end_dt.year, end_dt.month, 1)
         end_dt += relativedelta(months=+1)
-    # elif t_interval.lower() == 'annual':
-    #     start_dt = datetime.datetime(start_dt.year, 1, 1)
-    #     # Covert end date to inclusive, flatten to beginning of year,
-    #     # then add a year which will make it exclusive
-    #     end_dt -= relativedelta(days=+1)
-    #     end_dt = datetime.datetime(end_dt.year, 1, 1)
-    #     end_dt += relativedelta(years=+1)
     start_date = start_dt.strftime('%Y-%m-%d')
     end_date = end_dt.strftime('%Y-%m-%d')
 
@@ -981,8 +936,6 @@ def from_scene_et_actual(
         raise ValueError('interp_source was not set')
     if 'interp_band' not in interp_args.keys():
         raise ValueError('interp_band was not set')
-    if 'interp_factor' in interp_args.keys() and interp_args['interp_factor'] != 1:
-        raise ValueError('interp_factor is not currently support or applied')
 
     if 'interp_resample' in interp_args.keys():
         interp_resample = interp_args['interp_resample'].lower()
@@ -1182,12 +1135,6 @@ def from_scene_et_actual(
             et_norm_img = et_norm_img.min(float(interp_args['et_fraction_max']))
         if 'et_fraction_min' in interp_args.keys():
             et_norm_img = et_norm_img.max(float(interp_args['et_fraction_min']))
-        # if ('et_fraction_min' in interp_args.keys() and
-        #     'et_fraction_max' in interp_args.keys()):
-        #     et_norm_img = et_norm_img.clamp(
-        #         float(interp_args['et_fraction_min']),
-        #         float(interp_args['et_fraction_max'])
-        #     )
 
         return img.addBands([et_norm_img.double(), target_img.rename(['norm'])])
 
@@ -1218,12 +1165,11 @@ def from_scene_et_actual(
     # # if 'et' in variables or 'et_fraction' in variables:
     # def compute_et(img):
     #     """This function assumes ETr and ETf are present"""
-    #     et_img = img.select(['et_norm']).multiply(
-    #         img.select(['et_reference']))
+    #     et_img = img.select(['et_norm']).multiply(img.select(['et_reference']))
     #     return img.addBands(et_img.double().rename('et'))
     # daily_coll = daily_coll.map(compute_et)
 
-    # CGM - This function is being declared here to avoid passing in all the common parameters
+    # This function is being declared here to avoid passing in all the common parameters
     #   such as: daily_coll, daily_et_ref_coll, interp_properties, variables, etc.
     # Long term it should probably be declared outside of this function
     #   so it can be called directly and tested separately
@@ -1327,11 +1273,11 @@ def from_scene_et_actual(
         ))
     elif t_interval.lower() == 'daily':
         def agg_daily(daily_img):
-            # CGM - Double check that this time_start is a 0 UTC time.
+            # TODO: Double check that this time_start is a 0 UTC time
             # It should be since it is coming from the interpolate source
             #   collection, but what if source is GRIDMET (+6 UTC)?
             agg_start_date = ee.Date(daily_img.get('system:time_start'))
-            # CGM - This calls .sum() on collections with only one image
+            # This calls .sum() on collections with only one image
             return aggregate_image(
                 agg_start_date=agg_start_date,
                 agg_end_date=ee.Date(agg_start_date).advance(1, 'day'),

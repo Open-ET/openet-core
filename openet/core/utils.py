@@ -28,11 +28,10 @@ def affine_transform(image):
 def arg_valid_date(input_date):
     """Check that a date string is ISO format (YYYY-MM-DD)
 
-    This function is used to check the format of dates entered as command
-      line arguments.
-    DEADBEEF - It would probably make more sense to have this function
-      parse the date using dateutil parser (http://labix.org/python-dateutil)
-      and return the ISO format string
+    This function is used to check the format of dates entered as command line arguments
+    It would probably make more sense to have this function
+        parse the date using dateutil parser (http://labix.org/python-dateutil)
+        and return the ISO format string
 
     Parameters
     ----------
@@ -61,7 +60,6 @@ def arg_valid_file(file_path):
     """
     if os.path.isfile(os.path.abspath(os.path.realpath(file_path))):
         return os.path.abspath(os.path.realpath(file_path))
-        # return file_path
     else:
         raise argparse.ArgumentTypeError(f'{file_path} does not exist')
 
@@ -79,10 +77,6 @@ def date_0utc(date):
 
     """
     return ee.Date.fromYMD(date.get('year'), date.get('month'), date.get('day'))
-
-    # Extra operations are needed since update() does not set milliseconds to 0.
-    # return ee.Date(date.update(hour=0, minute=0, second=0).millis()\
-    #     .divide(1000).floor().multiply(1000))
 
 
 def date_range(start_dt, end_dt, days=1, skip_leap_days=False):
@@ -141,7 +135,7 @@ def delay_task(delay_time=0, max_ready=-1):
         time.sleep(delay_time)
     elif max_ready > 0:
         # Don't continue to the next export until the number of READY tasks
-        # is greater than or equal to "max_ready"
+        #   is greater than or equal to "max_ready"
 
         # Force delay_time to be at least 10 seconds if max_ready is set
         #   to avoid excessive EE calls
@@ -154,8 +148,6 @@ def delay_task(delay_time=0, max_ready=-1):
         while True:
             ready_tasks = get_ee_tasks(states=['READY'], verbose=True)
             ready_task_count = len(ready_tasks.keys())
-            # logging.debug('  Ready tasks: {}'.format(
-            #     ', '.join(sorted(ready_tasks.keys()))))
 
             if ready_task_count >= max_ready:
                 logging.debug('  {} tasks queued, waiting {} seconds to start '
@@ -200,9 +192,7 @@ def get_ee_assets(asset_id, start_dt=None, end_dt=None, retries=6):
         except ValueError:
             raise Exception('\nThe collection or folder does not exist, exiting')
         except Exception as e:
-            logging.warning(
-                f'  Error getting asset list, retrying ({i}/{retries})\n  {e}'
-            )
+            logging.warning(f'  Error getting asset list, retrying ({i}/{retries})\n  {e}')
             time.sleep((i+1) ** 2)
 
     if asset_id_list is None:
@@ -238,9 +228,7 @@ def get_ee_tasks(states=['RUNNING', 'READY'], verbose=False, retries=6):
             # task_list = ee.data.listOperations()
             break
         except Exception as e:
-            logging.warning(
-                f'  Error getting task list, retrying ({i}/{retries})\n  {e}'
-            )
+            logging.warning(f'  Error getting task list, retrying ({i}/{retries})\n  {e}')
             time.sleep((i+1) ** 2)
     if task_list is None:
         raise Exception('\nUnable to retrieve task list, exiting')
@@ -249,10 +237,6 @@ def get_ee_tasks(states=['RUNNING', 'READY'], verbose=False, retries=6):
         [task for task in task_list if task['state'] in states],
         key=lambda t: (t['state'], t['description'], t['id'])
     )
-    # task_list = sorted([
-    #     [t['state'], t['description'], t['id']] for t in task_list
-    #     if t['state'] in states
-    # ])
 
     # Convert the task list to a dictionary with the task name as the key
     return {task['description']: task for task in task_list}
@@ -288,7 +272,6 @@ def print_ee_tasks(tasks):
                 (update_dt - start_dt).total_seconds() / 3600,
                 task['id'])
             )
-        # elif task['state'] in states:
         else:
             logging.debug('  {:8s} {}'.format(task['state'], task['description']))
 
@@ -330,26 +313,6 @@ def get_info(ee_obj, max_retries=4):
     return output
 
 
-# def getinfo(ee_obj, n=4):
-#     """Make an exponential back off getInfo call on an Earth Engine object"""
-#     output = None
-#     for i in range(1, n):
-#         try:
-#             output = ee_obj.getInfo()
-#         except ee.ee_exception.EEException as e:
-#             if 'Earth Engine memory capacity exceeded' in str(e):
-#                 logging.info('    Resending query ({}/10)'.format(i))
-#                 logging.debug('    {}'.format(e))
-#                 time.sleep(i ** 2)
-#             else:
-#                 raise e
-#
-#         if output:
-#             break
-#
-#     return output
-
-
 def ee_task_start(task, n=6):
     """Make an exponential backoff Earth Engine request"""
     for i in range(1, n):
@@ -360,14 +323,6 @@ def ee_task_start(task, n=6):
             logging.info('    Resending query ({}/{})'.format(i, n))
             logging.debug('    {}'.format(e))
             time.sleep(i ** 2)
-        # except ee.ee_exception.EEException as e:
-        #     if ('Earth Engine memory capacity exceeded' in str(e) or
-        #             'Earth Engine capacity exceeded' in str(e)):
-        #         logging.info('    Resending query ({}/10)'.format(i))
-        #         logging.debug('    {}'.format(e))
-        #         time.sleep(i ** 2)
-        #     else:
-        #         raise e
 
     return task
 
@@ -423,31 +378,8 @@ def parse_int_set(nputstr=""):
             except:
                 # not an int and not a range...
                 invalid.add(i)
-    # Report invalid tokens before returning valid selection
-    # print "Invalid set: " + str(invalid)
 
     return selection
-
-
-# def wrs2_list_2_str(tiles):
-#     """Compact string representation of the WRS2 tile list"""
-#     from collections import defaultdict
-#     tile_dict = defaultdict(list)
-#     for tile in tiles:
-#         tile_dict[int(tile[1:4])].append(int(tile[5:8]))
-#     tile_dict = {k: sorted(v) for k, v in tile_dict.items()}
-#     return json.dumps(tile_dict, sort_keys=True) \
-#         .replace('"', '').replace(' ', '')\
-#         .replace('{', '').replace('}', '')
-#
-#
-# def wrs2_str_2_list(tile_str):
-#     tile_set = set()
-#     for t in tile_str.replace('[', '').split('],'):
-#         path = int(t.split(':')[0])
-#         for row in t.split(':')[1].replace(']', '').split(','):
-#             tile_set.add('p{:03d}r{:03d}'.format(path, int(row)))
-#     return sorted(list(tile_set))
 
 
 # These functions support writing WRS2 path/row dictionary collapsed to ranges
@@ -462,9 +394,11 @@ def wrs2_set_2_str(tiles):
         k: '[{}]'.format(list_2_str_ranges(v))
         for k, v in tile_dict.items()}
     # tile_dict = {k: sorted(v) for k, v in tile_dict.items()}
-    tile_str = json.dumps(tile_dict, sort_keys=True) \
-        .replace('"', '').replace(' ', '') \
+    tile_str = (
+        json.dumps(tile_dict, sort_keys=True)
+        .replace('"', '').replace(' ', '')
         .replace('{', '').replace('}', '')
+    )
 
     return tile_str
 

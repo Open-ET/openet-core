@@ -1,6 +1,5 @@
 import datetime
 import logging
-import pprint
 
 import ee
 import pytest
@@ -16,8 +15,6 @@ def test_ee_init():
 
 
 def tgt_image(tgt_value, tgt_time):
-    # tgt_images = []
-    # for tgt_value, tgt_time in zip(tgt_values, tgt_timess):
     return (
         ee.Image.constant(tgt_value).rename(['tgt'])
         .set({'system:time_start': tgt_time,
@@ -96,28 +93,15 @@ def scene_coll(variables, etf=[0.4, 0.4, 0.4], et=[5, 5, 5], ndvi=[0.6, 0.6, 0.6
     # since they are now added in the interpolation calls
     scene_coll = ee.ImageCollection.fromImages([
         ee.Image([img.add(etf[0]), img.add(et[0]), img.add(ndvi[0])])
-        .rename(['et_fraction', 'et', 'ndvi'])
-        .set({'system:index': 'LE07_044033_20170708', 'system:time_start': time1}),
+            .rename(['et_fraction', 'et', 'ndvi'])
+            .set({'system:index': 'LE07_044033_20170708', 'system:time_start': time1}),
         ee.Image([img.add(etf[1]), img.add(et[1]), img.add(ndvi[1])])
-        .rename(['et_fraction', 'et', 'ndvi'])
-        .set({'system:index': 'LC08_044033_20170716', 'system:time_start': time2}),
+            .rename(['et_fraction', 'et', 'ndvi'])
+            .set({'system:index': 'LC08_044033_20170716', 'system:time_start': time2}),
         ee.Image([img.add(etf[2]), img.add(et[2]), img.add(ndvi[2])])
-        .rename(['et_fraction', 'et', 'ndvi'])
-        .set({'system:index': 'LE07_044033_20170724', 'system:time_start': time3}),
+            .rename(['et_fraction', 'et', 'ndvi'])
+            .set({'system:index': 'LE07_044033_20170724', 'system:time_start': time3}),
     ])
-    # # Mask and time bands currently get added on to the scene collection
-    # #   and images are unscaled just before interpolating in the export tool
-    # scene_coll = ee.ImageCollection.fromImages([
-    #     ee.Image([img.add(etf[0]), img.add(et[0]), img.add(ndvi[0]), img.add(date1), mask])
-    #     .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
-    #     .set({'system:index': 'LE07_044033_20170708', 'system:time_start': time1}),
-    #     ee.Image([img.add(etf[1]), img.add(et[1]), img.add(ndvi[1]), img.add(date2), mask])
-    #     .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
-    #     .set({'system:index': 'LC08_044033_20170716', 'system:time_start': time2}),
-    #     ee.Image([img.add(etf[2]), img.add(et[2]), img.add(ndvi[2]), img.add(date3), mask])
-    #     .rename(['et_fraction', 'et', 'ndvi', 'time', 'mask'])
-    #     .set({'system:index': 'LE07_044033_20170724', 'system:time_start': time3}),
-    # ])
 
     return scene_coll.select(variables)
 
@@ -173,8 +157,7 @@ def test_daily_collection(tgt_value, tgt_time, src_values, src_times, expected, 
     """Test the daily method for collections of constant images"""
     tgt_coll = ee.ImageCollection([tgt_image(tgt_value, tgt_time)])
     src_coll = ee.ImageCollection.fromImages(src_images(src_values, src_times))
-    output_coll = interpolate.daily(
-        tgt_coll, src_coll, interp_days=32, interp_method='linear', use_joins=False)
+    output_coll = interpolate.daily(tgt_coll, src_coll, interp_days=32, interp_method='linear', use_joins=False)
     output = utils.constant_image_value(ee.Image(output_coll.first()))
     assert abs(output['src'] - expected) <= tol
     assert abs(output['tgt'] - tgt_value) <= tol
@@ -189,8 +172,7 @@ def test_daily_collection(tgt_value, tgt_time, src_values, src_times, expected, 
 def test_daily_compute_product_true(tgt_value, tgt_time, src_values, src_times, expected, tol=0.01):
     """Test if the compute_product flag returns the product bands"""
     tgt_coll = ee.ImageCollection([tgt_image(tgt_value, tgt_time)])
-    src_coll = ee.ImageCollection.fromImages(
-        src_images(src_values, src_times))
+    src_coll = ee.ImageCollection.fromImages(src_images(src_values, src_times))
     output_coll = interpolate.daily(
         tgt_coll, src_coll, interp_days=32, interp_method='linear',
         use_joins=False, compute_product=True)
@@ -224,8 +206,7 @@ def test_daily_use_joins_true(tgt_value, tgt_time, src_values, src_times, expect
     """Test that output with use_joins=True is the same as use_joins=False"""
     tgt_coll = ee.ImageCollection([tgt_image(tgt_value, tgt_time)])
     src_coll = ee.ImageCollection.fromImages(src_images(src_values, src_times))
-    output_coll = interpolate.daily(
-        tgt_coll, src_coll, interp_days=32, interp_method='linear', use_joins=True)
+    output_coll = interpolate.daily(tgt_coll, src_coll, interp_days=32, interp_method='linear', use_joins=True)
     output = utils.constant_image_value(ee.Image(output_coll.first()))
     assert abs(output['src'] - expected) <= tol
     assert abs(output['tgt'] - tgt_value) <= tol
@@ -287,8 +268,8 @@ def test_daily_small_interp_days(interp_days, tgt_value, tgt_time, src_values,
     tgt_coll = ee.ImageCollection([tgt_image(tgt_value, tgt_time)])
     src_coll = ee.ImageCollection.fromImages(src_images(src_values, src_times))
     output_coll = ee.ImageCollection(interpolate.daily(
-        tgt_coll, src_coll, interp_days=interp_days, interp_method='linear',
-        use_joins=False))
+        tgt_coll, src_coll, interp_days=interp_days, interp_method='linear', use_joins=False
+    ))
     output = utils.constant_image_value(ee.Image(output_coll.first()))
     if expected is None:
         assert output['src'] is None
@@ -351,8 +332,8 @@ def test_daily_interp_days_use_joins(interp_days, tgt_value, tgt_time,
     tgt_coll = ee.ImageCollection([tgt_image(tgt_value, tgt_time)])
     src_coll = ee.ImageCollection.fromImages(src_images(src_values, src_times))
     output_coll = ee.ImageCollection(interpolate.daily(
-        tgt_coll, src_coll, interp_days=interp_days, interp_method='linear',
-        use_joins=True))
+        tgt_coll, src_coll, interp_days=interp_days, interp_method='linear', use_joins=True
+    ))
     output = utils.constant_image_value(ee.Image(output_coll.first()))
     if expected is None:
         assert output['src'] is None
@@ -379,9 +360,7 @@ def test_daily_interp_days_use_joins(interp_days, tgt_value, tgt_time,
 def test_aggregate_to_daily_values_single_band(src_values, time_values, expected, tol=0.01):
     """Test daily aggregation function for single-band constant images"""
     image_list = src_images(src_values, time_values)
-    time_list = [
-        utils.date_0utc(ee.Date(time)).millis().getInfo()
-        for time in time_values]
+    time_list = [utils.date_0utc(ee.Date(time)).millis().getInfo() for time in time_values]
 
     # Dates can be ISO Date string or milliseconds since epoch
     # Use the date strings to get 0 UTC dates and better match model calls
@@ -391,8 +370,8 @@ def test_aggregate_to_daily_values_single_band(src_values, time_values, expected
     # end_date = max(time_values)
 
     src_coll = interpolate.aggregate_to_daily(
-        ee.ImageCollection.fromImages(image_list),
-        start_date, end_date, agg_type='mean')
+        ee.ImageCollection.fromImages(image_list), start_date, end_date, agg_type='mean'
+    )
     src_image = ee.Image(src_coll.first())
 
     output = utils.constant_image_value(src_image)
@@ -416,11 +395,12 @@ def test_aggregate_to_daily_values_multi_band(src_values, time_values, expected,
     time_list = []
     for src, time in zip(src_values, time_values):
         time_0utc = utils.date_0utc(ee.Date(time)).millis()
-        image = ee.Image.constant(src).double()\
-            .addBands(ee.Image.constant(time_0utc).double())\
-            .rename(['etrf', 'etof', 'time'])\
-            .set({'system:index': ee.Date(time).format('yyyyMMdd'),
-                  'system:time_start': time})
+        image = (
+            ee.Image.constant(src).double()
+            .addBands(ee.Image.constant(time_0utc).double())
+            .rename(['etrf', 'etof', 'time'])
+            .set({'system:index': ee.Date(time).format('yyyyMMdd'), 'system:time_start': time})
+        )
         image_list.append(image)
         time_list.append(time_0utc.getInfo())
 
@@ -428,14 +408,11 @@ def test_aggregate_to_daily_values_multi_band(src_values, time_values, expected,
     # Use the date strings to get 0 UTC dates and better match model calls
     start_date = ee.Date(min(time_values)).format('yyyy-MM-dd')
     end_date = ee.Date(max(time_values)).advance(1, 'day').format('yyyy-MM-dd')
-    # start_date = min(time_values)
-    # end_date = max(time_values)
 
     output_coll = interpolate.aggregate_to_daily(
-        ee.ImageCollection.fromImages(image_list),
-        start_date, end_date, agg_type='mean')
-    output_image = ee.Image(output_coll.first())\
-        .select([0, 1, 2], ['etrf', 'etof', 'time'])
+        ee.ImageCollection.fromImages(image_list), start_date, end_date, agg_type='mean'
+    )
+    output_image = ee.Image(output_coll.first()).select([0, 1, 2], ['etrf', 'etof', 'time'])
 
     output = utils.constant_image_value(output_image)
     assert abs(output['etrf'] - expected[0]) <= tol
@@ -445,21 +422,24 @@ def test_aggregate_to_daily_values_multi_band(src_values, time_values, expected,
 
 def test_aggregate_to_daily_properties():
     """Test daily aggregation image properties"""
-    source_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')\
-        .filterDate('2017-06-30', '2017-08-02')\
+    source_coll = (
+        ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')
+        .filterDate('2017-06-30', '2017-08-02')
         .filterBounds(ee.Geometry.Point(-121.9, 39))
+    )
     output = utils.get_info(interpolate.aggregate_to_daily(source_coll).first())
-    assert set(output['properties'].keys()) == {
-        'date', 'system:index', 'system:time_start'}
+    assert set(output['properties'].keys()) == {'date', 'system:index', 'system:time_start'}
     assert output['properties']['date'] == '2017-06-30'
 
 
 def test_aggregate_to_daily_date_filtering():
     """Test daily aggregation start/end date filtering"""
-    source_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')\
-        .filterDate('2017-01-01', '2018-01-01')\
-        .filterBounds(ee.Geometry.Point(-121.9, 39))\
+    source_coll = (
+        ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')
+        .filterDate('2017-01-01', '2018-01-01')
+        .filterBounds(ee.Geometry.Point(-121.9, 39))
         .select(['B1'])
+    )
 
     # First test if both start and end date are set
     output = utils.get_info(interpolate.aggregate_to_daily(
@@ -487,8 +467,8 @@ def test_from_scene_et_fraction_t_interval_daily_values_interpolated(tol=0.0001)
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'eto',
                     'et_reference_resample': 'nearest'},
-        t_interval='daily')
-
+        t_interval='daily',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['ndvi']['2017-07-01'] - 0.2) <= tol
@@ -522,8 +502,8 @@ def test_from_scene_et_fraction_t_interval_daily_values_et_reference(
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': et_reference_band,
                     'et_reference_resample': 'nearest'},
-        t_interval='daily')
-
+        t_interval='daily',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['et_reference'][et_reference_date] - et_reference) <= tol
@@ -547,8 +527,8 @@ def test_from_scene_et_fraction_t_interval_monthly_values(
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': et_reference_band,
                     'et_reference_resample': 'nearest'},
-        t_interval='monthly')
-
+        t_interval='monthly',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['ndvi']['2017-07-01'] - 0.6) <= tol
@@ -567,8 +547,8 @@ def test_from_scene_et_fraction_t_interval_custom_values(tol=0.0001):
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='custom')
-
+        t_interval='custom',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['ndvi']['2017-07-01'] - 0.6) <= tol
@@ -587,8 +567,8 @@ def test_from_scene_et_fraction_t_interval_custom_daily_count():
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='custom')
-
+        t_interval='custom',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert output['daily_count']['2017-07-01'] == 31
@@ -604,8 +584,8 @@ def test_from_scene_et_fraction_t_interval_custom_mask_partial_aggregations_true
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='custom')
-
+        t_interval='custom',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert output['daily_count']['2017-07-01'] is None
@@ -621,8 +601,8 @@ def test_from_scene_et_fraction_t_interval_custom_mask_partial_aggregations_fals
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='custom')
-
+        t_interval='custom',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     # CGM - 3 Landsat scenes with +/-2 days around each should be 15 days
@@ -640,8 +620,8 @@ def test_from_scene_et_fraction_t_interval_monthly_et_reference_factor(tol=0.000
                     'et_reference_band': 'etr',
                     'et_reference_factor': 0.5,
                     'et_reference_resample': 'nearest'},
-        t_interval='monthly')
-
+        t_interval='monthly',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['ndvi']['2017-07-01'] - 0.6) <= tol
@@ -668,8 +648,8 @@ def test_from_scene_et_fraction_t_interval_monthly_et_reference_resample(
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': et_reference_band,
                     'et_reference_resample': 'bilinear'},
-        t_interval='monthly')
-
+        t_interval='monthly',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['ndvi']['2017-07-01'] - 0.6) <= tol
@@ -692,8 +672,8 @@ def test_from_scene_et_fraction_t_interval_monthly_interp_args_et_reference(tol=
                      'et_reference_band': 'etr',
                      'et_reference_resample': 'nearest'},
         model_args={},
-        t_interval='monthly')
-
+        t_interval='monthly',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['ndvi']['2017-07-01'] - 0.6) <= tol
@@ -715,8 +695,8 @@ def test_from_scene_et_actual_t_interval_daily_values_eto(tol=0.0001):
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'eto',
                     'et_reference_resample': 'nearest'},
-        t_interval='daily')
-
+        t_interval='daily',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['et_fraction']['2017-07-10'] - 0.5970309972763062) <= tol
@@ -740,8 +720,8 @@ def test_from_scene_et_actual_t_interval_daily_values_etr(tol=0.0001):
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='daily')
-
+        t_interval='daily',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['et_fraction']['2017-07-10'] - 0.449444979429245) <= tol
@@ -773,8 +753,8 @@ def test_from_scene_et_actual_t_interval_monthly_values(
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': et_reference_band,
                     'et_reference_resample': 'nearest'},
-        t_interval='monthly')
-
+        t_interval='monthly',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['et']['2017-07-01'] - et) <= tol
@@ -796,8 +776,8 @@ def test_from_scene_et_actual_t_interval_custom_values_monthly(tol=0.0001):
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='custom')
-
+        t_interval='custom',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['et']['2017-07-01'] - 142.9622039794922) <= tol
@@ -819,8 +799,8 @@ def test_from_scene_et_actual_t_interval_custom_daily_count():
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='custom')
-
+        t_interval='custom',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert output['daily_count']['2017-07-01'] == 31
@@ -840,8 +820,8 @@ def test_from_scene_et_actual_t_interval_custom_mask_partial_aggregations_true()
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='custom')
-
+        t_interval='custom',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert output['daily_count']['2017-07-01'] is None
@@ -861,8 +841,8 @@ def test_from_scene_et_actual_t_interval_custom_mask_partial_aggregations_false(
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='custom')
-
+        t_interval='custom',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert output['daily_count']['2017-07-01'] == 18
@@ -880,8 +860,8 @@ def test_from_scene_et_actual_t_interval_monthly_et_reference_factor(tol=0.0001)
                     'et_reference_band': 'etr',
                     'et_reference_factor': 0.5,
                     'et_reference_resample': 'nearest'},
-        t_interval='monthly')
-
+        t_interval='monthly',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['et']['2017-07-01'] - 142.9622039794922) <= tol
@@ -910,8 +890,8 @@ def test_from_scene_et_actual_t_interval_monthly_et_reference_resample(
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': et_reference_band,
                     'et_reference_resample': 'bilinear'},
-        t_interval='monthly')
-
+        t_interval='monthly',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['et']['2017-07-01'] - et) <= tol
@@ -933,8 +913,8 @@ def test_from_scene_et_actual_t_interval_monthly_interp_args_et_reference(tol=0.
                      'et_reference_band': 'etr',
                      'et_reference_resample': 'nearest'},
         model_args={},
-        t_interval='monthly')
-
+        t_interval='monthly',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['et']['2017-07-01'] - 142.9622039794922) <= tol
@@ -957,8 +937,8 @@ def test_from_scene_et_actual_t_interval_daily_et_fraction_max(tol=0.0001):
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='daily')
-
+        t_interval='daily',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['et_fraction']['2017-07-10'] - 1.4) <= tol
@@ -975,7 +955,8 @@ def test_from_scene_et_fraction_t_interval_bad_value():
                         'et_reference_band': 'etr',
                         'et_reference_factor': 0.5,
                         'et_reference_resample': 'nearest'},
-            t_interval='deadbeef')
+            t_interval='deadbeef',
+        )
 
 
 def test_from_scene_et_fraction_t_interval_no_value():
@@ -989,7 +970,8 @@ def test_from_scene_et_fraction_t_interval_no_value():
             model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                         'et_reference_band': 'etr',
                         'et_reference_factor': 0.5,
-                        'et_reference_resample': 'nearest'})
+                        'et_reference_resample': 'nearest'},
+        )
 
 
 def test_from_scene_et_actual_t_interval_bad_value():
@@ -1004,7 +986,8 @@ def test_from_scene_et_actual_t_interval_bad_value():
             model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                         'et_reference_band': 'etr',
                         'et_reference_resample': 'nearest'},
-            t_interval='deadbeef')
+            t_interval='deadbeef',
+        )
 
 
 def test_from_scene_et_actual_t_interval_no_value():
@@ -1019,7 +1002,8 @@ def test_from_scene_et_actual_t_interval_no_value():
                          'interp_resample': 'nearest'},
             model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                         'et_reference_band': 'etr',
-                        'et_reference_resample': 'nearest'})
+                        'et_reference_resample': 'nearest'},
+        )
 
 
 def test_from_scene_et_fraction_interp_args_use_joins_true(tol=0.01):
@@ -1032,8 +1016,8 @@ def test_from_scene_et_fraction_interp_args_use_joins_true(tol=0.01):
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='monthly')
-
+        t_interval='monthly',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['et_reference']['2017-07-01'] - 310.3) <= tol
@@ -1051,8 +1035,8 @@ def test_from_scene_et_fraction_interp_args_use_joins_false(tol=0.01):
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='monthly')
-
+        t_interval='monthly',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['et_reference']['2017-07-01'] - 310.3) <= tol
@@ -1072,8 +1056,8 @@ def test_from_scene_et_actual_interp_args_use_joins_true(tol=0.01):
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='monthly')
-
+        t_interval='monthly',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['et']['2017-07-01'] - 142.9622039794922) <= tol
@@ -1093,135 +1077,10 @@ def test_from_scene_et_actual_interp_args_use_joins_false(tol=0.01):
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                     'et_reference_band': 'etr',
                     'et_reference_resample': 'nearest'},
-        t_interval='monthly')
-
+        t_interval='monthly',
+    )
     TEST_POINT = (-121.5265, 38.7399)
     output = utils.point_coll_value(output_coll, TEST_POINT, scale=30)
     assert abs(output['et']['2017-07-01'] - 142.9622039794922) <= tol
     assert abs(output['et_reference']['2017-07-01'] - 310.3) <= tol
     assert output['count']['2017-07-01'] == 3
-
-
-"""
-These tests were attempts at making "full" interpolation calls.
-They could be removed but are being left in case we want to explore this again
-at some point in the future.
-"""
-# def test_daily_values_collection_a():
-#     """Test the daily interpolation using real images"""
-#     target_coll = (
-#         ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')
-#         .filterDate('2017-06-30', '2017-08-02')
-#         .select(['etr'])
-#     )
-#     source_coll = (
-#         ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
-#         .filterDate('2017-06-30', '2017-08-02')
-#         .filterBounds(ee.Geometry.Point(-121.9, 39))
-#         .select(['SR_B2'])
-#     )
-#
-#     def add_time_band(image):
-#         date_0utc = utils.date_0utc(ee.Date(image.get('system:time_start')))
-#         return image.addBands([
-#             image.select([0]).double().multiply(0).add(date_0utc.millis()).rename(['time'])
-#         ])
-#     source_coll = ee.ImageCollection(source_coll.map(add_time_band))
-#
-#     # print('\nTARGET')
-#     # target_info = utils.point_coll_value(
-#     #     target_coll, xy=(-121.5265, 38.7399), scale=30)
-#     # pprint.pprint(target_info)
-#
-#     print('\nSOURCE')
-#     source_info = utils.point_coll_value(
-#         source_coll, xy=(-121.5265, 38.7399), scale=30)
-#     pprint.pprint(source_info)
-#
-#     print('\nOUTPUT')
-#     output = utils.point_coll_value(
-#         interpolate.daily(target_coll, source_coll, interp_days=32),
-#         xy=(-121.5265, 38.7399), scale=30)
-#     pprint.pprint(output['SR_B2'])
-#
-#     assert True
-#
-#
-# def test_daily_values_collection_b():
-#     """Test the daily interpolation for short interp_days values"""
-#     target_coll = (
-#         ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')
-#         .filterDate('2017-06-30', '2017-08-02')
-#         .select(['etr'])
-#     )
-#     source_coll = (
-#         ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
-#         .filterDate('2017-06-30', '2017-08-02')
-#         .filterBounds(ee.Geometry.Point(-121.9, 39))
-#         .select(['SR_B2'])
-#     )
-#
-#     def add_time_band(image):
-#         date_0utc = utils.date_0utc(ee.Date(image.get('system:time_start')))
-#         return image.addBands([
-#             image.select([0]).double().multiply(0).add(date_0utc.millis()).rename(['time'])
-#         ])
-#     source_coll = ee.ImageCollection(source_coll.map(add_time_band))
-#
-#     # print('\nTARGET')
-#     # target_info = utils.point_coll_value(
-#     #     target_coll, xy=(-121.5265, 38.7399), scale=30)
-#     # pprint.pprint(target_info)
-#
-#     print('\nSOURCE')
-#     source_info = utils.point_coll_value(
-#         source_coll, xy=(-121.5265, 38.7399), scale=30)
-#     pprint.pprint(source_info)
-#
-#     print('\nOUTPUT')
-#     output = utils.point_coll_value(
-#         interpolate.daily(target_coll, source_coll, interp_days=4),
-#         xy=(-121.5265, 38.7399), scale=30)
-#     pprint.pprint(output['SR_B2'])
-#
-#     assert True
-#
-#
-# def test_daily_values_collection_c():
-#     """Test if the daily interpolation holds the last known value"""
-#     target_coll = (
-#         ee.ImageCollection('IDAHO_EPSCOR/GRIDMET')
-#         .filterDate('2017-07-01', '2017-08-05')
-#         .select(['etr'])
-#     )
-#     source_coll = (
-#         ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
-#         .filterDate('2017-06-30', '2017-07-17')
-#         .filterBounds(ee.Geometry.Point(-121.9, 39))
-#         .select(['SR_B2'])
-#     )
-#
-#     def add_time_band(image):
-#         date_0utc = utils.date_0utc(ee.Date(image.get('system:time_start')))
-#         return image.addBands([
-#             image.select([0]).double().multiply(0).add(date_0utc.millis()).rename(['time'])
-#         ])
-#     source_coll = ee.ImageCollection(source_coll.map(add_time_band))
-#
-#     # print('\nTARGET')
-#     # target_info = utils.point_coll_value(
-#     #     target_coll, xy=(-121.5265, 38.7399), scale=30)
-#     # pprint.pprint(target_info)
-#
-#     print('\nSOURCE')
-#     source_info = utils.point_coll_value(
-#         source_coll, xy=(-121.5265, 38.7399), scale=30)
-#     pprint.pprint(source_info)
-#
-#     print('\nOUTPUT')
-#     output = utils.point_coll_value(
-#         interpolate.daily(target_coll, source_coll, interp_days=16),
-#         xy=(-121.5265, 38.7399), scale=30)
-#     pprint.pprint(output['SR_B2'])
-#
-#     assert True
