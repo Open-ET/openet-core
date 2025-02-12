@@ -45,6 +45,8 @@ jobs:
       uses: google-github-actions/setup-gcloud@v2
     - name: EE token
       run: echo "ACTION_EE_TOKEN=$(gcloud auth print-access-token)" >> $GITHUB_ENV
+    - name: Set Project ID
+      run: echo "PROJECT_ID=openet" >> $GITHUB_ENV
     - name: Test with pytest
       run: |
         python -m pytest
