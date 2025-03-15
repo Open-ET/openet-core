@@ -38,6 +38,11 @@ def test_affine_transform():
     assert output == [0.0002777777777777778, 0, -179.0001388888889, 0, -0.0002777777777777778, 61.00013888888889]
 
 
+# TODO: Write this test
+# def test_build_parent_folders():
+#     assert False
+
+
 def test_date_0utc(date='2015-07-13'):
     assert utils.get_info(utils.date_0utc(
         ee.Date(date).advance(2, 'hour')).format('yyyy-MM-dd')) == date
@@ -306,8 +311,3 @@ def test_point_coll_value_no_system_time_start_exception():
     input_img = ee.Image('USGS/3DEP/10m').select(['elevation'], ['output'])
     with pytest.raises(Exception):
         utils.point_coll_value(ee.ImageCollection([input_img]), [-106, 37], 30)
-
-
-# TODO: Write this test
-# def test_build_parent_folders():
-#     assert False

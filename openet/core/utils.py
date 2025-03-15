@@ -64,6 +64,23 @@ def arg_valid_file(file_path):
         raise argparse.ArgumentTypeError(f'{file_path} does not exist')
 
 
+def build_parent_folders(folder_id, set_public=False):
+    """Build the asset folder including parents"""
+    # Build any parent folders above the "3rd" level
+    # i.e. after "projects/openet/assets" or "projects/openet/folder"
+    public_policy = {'bindings': [{'role': 'roles/viewer', 'members': ['allUsers']}]}
+    folder_id_split = folder_id.replace('projects/earthengine-legacy/assets/', '').split('/')
+    for i in range(len(folder_id_split)):
+        if i <= 3:
+            continue
+        folder_id = '/'.join(folder_id_split[:i])
+        if not ee.data.getInfo(folder_id):
+            print(f'  Building folder: {folder_id}')
+            ee.data.createAsset({'type': 'FOLDER'}, folder_id)
+            if set_public:
+                ee.data.setIamPolicy(folder_id, public_policy)
+
+
 def date_0utc(date):
     """Get the 0 UTC date for a date
 
@@ -205,6 +222,39 @@ def delay_task(delay_time=0, task_max=-1, task_count=0):
     return ready_task_count
 
 
+def get_info(ee_obj, max_retries=4):
+    """Make an exponential back off getInfo call on an Earth Engine object"""
+    # output = ee_obj.getInfo()
+    output = None
+    for i in range(1, max_retries):
+        try:
+            output = ee_obj.getInfo()
+        except ee.ee_exception.EEException as e:
+            if ('Earth Engine memory capacity exceeded' in str(e) or
+                    'Earth Engine capacity exceeded' in str(e) or
+                    'Too many concurrent aggregations' in str(e) or
+                    'Computation timed out.' in str(e)):
+                # TODO: Maybe add 'Connection reset by peer'
+                logging.info(f'    Resending query ({i}/{max_retries})')
+                logging.info(f'    {e}')
+            else:
+                # TODO: What should happen for unexpected EE exceptions?
+                #   It might be better to reraise the exception and exit
+                logging.info(f'    {e}')
+                logging.info('    Unhandled Earth Engine exception')
+                continue
+        except Exception as e:
+            logging.info(f'    Resending query ({i}/{max_retries})')
+            logging.debug(f'    {e}')
+
+        if output is not None:
+            break
+
+        time.sleep(i ** 3)
+
+    return output
+
+
 def get_ee_assets(asset_id, start_dt=None, end_dt=None, retries=4):
     """Return assets IDs in a collection
 
@@ -331,39 +381,6 @@ def print_ee_tasks(tasks):
     logging.debug(f'  Tasks: {len(tasks)}\n')
 
     return tasks
-
-
-def get_info(ee_obj, max_retries=4):
-    """Make an exponential back off getInfo call on an Earth Engine object"""
-    # output = ee_obj.getInfo()
-    output = None
-    for i in range(1, max_retries):
-        try:
-            output = ee_obj.getInfo()
-        except ee.ee_exception.EEException as e:
-            if ('Earth Engine memory capacity exceeded' in str(e) or
-                    'Earth Engine capacity exceeded' in str(e) or
-                    'Too many concurrent aggregations' in str(e) or
-                    'Computation timed out.' in str(e)):
-                # TODO: Maybe add 'Connection reset by peer'
-                logging.info(f'    Resending query ({i}/{max_retries})')
-                logging.info(f'    {e}')
-            else:
-                # TODO: What should happen for unexpected EE exceptions?
-                #   It might be better to reraise the exception and exit
-                logging.info(f'    {e}')
-                logging.info('    Unhandled Earth Engine exception')
-                continue
-        except Exception as e:
-            logging.info(f'    Resending query ({i}/{max_retries})')
-            logging.debug(f'    {e}')
-
-        if output is not None:
-            break
-
-        time.sleep(i ** 3)
-
-    return output
 
 
 def ee_task_start(task, n=4):
@@ -601,20 +618,3 @@ def point_coll_value(coll, xy, scale=1):
             info_dict[k][date] = row[col_dict[k]]
 
     return info_dict
-
-
-def build_parent_folders(folder_id, set_public=False):
-    """Build the asset folder including parents"""
-    # Build any parent folders above the "3rd" level
-    # i.e. after "projects/openet/assets" or "projects/openet/folder"
-    public_policy = {'bindings': [{'role': 'roles/viewer', 'members': ['allUsers']}]}
-    folder_id_split = folder_id.replace('projects/earthengine-legacy/assets/', '').split('/')
-    for i in range(len(folder_id_split)):
-        if i <= 3:
-            continue
-        folder_id = '/'.join(folder_id_split[:i])
-        if not ee.data.getInfo(folder_id):
-            print(f'  Building folder: {folder_id}')
-            ee.data.createAsset({'type': 'FOLDER'}, folder_id)
-            if set_public:
-                ee.data.setIamPolicy(folder_id, public_policy)
