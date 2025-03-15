@@ -121,18 +121,18 @@ def test_sentinel2_sr_cloud_mask(img_value, expected):
 
 def test_landsat_c2_sr_lst_correct():
     # Basic function test with default inputs
-    sr_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
-    ndvi_img = sr_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
-    output_img = common.landsat_c2_sr_lst_correct(sr_img, ndvi_img)
+    input_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
+    ndvi_img = input_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
+    output_img = common.landsat_c2_sr_lst_correct(input_img, ndvi_img)
     output = utils.get_info(output_img)
     assert output['bands'][0]['id'] == 'lst'
 
 
 def test_landsat_c2_sr_lst_parameter_keywords():
     # Check that the function parameter keywords all work
-    sr_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
-    ndvi_img = sr_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
-    output_img = common.landsat_c2_sr_lst_correct(ndvi=ndvi_img, sr_image=sr_img)
+    input_img = ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725')
+    ndvi_img = input_img.multiply(0.0000275).add(-0.2).normalizedDifference(['SR_B5', 'SR_B4'])
+    output_img = common.landsat_c2_sr_lst_correct(ndvi=ndvi_img, input_img=input_img)
     output = utils.get_info(output_img)
     assert output['bands'][0]['id'] == 'lst'
 
