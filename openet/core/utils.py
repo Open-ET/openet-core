@@ -224,17 +224,26 @@ def get_ee_assets(asset_id, start_dt=None, end_dt=None, retries=4):
     list : Asset IDs
 
     """
-    params = {'parent': asset_id}
-
-    # TODO: Add support or handling for case when only start or end is set
+    # # CGM - There was a bug in earthengine-api>=0.1.326 that caused listImages()
+    # #   to return an empty list if the startTime and endTime parameters are set
+    # # Switching to a .aggregate_array(system:index).getInfo() approach below for now
+    # #   since getList is flagged for deprecation
+    # # This may have been fixed in a later update and should be reviewed
+    coll = ee.ImageCollection(asset_id)
     if start_dt and end_dt:
-        params['startTime'] = start_dt.isoformat() + '.000000000Z'
-        params['endTime'] = end_dt.isoformat() + '.000000000Z'
+        coll = coll.filterDate(start_dt.strftime('%Y-%m-%d'), end_dt.strftime('%Y-%m-%d'))
+    # params = {'parent': asset_id}
+    # if start_dt and end_dt:
+    #     # CGM - Do both start and end need to be set to apply filtering?
+    #     params['startTime'] = start_dt.isoformat() + '.000000000Z'
+    #     params['endTime'] = end_dt.isoformat() + '.000000000Z'
 
     asset_id_list = None
     for i in range(retries):
         try:
-            asset_id_list = [x['id'] for x in ee.data.listImages(params)['images']]
+            asset_id_list = coll.aggregate_array('system:index').getInfo()
+            asset_id_list = [f'{asset_id}/{id}' for id in asset_id_list]
+            # asset_id_list = [x['id'] for x in ee.data.listImages(params)['images']]
             break
         except ValueError:
             raise Exception('\nThe collection or folder does not exist, exiting')
