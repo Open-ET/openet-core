@@ -174,17 +174,19 @@ def sentinel2_sr_cloud_mask(input_img):
     return cloud_mask.Not().rename(['cloud_mask'])
 
 
-def landsat_c2_sr_lst_correct(sr_image, ndvi):
+def landsat_c2_sr_lst_correct(input_img, ndvi=None):
     """Apply correction to Collection 2 LST using adjusted ASTER emissivity
 
     Parameters
     ----------
-    sr_image : ee.Image
+    input_img : ee.Image
         Image from a Landsat Collection 2 SR image collection
         with the SPACECRAFT_ID and LANDSAT_PRODUCT_ID metadata properties
-        (e.g. LANDSAT/LC08/C02/T1_L2).
+        (e.g. LANDSAT/LC08/C02/T1_L2).  The image itself is not read in this
+        function but is instead used to select from the Level 2 and TOA collections.
     ndvi : ee.Image
-        Normalized difference vegetation index (NDVI)
+        This parameter is deprecated and NDVI will be computed internally in the function,
+        but leaving to support backwards compatibility.
 
     Returns
     -------
@@ -206,10 +208,10 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
     Hulley, G. 2023.
 
     """
-    spacecraft_id = ee.String(sr_image.get('SPACECRAFT_ID'))
+    spacecraft_id = ee.String(input_img.get('SPACECRAFT_ID'))
 
     # Landsat image geometry for clipping ASTER GED
-    image_geom = sr_image.geometry()
+    image_geom = input_img.geometry()
     image_extent = image_geom.bounds(1, 'EPSG:4326')
 
     # Server side approach for getting image extent snapped to the ASTER GED grid
@@ -257,7 +259,7 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
         'LANDSAT_8': 0.0584, 'LANDSAT_9': 0.0457,
     })
 
-    def get_matched_c2_t1_image(input_img):
+    def get_matched_c2_t1_l2_image(input_img):
         # Find matching Landsat Collection 2 Tier 1 Level 2 image
         #   based on the "LANDSAT_PRODUCT_ID" property
         # Build the system:index format scene ID from the LANDSAT_PRODUCT_ID
@@ -284,7 +286,7 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
         )
 
     def get_matched_c2_t1_radiance_image(input_img):
-        # Find matching Landsat Collection 2 Tier 1 Level 2 image
+        # Find matching Landsat Collection 2 Tier 1 radiance image
         #   based on the "LANDSAT_PRODUCT_ID" property
         # Build the system:index format scene ID from the LANDSAT_PRODUCT_ID
         satellite = ee.String(input_img.get('SPACECRAFT_ID'))
@@ -349,10 +351,21 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
             })
         )
 
-    # Rebuilding the coll2 image here since the extra bands needed for the calculation
-    #   will likely have been dropped or excluded before getting to this function
-    coll2 = get_matched_c2_t1_image(sr_image)
-    coll2RT = get_matched_c2_t1_radiance_image(sr_image)
+    # Rebuilding the coll2 image here from the LANDSAT_PRODUCT_ID
+    #   since the extra bands needed for the calculation will likely
+    #   have been dropped or excluded before getting to this function
+    c02_lvl2_img = get_matched_c2_t1_l2_image(input_img)
+    c02_rad_img = get_matched_c2_t1_radiance_image(input_img)
+
+    # Compute NDVI from the Level 2 SR image
+    # Including the global surface water maximum extent to limit the water mask
+    # to only those areas that have been flagged as water at some point in time
+    # which should help remove shadows that are misclassified as water
+    ndvi = landsat.c02_sr_ndvi(
+        sr_img=landsat.c02_l2_sr(c02_lvl2_img),
+        water_mask=landsat.c02_qa_water_mask(c02_lvl2_img),
+        gsw_extent_flag=True
+    )
 
     # Apply Allen-Kilic Eq. 5 to calc. ASTER emiss. for Landsat
     # This is Eq. 4 of Malakar et al., 2018
@@ -398,27 +411,26 @@ def landsat_c2_sr_lst_correct(sr_image, ndvi):
     # Using the ASTER-based soil emissivity from above
     # The following estimate for emissivity to use with Landsat may need to be clamped
     #   to some predefined safe limits (for example, 0.5 and 1.0).
-    # CGM - Is the .multiply(1.0) needed?
-    fc_landsat = ndvi.multiply(1.0).subtract(0.15).divide(0.65).clamp(0, 1.0)
+    fc_landsat = ndvi.subtract(0.15).divide(0.65).clamp(0, 1.0)
 
     # calc_smoothed_em_soil
-    LS_EM = fc_landsat.multiply(-1).add(1).multiply(em_soil).add(fc_landsat.multiply(veg_emis))
+    ls_em = fc_landsat.multiply(-1).add(1).multiply(em_soil).add(fc_landsat.multiply(veg_emis))
 
     # Apply Eq. 8 to get thermal surface radiance, Rc, from C2 Real time band 10
     # (Eq. 7 of Malakar et al. but without the emissivity to produce actual radiance)
-    Rc = (
-        coll2RT.select(['thermal'])
-        .multiply(ee.Number(coll2RT.get('RADIANCE_MULT_BAND_thermal')))
-        .add(ee.Number(coll2RT.get('RADIANCE_ADD_BAND_thermal')))
-        .subtract(coll2.select(['ST_URAD']).multiply(0.001))
-        .divide(coll2.select(['ST_ATRAN']).multiply(0.0001))
-        .subtract(LS_EM.multiply(-1).add(1).multiply(coll2.select(['ST_DRAD']).multiply(0.001)))
+    rc = (
+        c02_rad_img.select(['thermal'])
+        .multiply(ee.Number(c02_rad_img.get('RADIANCE_MULT_BAND_thermal')))
+        .add(ee.Number(c02_rad_img.get('RADIANCE_ADD_BAND_thermal')))
+        .subtract(c02_lvl2_img.select(['ST_URAD']).multiply(0.001))
+        .divide(c02_lvl2_img.select(['ST_ATRAN']).multiply(0.0001))
+        .subtract(ls_em.multiply(-1).add(1).multiply(c02_lvl2_img.select(['ST_DRAD']).multiply(0.001)))
     )
 
     # Apply Eq. 7 to convert Rs to LST (similar to Malakar et al., but with emissivity)
     return (
-        LS_EM.multiply(ee.Number(k1.get(spacecraft_id)))
-        .divide(Rc).add(1.0).log().pow(-1)
+        ls_em.multiply(ee.Number(k1.get(spacecraft_id)))
+        .divide(rc).add(1.0).log().pow(-1)
         .multiply(ee.Number(k2.get(spacecraft_id)))
         .rename('lst')
     )

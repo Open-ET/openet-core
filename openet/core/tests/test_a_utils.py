@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 import types
 
 import ee
@@ -8,7 +8,7 @@ import openet.core.utils as utils
 
 
 def arg_valid_date():
-    assert utils.arg_valid_date('2020-03-10') == datetime.datetime(2020, 3, 10)
+    assert utils.arg_valid_date('2020-03-10') == datetime(2020, 3, 10)
 
 
 def arg_valid_date_exception():
@@ -38,6 +38,11 @@ def test_affine_transform():
     assert output == [0.0002777777777777778, 0, -179.0001388888889, 0, -0.0002777777777777778, 61.00013888888889]
 
 
+# TODO: Write this test
+# def test_build_parent_folders():
+#     assert False
+
+
 def test_date_0utc(date='2015-07-13'):
     assert utils.get_info(utils.date_0utc(
         ee.Date(date).advance(2, 'hour')).format('yyyy-MM-dd')) == date
@@ -45,17 +50,17 @@ def test_date_0utc(date='2015-07-13'):
 
 def test_date_range_type():
     output = utils.date_range(
-        datetime.datetime(2020, 1, 1), datetime.datetime(2020, 1, 3))
+        datetime(2020, 1, 1), datetime(2020, 1, 3))
     assert isinstance(output, types.GeneratorType)
 
 
 @pytest.mark.parametrize(
     'start_dt, end_dt, expected',
     [
-        [datetime.datetime(2020, 1, 1), datetime.datetime(2020, 1, 3), 3],
-        [datetime.datetime(2003, 12, 30), datetime.datetime(2004, 1, 3), 5],
-        [datetime.datetime(2004, 2, 28), datetime.datetime(2004, 3, 1), 3],
-        [datetime.datetime(2001, 1, 1), datetime.datetime(2002, 1, 1), 366],
+        [datetime(2020, 1, 1), datetime(2020, 1, 3), 3],
+        [datetime(2003, 12, 30), datetime(2004, 1, 3), 5],
+        [datetime(2004, 2, 28), datetime(2004, 3, 1), 3],
+        [datetime(2001, 1, 1), datetime(2002, 1, 1), 366],
     ]
 )
 def test_date_range_defaults(start_dt, end_dt, expected):
@@ -66,10 +71,10 @@ def test_date_range_defaults(start_dt, end_dt, expected):
 @pytest.mark.parametrize(
     'start_dt, end_dt, days, expected',
     [
-        [datetime.datetime(2001, 1, 1), datetime.datetime(2001, 1, 1), 2, 1],
-        [datetime.datetime(2001, 1, 1), datetime.datetime(2001, 1, 2), 2, 1],
-        [datetime.datetime(2001, 1, 1), datetime.datetime(2001, 1, 3), 2, 2],
-        [datetime.datetime(2001, 1, 1), datetime.datetime(2001, 1, 4), 2, 2],
+        [datetime(2001, 1, 1), datetime(2001, 1, 1), 2, 1],
+        [datetime(2001, 1, 1), datetime(2001, 1, 2), 2, 1],
+        [datetime(2001, 1, 1), datetime(2001, 1, 3), 2, 2],
+        [datetime(2001, 1, 1), datetime(2001, 1, 4), 2, 2],
     ]
 )
 def test_date_range_days(start_dt, end_dt, days, expected):
@@ -80,13 +85,47 @@ def test_date_range_days(start_dt, end_dt, days, expected):
 @pytest.mark.parametrize(
     'start_dt, end_dt, skip_leap_days, expected',
     [
-        [datetime.datetime(2004, 2, 28), datetime.datetime(2004, 3, 1), True, 2],
-        # [datetime.datetime(2000, 2, 28), datetime.datetime(2000, 3, 1), True, 2],
+        [datetime(2004, 2, 28), datetime(2004, 3, 1), True, 2],
     ]
 )
 def test_date_range_skip_leap_days(start_dt, end_dt, skip_leap_days, expected):
     assert len(list(utils.date_range(
         start_dt, end_dt, skip_leap_days=skip_leap_days))) == expected
+
+
+@pytest.mark.parametrize(
+    'start_dt, end_dt, exclusive_end_dates, expected',
+    [
+        [
+            datetime(2004, 2, 1), datetime(2004, 2, 28), False,
+            [(datetime(2004, 2, 1), datetime(2004, 2, 28))]
+        ],
+        [
+            datetime(2004, 2, 1), datetime(2004, 2, 28), True,
+            [(datetime(2004, 2, 1), datetime(2004, 2, 29))]
+        ],
+        [
+            datetime(2005, 2, 1), datetime(2005, 2, 28), True,
+            [(datetime(2005, 2, 1), datetime(2005, 3, 1))]
+        ],
+        [
+            datetime(2004, 2, 1), datetime(2005, 2, 28), False,
+            [
+                (datetime(2004, 2, 1), datetime(2004, 12, 31)),
+                (datetime(2005, 1, 1), datetime(2005, 2, 28))
+            ]
+        ],
+        [
+            datetime(2005, 2, 1), datetime(2006, 2, 28), True,
+            [
+                (datetime(2005, 2, 1), datetime(2006, 1, 1)),
+                (datetime(2006, 1, 1), datetime(2006, 3, 1))
+            ]
+        ],
+    ]
+)
+def test_date_years(start_dt, end_dt, exclusive_end_dates, expected):
+    assert list(utils.date_years(start_dt, end_dt, exclusive_end_dates)) == expected
 
 
 # TODO: Write this test
@@ -115,7 +154,6 @@ def test_get_ee_assets_exception():
 
 
 @pytest.mark.parametrize(
-    # Note: These are made up values
     'input_value, expected',
     [
         [300, True],
@@ -130,7 +168,11 @@ def test_is_number(input_value, expected):
 
 
 def test_millis():
-    assert utils.millis(datetime.datetime(2015, 7, 13)) == 1436745600000
+    assert utils.millis(datetime(2015, 7, 13)) == 1436745600000
+
+
+def test_parse_landsat_id():
+    assert utils.parse_landsat_id('LC08_030036_20210725') == ('LC08', 30, 36, 2021, 7, 25)
 
 
 @pytest.mark.parametrize(
@@ -197,6 +239,10 @@ def test_str_ranges_2_list(input_value, expected):
 )
 def test_list_2_str_ranges(input_value, expected):
     assert utils.list_2_str_ranges(input_value) == expected
+
+
+def test_ver_str_2_num():
+    assert utils.ver_str_2_num('0.20.6') == [0, 20, 6]
 
 
 def test_constant_image_value(expected=10.123456789, tol=0.000001):

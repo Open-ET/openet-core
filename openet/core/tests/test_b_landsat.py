@@ -5,6 +5,21 @@ import openet.core.landsat as landsat
 import openet.core.utils as utils
 
 
+# TODO: Add additional tests and/or rebuild these as a constant image test
+def test_c02_l2_sr_band_names():
+    input_img = ee.Image('LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016')
+    output = utils.get_info(landsat.c02_l2_sr(input_img).bandNames())
+    assert output == ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'lst', 'QA_PIXEL', 'QA_RADSAT']
+
+
+# TODO: Add additional tests and/or rebuild as a constant image tes
+def test_c02_ndvi_band_name():
+    input_img = ee.Image('LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016')
+    sr_img = landsat.c02_l2_sr(input_img).select(['red', 'nir'])
+    output = utils.get_info(landsat.c02_sr_ndvi(sr_img).bandNames())
+    assert output == ['ndvi']
+
+
 @pytest.mark.parametrize(
     "qa_pixel, expected",
     [
@@ -74,6 +89,20 @@ def test_c02_qa_pixel_mask_flags(img_value, arg_name, flag_value, expected):
         input_args[arg_name] = flag_value
     output_img = landsat.c02_qa_pixel_mask(**input_args)
     assert utils.constant_image_value(output_img)['mask'] == expected
+
+
+@pytest.mark.parametrize(
+    "qa_pixel, expected",
+    [
+        ['0000000000000000', 0],  # Designated Fill
+        ['0000000000000001', 0],
+        ['0000000010000000', 1],  # Water
+    ]
+)
+def test_c02_qa_mask_defaults(qa_pixel, expected):
+    input_img = ee.Image.constant([int(qa_pixel, 2)]).rename(['QA_PIXEL'])
+    output_img = landsat.c02_qa_water_mask(input_img)
+    assert utils.constant_image_value(output_img)['qa_water_mask'] == expected
 
 
 @pytest.mark.parametrize(

@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timezone
 import logging
 
 import ee
@@ -18,8 +18,7 @@ def tgt_image(tgt_value, tgt_time):
     return (
         ee.Image.constant(tgt_value).rename(['tgt'])
         .set({'system:time_start': tgt_time,
-              'system:index': datetime.datetime.utcfromtimestamp(
-                  tgt_time / 1000.0).strftime('%Y%m%d')})
+              'system:index': datetime.fromtimestamp(tgt_time / 1000.0, tz=timezone.utc).strftime('%Y%m%d')})
     )
 
 

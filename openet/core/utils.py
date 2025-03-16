@@ -1,6 +1,6 @@
 import argparse
 import calendar
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import itertools
 import json
 import logging
@@ -64,6 +64,23 @@ def arg_valid_file(file_path):
         raise argparse.ArgumentTypeError(f'{file_path} does not exist')
 
 
+def build_parent_folders(folder_id, set_public=False):
+    """Build the asset folder including parents"""
+    # Build any parent folders above the "3rd" level
+    # i.e. after "projects/openet/assets" or "projects/openet/folder"
+    public_policy = {'bindings': [{'role': 'roles/viewer', 'members': ['allUsers']}]}
+    folder_id_split = folder_id.replace('projects/earthengine-legacy/assets/', '').split('/')
+    for i in range(len(folder_id_split)):
+        if i <= 3:
+            continue
+        folder_id = '/'.join(folder_id_split[:i])
+        if not ee.data.getInfo(folder_id):
+            print(f'  Building folder: {folder_id}')
+            ee.data.createAsset({'type': 'FOLDER'}, folder_id)
+            if set_public:
+                ee.data.setIamPolicy(folder_id, public_policy)
+
+
 def date_0utc(date):
     """Get the 0 UTC date for a date
 
@@ -85,9 +102,9 @@ def date_range(start_dt, end_dt, days=1, skip_leap_days=False):
     Parameters
     ----------
     start_dt : datetime
-        start date.
+        Start date.
     end_dt : datetime
-        end date.
+        End date.
     days : int, optional
         Step size (the default is 1).
     skip_leap_days : bool, optional
@@ -106,178 +123,103 @@ def date_range(start_dt, end_dt, days=1, skip_leap_days=False):
         curr_dt += timedelta(days=days)
 
 
-def delay_task(delay_time=0, max_ready=-1):
-    """Delay script execution based on number of RUNNING and READY tasks
+def date_years(start_dt, end_dt, exclusive_end_dates=False):
+    """Generate separate start and end dates for each year in a date range
+
+    Parameters
+    ----------
+    start_dt : datetime
+        Start date.
+    end_dt : datetime
+        End date.
+    exclusive_end_dates : bool, optional
+        If True, set the end dates for each iteration range to be exclusive.
+
+    Yields
+    -------
+    start and end datetimes for each year
+
+    """
+    if (end_dt - start_dt).days > 366:
+        for year in range(start_dt.year, end_dt.year + 1):
+            year_start_dt = max(datetime(year, 1, 1), start_dt)
+            year_end_dt = datetime(year + 1, 1, 1) - timedelta(days=1)
+            year_end_dt = min(year_end_dt, end_dt)
+            if exclusive_end_dates:
+                year_end_dt = year_end_dt + timedelta(days=1)
+            yield year_start_dt, year_end_dt
+    else:
+        if exclusive_end_dates:
+            yield start_dt, end_dt + timedelta(days=1)
+        else:
+            yield start_dt, end_dt
+
+
+def delay_task(delay_time=0, task_max=-1, task_count=0):
+    """Delay script execution based on number of READY tasks
 
     Parameters
     ----------
     delay_time : float, int
         Delay time in seconds between starting export tasks or checking the
-        number of queued tasks if "max_ready" is > 0.  The default is 0.
-        The delay time will be set to a minimum of 10 seconds if max_ready > 0.
-    max_ready : int, optional
-        Maximum number of queued "READY" tasks.  The default is -1 which
-        implies no limit to the number of tasks that will be submitted.
+        number of queued tasks if "ready_task_max" is > 0.  The default is 0.
+        The delay time will be set to a minimum of 10 seconds if
+        ready_task_max > 0.
+    task_max : int, optional
+        Maximum number of queued "READY" tasks.
+    task_count : int
+        The current/previous/assumed number of ready tasks.
+        Value will only be updated if greater than or equal to ready_task_max.
 
     Returns
     -------
-    None
+    int : ready_task_count
 
     """
-    # Force delay time to be a positive value
-    # (since parameter used to support negative values)
+    if task_max > 3000:
+        raise ValueError('The maximum number of queued tasks must be less than 3000')
+
+    # Force delay time to be a positive value since the parameter used to
+    #   support negative values
     if delay_time < 0:
         delay_time = abs(delay_time)
 
-    logging.debug(f'  Pausing {delay_time} seconds')
-
-    if max_ready <= 0:
+    if (task_max is None or task_max <= 0) and (delay_time >= 0):
+        # Assume task_max was not set and just wait the delay time
+        logging.debug(f'  Pausing {delay_time} seconds, not checking task list')
         time.sleep(delay_time)
-    elif max_ready > 0:
-        # Don't continue to the next export until the number of READY tasks
-        #   is greater than or equal to "max_ready"
+        return 0
+    elif task_max and (task_count < task_max):
+        # Skip waiting or checking tasks if a maximum number of tasks was set
+        #   and the current task count is below the max
+        logging.debug(f'  Ready tasks: {task_count}')
+        return task_count
 
-        # Force delay_time to be at least 10 seconds if max_ready is set
-        #   to avoid excessive EE calls
-        delay_time = max(delay_time, 10)
+    # If checking tasks, force delay_time to be at least 10 seconds if
+    #   ready_task_max is set to avoid excessive EE calls
+    delay_time = max(delay_time, 10)
 
-        # Make an initial pause before checking tasks lists to allow
-        #   for previous export to start up.
-        time.sleep(delay_time)
+    # Make an initial pause before checking tasks lists to allow
+    #   for previous export to start up
+    # CGM - I'm not sure what a good default first pause time should be,
+    #   but capping it at 30 seconds is probably fine for now
+    logging.debug(f'  Pausing {min(delay_time, 30)} seconds for tasks to start')
+    time.sleep(delay_time)
 
-        while True:
-            ready_tasks = get_ee_tasks(states=['READY'], verbose=True)
-            ready_task_count = len(ready_tasks.keys())
-
-            if ready_task_count >= max_ready:
-                logging.debug('  {} tasks queued, waiting {} seconds to start '
-                              'more tasks'.format(ready_task_count, delay_time))
-                time.sleep(delay_time)
-            else:
-                logging.debug('  Continuing iteration')
-                break
-
-
-def get_ee_assets(asset_id, start_dt=None, end_dt=None, retries=6):
-    """Return assets IDs in a collection
-
-    Parameters
-    ----------
-    asset_id : str
-        A folder or image collection ID.
-    start_dt : datetime, optional
-        Start date (inclusive).
-    end_dt : datetime, optional
-        End date (exclusive, similar to .filterDate()).
-    retries : int, optional
-        The number of times to retry getting the task list if there is an error.
-
-    Returns
-    -------
-    list : Asset IDs
-
-    """
-    params = {'parent': asset_id}
-
-    # TODO: Add support or handling for case when only start or end is set
-    if start_dt and end_dt:
-        params['startTime'] = start_dt.isoformat() + '.000000000Z'
-        params['endTime'] = end_dt.isoformat() + '.000000000Z'
-
-    asset_id_list = None
-    for i in range(retries):
-        try:
-            asset_id_list = [x['id'] for x in ee.data.listImages(params)['images']]
-            break
-        except ValueError:
-            raise Exception('\nThe collection or folder does not exist, exiting')
-        except Exception as e:
-            logging.warning(f'  Error getting asset list, retrying ({i}/{retries})\n  {e}')
-            time.sleep((i+1) ** 2)
-
-    if asset_id_list is None:
-        raise Exception('\nUnable to retrieve task list, exiting')
-
-    return asset_id_list
-
-
-def get_ee_tasks(states=['RUNNING', 'READY'], verbose=False, retries=6):
-    """Return current active tasks
-
-    Parameters
-    ----------
-    states : list, optional
-        List of task states to check (the default is ['RUNNING', 'READY']).
-    verbose : bool, optional
-        This parameter is deprecated and is no longer being used.
-        To get verbose logging of the active tasks use utils.print_ee_tasks().
-    retries : int, optional
-        The number of times to retry getting the task list if there is an error.
-
-    Returns
-    -------
-    dict : task descriptions (key) and full task info dictionary (value)
-
-    """
-    logging.debug('\nRequesting Task List')
-    task_list = None
-    for i in range(retries):
-        try:
-            # TODO: getTaskList() is deprecated, switch to listOperations()
-            task_list = ee.data.getTaskList()
-            # task_list = ee.data.listOperations()
-            break
-        except Exception as e:
-            logging.warning(f'  Error getting task list, retrying ({i}/{retries})\n  {e}')
-            time.sleep((i+1) ** 2)
-    if task_list is None:
-        raise Exception('\nUnable to retrieve task list, exiting')
-
-    task_list = sorted(
-        [task for task in task_list if task['state'] in states],
-        key=lambda t: (t['state'], t['description'], t['id'])
-    )
-
-    # Convert the task list to a dictionary with the task name as the key
-    return {task['description']: task for task in task_list}
-
-
-def print_ee_tasks(tasks):
-    """Print a summary of the current active tasks
-
-    Parameters
-    ----------
-    tasks : dict
-        Task dictionary generated by utils.get_ee_tasks().
-
-    Returns
-    -------
-    None
-
-    """
-    # TODO: Add a parameter to control the log level
-    logging.debug('Active Tasks')
-    if tasks:
-        logging.debug('  {:8s} {}'.format('STATE', 'DESCRIPTION'))
-        logging.debug('  {:8s} {}'.format('=====', '==========='))
-    else:
-        logging.debug('  None')
-
-    for desc, task in tasks.items():
-        if task['state'] == 'RUNNING':
-            start_dt = datetime.utcfromtimestamp(task['start_timestamp_ms'] / 1000)
-            update_dt = datetime.utcfromtimestamp(task['update_timestamp_ms'] / 1000)
-            logging.debug('  {:8s} {}  {:0.2f}  {}'.format(
-                task['state'], task['description'],
-                (update_dt - start_dt).total_seconds() / 3600,
-                task['id'])
-            )
+    # If checking tasks, don't continue to the next export until the number
+    #   of READY tasks is greater than or equal to "ready_task_max"
+    while True:
+        ready_task_count = len(get_ee_tasks(states=['READY']).keys())
+        logging.debug(f'  Ready tasks: {ready_task_count}')
+        if ready_task_count >= task_max:
+            logging.debug(f'  Pausing {delay_time} seconds')
+            time.sleep(delay_time)
         else:
-            logging.debug('  {:8s} {}'.format(task['state'], task['description']))
+            logging.debug(f'  {task_max - ready_task_count} open task '
+                          f'slots, continuing processing')
+            break
 
-    logging.debug(f'  Tasks: {len(tasks)}\n')
-
-    return tasks
+    return ready_task_count
 
 
 def get_info(ee_obj, max_retries=4):
@@ -313,16 +255,144 @@ def get_info(ee_obj, max_retries=4):
     return output
 
 
-def ee_task_start(task, n=6):
+def get_ee_assets(asset_id, start_dt=None, end_dt=None, retries=4):
+    """Return assets IDs in a collection
+
+    Parameters
+    ----------
+    asset_id : str
+        A folder or image collection ID.
+    start_dt : datetime, optional
+        Start date (inclusive).
+    end_dt : datetime, optional
+        End date (exclusive, similar to .filterDate()).
+    retries : int, optional
+        The number of times to retry getting the task list if there is an error.
+
+    Returns
+    -------
+    list : Asset IDs
+
+    """
+    # # CGM - There was a bug in earthengine-api>=0.1.326 that caused listImages()
+    # #   to return an empty list if the startTime and endTime parameters are set
+    # # Switching to a .aggregate_array(system:index).getInfo() approach below for now
+    # #   since getList is flagged for deprecation
+    # # This may have been fixed in a later update and should be reviewed
+    coll = ee.ImageCollection(asset_id)
+    if start_dt and end_dt:
+        coll = coll.filterDate(start_dt.strftime('%Y-%m-%d'), end_dt.strftime('%Y-%m-%d'))
+    # params = {'parent': asset_id}
+    # if start_dt and end_dt:
+    #     # CGM - Do both start and end need to be set to apply filtering?
+    #     params['startTime'] = start_dt.isoformat() + '.000000000Z'
+    #     params['endTime'] = end_dt.isoformat() + '.000000000Z'
+
+    asset_id_list = None
+    for i in range(retries):
+        try:
+            asset_id_list = coll.aggregate_array('system:index').getInfo()
+            asset_id_list = [f'{asset_id}/{id}' for id in asset_id_list]
+            # asset_id_list = [x['id'] for x in ee.data.listImages(params)['images']]
+            break
+        except ValueError:
+            raise Exception('\nThe collection or folder does not exist, exiting')
+        except Exception as e:
+            logging.warning(f'  Error getting asset list, retrying ({i}/{retries})\n  {e}')
+            time.sleep((i+1) ** 3)
+
+    if asset_id_list is None:
+        raise Exception('\nUnable to retrieve task list, exiting')
+
+    return asset_id_list
+
+
+def get_ee_tasks(states=['RUNNING', 'READY'], retries=4):
+    """Return current active tasks
+
+    Parameters
+    ----------
+    states : list, optional
+        List of task states to check (the default is ['RUNNING', 'READY']).
+    retries : int, optional
+        The number of times to retry getting the task list if there is an error.
+
+    Returns
+    -------
+    dict : task descriptions (key) and full task info dictionary (value)
+
+    """
+    logging.debug('\nRequesting Task List')
+    task_list = None
+    for i in range(retries):
+        try:
+            # TODO: getTaskList() is deprecated, switch to listOperations()
+            task_list = ee.data.getTaskList()
+            # task_list = ee.data.listOperations()
+            break
+        except Exception as e:
+            logging.warning(f'  Error getting task list, retrying ({i}/{retries})\n  {e}')
+            time.sleep((i+1) ** 3)
+    if task_list is None:
+        raise Exception('\nUnable to retrieve task list, exiting')
+
+    task_list = sorted(
+        [task for task in task_list if task['state'] in states],
+        key=lambda t: (t['state'], t['description'], t['id'])
+    )
+
+    # Convert the task list to a dictionary with the task name as the key
+    return {task['description']: task for task in task_list}
+
+
+def print_ee_tasks(tasks):
+    """Print a summary of the current active tasks
+
+    Parameters
+    ----------
+    tasks : dict
+        Task dictionary generated by utils.get_ee_tasks().
+
+    Returns
+    -------
+    None
+
+    """
+    # TODO: Add a parameter to control the log level
+    logging.debug('Active Tasks')
+    if tasks:
+        logging.debug('  {:8s} {}'.format('STATE', 'DESCRIPTION'))
+        logging.debug('  {:8s} {}'.format('=====', '==========='))
+    else:
+        logging.debug('  None')
+
+    for desc, task in tasks.items():
+        if task['state'] == 'RUNNING':
+            start_dt = datetime.fromtimestamp(task['start_timestamp_ms'] / 1000, tz=timezone.utc)
+            update_dt = datetime.fromtimestamp(task['update_timestamp_ms'] / 1000, tz=timezone.utc)
+            logging.debug('  {:8s} {}  {:0.2f}  {}'.format(
+                task['state'], task['description'],
+                (update_dt - start_dt).total_seconds() / 3600,
+                task['id'])
+            )
+        else:
+            logging.debug('  {:8s} {}'.format(task['state'], task['description']))
+
+    logging.debug(f'  Tasks: {len(tasks)}\n')
+
+    return tasks
+
+
+def ee_task_start(task, n=4):
     """Make an exponential backoff Earth Engine request"""
     for i in range(1, n):
         try:
             task.start()
             break
         except Exception as e:
-            logging.info('    Resending query ({}/{})'.format(i, n))
-            logging.debug('    {}'.format(e))
-            time.sleep(i ** 2)
+            logging.info(f'    Resending query ({i}/{n})')
+            logging.debug(f'    {e}')
+            time.sleep(i ** 3)
 
     return task
 
@@ -348,6 +418,29 @@ def millis(input_dt):
 
     """
     return 1000 * int(calendar.timegm(input_dt.timetuple()))
+
+
+def parse_landsat_id(system_index):
+    """Return the components of an EE Landsat Collection 1 system:index
+
+    Parameters
+    ----------
+    system_index : str
+
+    Notes
+    -----
+    LXSS_PPPRRR_YYYYMMDD
+    LC08_030036_20210725
+
+    """
+    sensor = system_index[0:4]
+    path = int(system_index[5:8])
+    row = int(system_index[8:11])
+    year = int(system_index[12:16])
+    month = int(system_index[16:18])
+    day = int(system_index[18:20])
+
+    return sensor, path, row, year, month, day
 
 
 def parse_int_set(nputstr=""):
@@ -392,8 +485,8 @@ def wrs2_set_2_str(tiles):
     # CGM - I don't think string of a list is exactly JSON, but it seems to work
     tile_dict = {
         k: '[{}]'.format(list_2_str_ranges(v))
-        for k, v in tile_dict.items()}
-    # tile_dict = {k: sorted(v) for k, v in tile_dict.items()}
+        for k, v in tile_dict.items()
+    }
     tile_str = (
         json.dumps(tile_dict, sort_keys=True)
         .replace('"', '').replace(' ', '')
@@ -468,6 +561,25 @@ def list_2_str_ranges(i):
     return ','.join(output)
 
 
+def ver_str_2_num(version_str):
+    """Return a version number string as a list of integers for sorting or comparison
+
+    Parameters
+    ----------
+    version_str : str
+
+    Returns
+    -------
+    list of integers
+
+    Notes
+    -----
+    0.20.6 -> [0, 20, 6]
+
+    """
+    return list(map(int, version_str.split('.')))
+
+
 def constant_image_value(image, crs='EPSG:32613', scale=1):
     """Extract the output value from a "constant" image"""
     rr_params = {
@@ -501,26 +613,8 @@ def point_coll_value(coll, xy, scale=1):
 
     for row in output[1:]:
         # TODO: Add support for images that don't have a system:time_start
-        date = datetime.utcfromtimestamp(row[3] / 1000.0).strftime('%Y-%m-%d')
+        date = datetime.fromtimestamp(row[3] / 1000.0, tz=timezone.utc).strftime('%Y-%m-%d')
         for k, v in col_dict.items():
             info_dict[k][date] = row[col_dict[k]]
 
     return info_dict
-    # return pd.DataFrame.from_dict(info_dict)
-
-
-# def build_parent_folders(folder_id, set_public=False):
-#     """Build the asset folder including parents"""
-#     # Build any parent folders above the "3rd" level
-#     # i.e. after "projects/openet/assets" or "projects/openet/folder"
-#     public_policy = {'bindings': [{'role': 'roles/viewer', 'members': ['allUsers']}]}
-#     folder_id_split = folder_id.replace('projects/earthengine-legacy/assets/', '').split('/')
-#     for i in range(len(folder_id_split)):
-#         if i <= 3:
-#             continue
-#         folder_id = '/'.join(folder_id_split[:i])
-#         if not ee.data.getInfo(folder_id):
-#             print(f'  Building folder: {folder_id}')
-#             ee.data.createAsset({'type': 'FOLDER'}, folder_id)
-#             if set_public:
-#                 ee.data.setIamPolicy(folder_id, public_policy)

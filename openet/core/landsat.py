@@ -1,6 +1,100 @@
 import ee
 
 
+def c02_l2_sr(input_img):
+    """Prepare a Collection 2 Level 2 image to surface reflectance [0-1] and LST [K] values
+
+    Parameters
+    ----------
+    input_img : ee.Image
+        Image from a Landsat Collection 2 Level 2 image collection with SPACECRAFT_ID property
+        (e.g. LANDSAT/LC08/C02/T1_L2).
+
+    Returns
+    -------
+    ee.Image
+
+    """
+    # Use the SPACECRAFT_ID property identify each Landsat type
+    spacecraft_id = ee.String(input_img.get('SPACECRAFT_ID'))
+
+    # Rename bands to generic names
+    input_bands = ee.Dictionary({
+        'LANDSAT_4': ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7', 'ST_B6', 'QA_PIXEL', 'QA_RADSAT'],
+        'LANDSAT_5': ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7', 'ST_B6', 'QA_PIXEL', 'QA_RADSAT'],
+        'LANDSAT_7': ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7', 'ST_B6', 'QA_PIXEL', 'QA_RADSAT'],
+        'LANDSAT_8': ['SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', 'ST_B10', 'QA_PIXEL', 'QA_RADSAT'],
+        'LANDSAT_9': ['SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', 'ST_B10', 'QA_PIXEL', 'QA_RADSAT'],
+    })
+    output_bands = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'lst', 'QA_PIXEL', 'QA_RADSAT']
+
+    return (
+        input_img
+        .select(input_bands.get(spacecraft_id), output_bands)
+        .multiply([0.0000275, 0.0000275, 0.0000275, 0.0000275, 0.0000275, 0.0000275, 0.00341802, 1, 1])
+        .add([-0.2, -0.2, -0.2, -0.2, -0.2, -0.2, 149.0, 0, 0])
+        .set({
+            'system:time_start': input_img.get('system:time_start'),
+            'system:index': input_img.get('system:index'),
+            'SPACECRAFT_ID': spacecraft_id,
+            'LANDSAT_PRODUCT_ID': input_img.get('LANDSAT_PRODUCT_ID'),
+            'LANDSAT_SCENE_ID': input_img.get('LANDSAT_SCENE_ID'),
+            # 'CLOUD_COVER_LAND': input_img.get('CLOUD_COVER_LAND'),
+        })
+    )
+
+
+def c02_sr_ndvi(sr_img, water_mask=None, gsw_extent_flag=False):
+    """Landsat Collection 2 normalized difference vegetation index (NDVI)
+
+    A specialized function is needed for Collection 2 since the reflectance values can be both
+    negative and greater than 1, which causes problems in the gee .normalizedDifference() function.
+
+    Parameters
+    ----------
+    sr_img : ee.Image
+        "Prepped" Landsat image with standardized band names of "nir" and "red".
+    water_mask : ee.Image
+        Mask used to identify pixels with negative or very low reflectance that will be set to -0.1.
+    gsw_extent_flag : bool
+        If True, apply the global surface water extent mask to the QA_PIXEL water mask
+        to help avoid misclassified shadows being included in the water mask.
+
+    Returns
+    -------
+    ee.Image
+
+    """
+    # Force the input values to be at greater than or equal to zero
+    #   since C02 surface reflectance values can be negative
+    #   but the normalizedDifference function will return nodata
+    ndvi_img = sr_img.max(0).normalizedDifference(['nir', 'red'])
+
+    b1 = sr_img.select(['nir'])
+    b2 = sr_img.select(['red'])
+
+    # Assume that very high reflectance values are unreliable for computing the index
+    #   and set the output value to 0
+    # Threshold value could be set lower, but for now only trying to catch saturated pixels
+    ndvi_img = ndvi_img.where(b1.gte(1).Or(b2.gte(1)), 0)
+
+    # Assume that low reflectance values are unreliable for computing the index and set to 0
+    ndvi_img = ndvi_img.where(b1.lt(0.01).And(b2.lt(0.01)), 0)
+
+    # If both reflectance values are below the threshold, and if the pixel is flagged as water,
+    #   set the output to -0.1 (should this be -1?)
+    if water_mask:
+        if gsw_extent_flag:
+            gsw_extent_mask = ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select(['max_extent']).gte(1)
+            water_mask = water_mask.And(gsw_extent_mask)
+        ndvi_img = ndvi_img.where(b1.lt(0.01).And(b2.lt(0.01)).And(water_mask), -0.1)
+
+    # Should there be an additional check for if either value was negative?
+    # ndvi_img = ndvi_img.where(b1.lt(0).Or(b2.lt(0)), 0)
+
+    return ndvi_img.clamp(-1.0, 1.0).rename(['ndvi'])
+
+
 def c02_qa_pixel_mask(
         input_img,
         cirrus_flag=False,
@@ -97,6 +191,24 @@ def c02_qa_pixel_mask(
         mask_img = mask_img.Or(qa_img.rightShift(7).bitwiseAnd(1).neq(0))
 
     return mask_img.rename(['mask'])
+
+
+def c02_qa_water_mask(input_img):
+    """Landsat Collection 2 QA_PIXEL band water mask
+
+    Parameters
+    ----------
+    input_img : ee.Image
+        Image from a Landsat Collection 2 SR image collection
+        with the QA_PIXEL band and the SPACECRAFT_ID property
+        (e.g. LANDSAT/LC08/C02/T1_L2).
+
+    Returns
+    -------
+    ee.Image
+
+    """
+    return input_img.select(['QA_PIXEL']).rightShift(7).bitwiseAnd(1).neq(0).rename('qa_water_mask')
 
 
 def c02_cloud_score_mask(input_img, cloud_score_pct=100):
@@ -235,7 +347,7 @@ def c02_matched_toa_coll(
     input_img : ee.Image
         Image with the "image_property" metadata property.
     image_property : str
-        The metedata property name in input_img to use as a match criteria
+        The metadata property name in input_img to use as a match criteria
         (the default is "LANDSAT_SCENE_ID").
     match_property : str
         The metadata property name in the Landsat Collection 2 TOA collections

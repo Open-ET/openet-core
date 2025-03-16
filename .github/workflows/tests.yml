@@ -40,6 +40,7 @@ jobs:
       id: 'auth'
       uses: 'google-github-actions/auth@v2'
       with:
+        project_id: 'openet'
         create_credentials_file: true
         workload_identity_provider: 'projects/470570065811/locations/global/workloadIdentityPools/gitaction-pool/providers/gitaction-provider'
         service_account: 'github-actions@openet.iam.gserviceaccount.com'

@@ -1,12 +1,12 @@
 [project]
 name = "openet-core"
-version = "0.6.0"
+version = "0.7.0"
 authors = [
     { name="Charles Morton", email="charles.morton@dri.edu" },
 ]
 description = "OpenET Core Components"
 readme = "README.rst"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 keywords = ["OpenET", "Earth Engine", "Evapotranspiration", "Landsat"]
 license = {text = "Apache-2.0"}
 classifiers = [
@@ -15,7 +15,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "earthengine-api>=0.1.364",
+    "earthengine-api>=1.5.2",
     "python-dateutil",
 ]
 
