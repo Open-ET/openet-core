@@ -222,6 +222,16 @@ def delay_task(delay_time=0, task_max=-1, task_count=0):
     return ready_task_count
 
 
+def dilate(img, pixels=1):
+    d = img.fastDistanceTransform(pixels).sqrt()
+    return d.lte(pixels)
+
+
+def erode(img, pixels=1):
+    d = img.Not().unmask(1).fastDistanceTransform(pixels).sqrt()
+    return d.gt(pixels)
+
+
 def get_info(ee_obj, max_retries=4):
     """Make an exponential back off getInfo call on an Earth Engine object"""
     # output = ee_obj.getInfo()

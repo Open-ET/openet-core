@@ -129,6 +129,16 @@ def test_date_years(start_dt, end_dt, exclusive_end_dates, expected):
 
 
 # TODO: Write this test
+# def test_dilate():
+#     assert False
+
+
+# TODO: Write this test
+# def test_erode():
+#     assert False
+
+
+# TODO: Write this test
 # def test_delay_task():
 #     assert False
 
