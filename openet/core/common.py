@@ -113,7 +113,7 @@ def landsat_c2_sr_cloud_mask(
         mask_img = utils.dilate(mask_img, buffer_dist)
 
     # Flip to set cloudy pixels to 0 and clear to 1 for an updateMask() call
-    return mask_img.Not().rename(['cloud_mask'])
+    return mask_img.Not().updateMask(input_img.select(['QA_PIXEL']).mask()).rename(['cloud_mask'])
 
 
 def sentinel2_toa_cloud_mask(input_img):

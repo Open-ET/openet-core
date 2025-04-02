@@ -228,7 +228,7 @@ def dilate(img, pixels=1):
 
 
 def erode(img, pixels=1):
-    d = img.Not().unmask(1).fastDistanceTransform(pixels).sqrt()
+    d = img.Not().fastDistanceTransform(pixels).sqrt()
     return d.gt(pixels)
 
 
