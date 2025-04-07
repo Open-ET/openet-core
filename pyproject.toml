@@ -1,6 +1,6 @@
 [project]
 name = "openet-core"
-version = "0.7.1"
+version = "0.8.0"
 authors = [
     { name="Charles Morton", email="charles.morton@dri.edu" },
 ]
@@ -21,10 +21,6 @@ dependencies = [
 
 [project.urls]
 "Homepage" = "https://github.com/Open-ET/openet-core"
-#"Repository" = "https://github.com/Open-ET/openet-core.git"
-#"Documentation" = "https://github.com/Open-ET/openet-core"
-#"Bug Tracker" = "https://github.com/Open-ET/openet-core"
-#"Changelog" = "https://github.com/Open-ET/openet-core"
 
 [build-system]
 requires = ["setuptools>=61.0"]

@@ -12,12 +12,197 @@ def test_c02_l2_sr_band_names():
     assert output == ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'lst', 'QA_PIXEL', 'QA_RADSAT']
 
 
-# TODO: Add additional tests and/or rebuild as a constant image tes
-def test_c02_ndvi_band_name():
+def test_c02_sr_ndi_band_name():
+    # Check that the NDI function works and returns a properly named output
+    input_img = ee.Image('LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016')
+    sr_img = landsat.c02_l2_sr(input_img).select(['green', 'nir'])
+    output = utils.get_info(landsat.c02_sr_ndi(sr_img, 'green', 'nir').bandNames())
+    assert output == ['ndi']
+
+
+@pytest.mark.parametrize(
+    'red, nir, expected',
+    [
+        [0.02, 0.9 / 55, -0.1],
+        [0.02, 0.02,  0.0],
+        [0.01, 0.11 / 9, 0.1],
+        [0.02, 0.03, 0.2],
+        [0.01, 0.13 / 7, 0.3],
+        [0.03, 0.07, 0.4],
+        [0.02, 0.06, 0.5],
+        [0.02, 0.08, 0.6],
+        [0.01, 0.17 / 3, 0.7],
+        [0.01, 0.09, 0.8],
+    ]
+)
+def test_c02_sr_ndi_calculation(red, nir, expected, tol=0.000001):
+    # Check the normalized difference index calculation for a few different values
+    input_img = ee.Image('LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016')
+    sr_img = landsat.c02_l2_sr(input_img).select(['red', 'nir']).multiply([0, 0]).add([red, nir])
+    xy = input_img.geometry().centroid().getInfo()['coordinates']
+    output = utils.point_image_value(landsat.c02_sr_ndi(sr_img, 'nir', 'red'), xy, 30)
+    assert abs(output['ndi'] - expected) <= tol
+
+
+@pytest.mark.parametrize(
+    'b1_name, b2_name, b1_value, b2_value, expected',
+    [
+        ['nir', 'red', 0.07, 0.03, 0.4],
+    ]
+)
+def test_c02_sr_ndi_input_bands(b1_name, b2_name, b1_value, b2_value, expected, tol=0.000001):
+    # Check that the input band name parameters work and the order is correct
+    # The input band naming is set to match the typical order in the NDVI calculation
+    #   where the calculation is band 1 - band 2 over the sum ((NIR - RED) / (NIR + RED)
+    # This is also consistent with the GEE .normalizedDifference() function
+    input_img = ee.Image('LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016')
+    sr_img = landsat.c02_l2_sr(input_img).select([b1_name, b2_name]).multiply([0, 0]).add([b1_value, b2_value])
+    xy = input_img.geometry().centroid().getInfo()['coordinates']
+    output = utils.point_image_value(landsat.c02_sr_ndi(sr_img, b1_name=b1_name, b2_name=b2_name), xy, 30)
+    assert abs(output['ndi'] - expected) <= tol
+    output = utils.point_image_value(landsat.c02_sr_ndi(sr_img, b1_name, b2_name), xy, 30)
+    assert abs(output['ndi'] - expected) <= tol
+
+
+@pytest.mark.parametrize(
+    'red, nir, expected',
+    [
+        [1.0, 0.4, 0.0],
+        [0.4, 1.0, 0.0],
+        [1.0, 1.0, 0.0],
+    ]
+)
+def test_c02_sr_ndi_saturated_reflectance(red, nir, expected, tol=0.000001):
+    # Check that saturated reflectance values return 0
+    input_img = ee.Image('LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016')
+    sr_img = landsat.c02_l2_sr(input_img).select(['red', 'nir']).multiply([0, 0]).add([red, nir])
+    xy = input_img.geometry().centroid().getInfo()['coordinates']
+    output = utils.point_image_value(landsat.c02_sr_ndi(sr_img, 'nir', 'red'), xy, 30)
+    assert abs(output['ndi'] - expected) <= tol
+
+
+@pytest.mark.parametrize(
+    'red, nir, expected',
+    [
+        [-0.1, -0.1, 0.0],
+        [0.0, 0.0, 0.0],
+        [0.009, 0.009, 0.0],
+        [0.009, -0.01, 0.0],
+        [-0.01, 0.009, 0.0],
+        # Check that calculation works correctly if one value is above threshold
+        [-0.01, 0.1, 1.0],
+        [0.1, -0.01, -1.0],
+    ]
+)
+def test_c02_sr_ndi_negative_non_water(red, nir, expected, tol=0.000001):
+    # Check that non-water pixels with very low or negative reflectance values are set to 0.0
+    input_img = ee.Image('LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016')
+    sr_img = landsat.c02_l2_sr(input_img).select(['red', 'nir']).multiply([0, 0]).add([red, nir])
+    xy = input_img.geometry().centroid().getInfo()['coordinates']
+    output = utils.point_image_value(landsat.c02_sr_ndi(sr_img, 'nir', 'red'), xy, 30)
+    assert abs(output['ndi'] - expected) <= tol
+
+
+@pytest.mark.parametrize(
+    'red, nir, water_value',
+    [
+        [-0.1, -0.1, -0.1],
+        [0.0, 0.0, -0.1],
+        [0.009, 0.009, -0.1],
+        [0.009, -0.01, -0.1],
+        [-0.01, 0.009, -0.1],
+        [-0.1, -0.1, -0.5],
+    ]
+)
+def test_c02_sr_ndi_negative_water(red, nir, water_value, tol=0.000001):
+    # Check that water pixels with very low or negative reflectance values are set to the water value
+    input_img = ee.Image('LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016')
+    sr_img = landsat.c02_l2_sr(input_img).select(['red', 'nir']).multiply([0, 0]).add([red, nir])
+    water_mask = landsat.c02_l2_sr(input_img).select(['QA_PIXEL']).multiply(0).add(1)
+    xy = input_img.geometry().centroid().getInfo()['coordinates']
+    output = utils.point_image_value(
+        landsat.c02_sr_ndi(sr_img, 'nir', 'red', water_mask=water_mask, water_value=water_value), xy, 30
+    )
+    assert abs(output['ndi'] - water_value) <= tol
+
+
+def test_c02_sr_ndi_no_water_mask(red=-1, nir=-1, water_value=-0.5, tol=0.000001):
+    # The water value should only be applied if the water_mask is set
+    input_img = ee.Image('LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016')
+    sr_img = landsat.c02_l2_sr(input_img).select(['red', 'nir']).multiply([0, 0]).add([red, nir])
+    xy = input_img.geometry().centroid().getInfo()['coordinates']
+    output = utils.point_image_value(landsat.c02_sr_ndi(sr_img, 'nir', 'red', water_value=water_value), xy, 30)
+    assert abs(output['ndi'] - 0) <= tol
+
+
+@pytest.mark.parametrize(
+    'red, nir, refl_min, expected',
+    [
+        [0.03, 0.07, 0.02, 0.4],
+        [0.03, 0.07, 0.03, 0.4],
+        [0.03, 0.07, 0.05, 0.4],
+        [0.03, 0.07, 0.07, 0.4],
+        [0.03, 0.07, 0.08, 0.0],
+    ]
+)
+def test_c02_sr_ndi_refl_min(red, nir, refl_min, expected, tol=0.000001):
+    # Check that output is 0 if either reflectance values can be < than the refl_min parameter
+    input_img = ee.Image('LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016')
+    sr_img = landsat.c02_l2_sr(input_img).select(['red', 'nir']).multiply([0, 0]).add([red, nir])
+    xy = input_img.geometry().centroid().getInfo()['coordinates']
+    output = utils.point_image_value(
+        landsat.c02_sr_ndi(sr_img, b1_name='nir', b2_name='red', refl_min=refl_min), xy, 30
+    )
+    assert abs(output['ndi'] - expected) <= tol
+
+
+@pytest.mark.parametrize(
+    'red, nir, refl_max, expected',
+    [
+        [0.4, 0.6, 1.0, 0.2],
+        [0.4, 0.6, 0.6, 0.0],
+        [0.4, 0.6, 0.5, 0.0],
+        [0.4, 0.6, 0.4, 0.0],
+        [0.4, 0.6, 0.3, 0.0],
+    ]
+)
+def test_c02_sr_ndi_refl_max(red, nir, refl_max, expected, tol=0.000001):
+    # Check that output is 0 if either reflectance values can be >= than the refl_max parameter
+    input_img = ee.Image('LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016')
+    sr_img = landsat.c02_l2_sr(input_img).select(['red', 'nir']).multiply([0, 0]).add([red, nir])
+    xy = input_img.geometry().centroid().getInfo()['coordinates']
+    output = utils.point_image_value(
+        landsat.c02_sr_ndi(sr_img, b1_name='nir', b2_name='red', refl_max=refl_max), xy, 30
+    )
+    assert abs(output['ndi'] - expected) <= tol
+
+
+def test_c02_sr_ndvi_band_name():
+    # Check that the NDVI function works and returns a properly named output
     input_img = ee.Image('LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016')
     sr_img = landsat.c02_l2_sr(input_img).select(['red', 'nir'])
     output = utils.get_info(landsat.c02_sr_ndvi(sr_img).bandNames())
     assert output == ['ndvi']
+
+
+@pytest.mark.parametrize(
+    'red, nir, expected',
+    [
+        [0.02, 0.9 / 55, -0.1],
+        [0.03, 0.07, 0.4],
+        [0.01, 0.09, 0.8],
+        [1.0, 1.0, 0.0],
+        # If the water_mask is not set, negative reflectance pixels will be set to 0
+        [-0.1, -0.1, 0.0],
+    ]
+)
+def test_c02_sr_ndi_calculation(red, nir, expected, tol=0.000001):
+    # Check the NDVI function works for a couple of the same values
+    input_img = ee.Image('LANDSAT/LT05/C02/T1_L2/LT05_042034_20091016')
+    sr_img = landsat.c02_l2_sr(input_img).select(['red', 'nir']).multiply([0, 0]).add([red, nir])
+    xy = input_img.geometry().centroid().getInfo()['coordinates']
+    output = utils.point_image_value(landsat.c02_sr_ndvi(sr_img), xy, 30)
+    assert abs(output['ndvi'] - expected) <= tol
 
 
 @pytest.mark.parametrize(
