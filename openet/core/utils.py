@@ -47,7 +47,7 @@ def arg_valid_date(input_date):
 
     """
     try:
-        return datetime.strptime(input_date, '%Y-%m-%d')
+        return datetime.strptime(input_date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
     except ValueError:
         msg = f'Not a valid date: "{input_date}".'
         raise argparse.ArgumentTypeError(msg)
