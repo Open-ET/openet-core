@@ -73,7 +73,6 @@ def scene_coll(variables, etf=[0.4, 0.4, 0.4], et=[5, 5, 5], ndvi=[0.6, 0.6, 0.6
         ee.Image('LANDSAT/LC08/C02/T1_L2/LC08_044033_20170716')
         .select(['SR_B3']).double().multiply(0)
     )
-    # mask = img.add(1).updateMask(1).uint8()
 
     # # The "date" is used for the time band since it needs to be the 0 UTC time
     # date1 = ee.Number(ee.Date.fromYMD(2017, 7, 8).millis())
@@ -460,7 +459,8 @@ def test_aggregate_to_daily_date_filtering():
 def test_from_scene_et_fraction_t_interval_daily_values_interpolated(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi'], ndvi=[0.2, 0.4, 0.6]),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi'],
         interp_args={'interp_method': 'linear', 'interp_days': 32},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -495,7 +495,8 @@ def test_from_scene_et_fraction_t_interval_daily_values_et_reference(
         et_reference_band, et_reference_date, et_reference, tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi'], ndvi=[0.2, 0.4, 0.6]),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi'],
         interp_args={'interp_method': 'linear', 'interp_days': 32},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -520,7 +521,8 @@ def test_from_scene_et_fraction_t_interval_monthly_values(
         et_reference_band, et_reference, tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -540,7 +542,8 @@ def test_from_scene_et_fraction_t_interval_monthly_values(
 def test_from_scene_et_fraction_t_interval_custom_values(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -560,7 +563,8 @@ def test_from_scene_et_fraction_t_interval_custom_values(tol=0.0001):
 def test_from_scene_et_fraction_t_interval_custom_daily_count():
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et_fraction', 'daily_count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -593,7 +597,8 @@ def test_from_scene_et_fraction_t_interval_custom_mask_partial_aggregations_true
 def test_from_scene_et_fraction_t_interval_custom_mask_partial_aggregations_false():
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et_fraction', 'daily_count'],
         interp_args={'interp_method': 'linear', 'interp_days': 2,
                      'mask_partial_aggregations': False},
@@ -612,7 +617,8 @@ def test_from_scene_et_fraction_t_interval_custom_mask_partial_aggregations_fals
 def test_from_scene_et_fraction_t_interval_monthly_et_reference_factor(tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -641,7 +647,8 @@ def test_from_scene_et_fraction_t_interval_monthly_et_reference_resample(
         et_reference_band, et_reference, tol=0.0001):
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -664,7 +671,8 @@ def test_from_scene_et_fraction_t_interval_monthly_interp_args_et_reference(tol=
     # Check that the et_reference parameters can be set through the interp_args
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction', 'ndvi']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'ndvi', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32,
                      'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -685,7 +693,8 @@ def test_from_scene_et_fraction_t_interval_monthly_interp_args_et_reference(tol=
 def test_from_scene_et_actual_t_interval_daily_values_eto(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction'],
         interp_args={'interp_method': 'linear', 'interp_days': 32,
                      'interp_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -710,7 +719,8 @@ def test_from_scene_et_actual_t_interval_daily_values_eto(tol=0.0001):
 def test_from_scene_et_actual_t_interval_daily_values_etr(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction'],
         interp_args={'interp_method': 'linear', 'interp_days': 32,
                      'interp_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -743,7 +753,8 @@ def test_from_scene_et_actual_t_interval_monthly_values(
         et_reference_band, et_reference, et, tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32,
                      'interp_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -766,7 +777,8 @@ def test_from_scene_et_actual_t_interval_custom_values_monthly(tol=0.0001):
     # Check that the custom time interval and monthly time interval match
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32,
                      'interp_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -789,7 +801,8 @@ def test_from_scene_et_actual_t_interval_custom_daily_count():
     # Check that the custom time interval and monthly time interval match
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'daily_count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32,
                      'interp_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -809,7 +822,8 @@ def test_from_scene_et_actual_t_interval_custom_mask_partial_aggregations_true()
     # Check that the custom time interval and monthly time interval match
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'daily_count'],
         interp_args={'interp_method': 'linear', 'interp_days': 2,
                      'interp_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -830,7 +844,8 @@ def test_from_scene_et_actual_t_interval_custom_mask_partial_aggregations_false(
     # Check that the custom time interval and monthly time interval match
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'daily_count'],
         interp_args={'interp_method': 'linear', 'interp_days': 2,
                      'interp_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -849,7 +864,8 @@ def test_from_scene_et_actual_t_interval_custom_mask_partial_aggregations_false(
 def test_from_scene_et_actual_t_interval_monthly_et_reference_factor(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32,
                      'interp_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -880,7 +896,8 @@ def test_from_scene_et_actual_t_interval_monthly_et_reference_resample(
         et_reference_band, et_reference, et, tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32,
                      'interp_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -902,7 +919,8 @@ def test_from_scene_et_actual_t_interval_monthly_et_reference_resample(
 def test_from_scene_et_actual_t_interval_monthly_interp_args_et_reference(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32,
                      'interp_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -925,7 +943,8 @@ def test_from_scene_et_actual_t_interval_monthly_interp_args_et_reference(tol=0.
 def test_from_scene_et_actual_t_interval_daily_et_fraction_max(tol=0.0001):
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et'], et=[100, 100, 100]),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'et_fraction'],
         interp_args={'interp_method': 'linear', 'interp_days': 32,
                      'interp_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -948,11 +967,12 @@ def test_from_scene_et_fraction_t_interval_bad_value():
     with pytest.raises(ValueError):
         interpolate.from_scene_et_fraction(
             scene_coll(['et']),
-            start_date='2017-07-01', end_date='2017-08-01', variables=['et'],
+            start_date='2017-07-01',
+            end_date='2017-08-01',
+            variables=['et'],
             interp_args={'interp_method': 'linear', 'interp_days': 32},
             model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                         'et_reference_band': 'etr',
-                        'et_reference_factor': 0.5,
                         'et_reference_resample': 'nearest'},
             t_interval='deadbeef',
         )
@@ -963,12 +983,12 @@ def test_from_scene_et_fraction_t_interval_no_value():
     with pytest.raises(TypeError):
         interpolate.from_scene_et_fraction(
             scene_coll(['et']),
-            start_date='2017-07-01', end_date='2017-08-01',
+            start_date='2017-07-01',
+            end_date='2017-08-01',
             variables=['et', 'et_reference', 'et_fraction', 'count'],
             interp_args={'interp_method': 'linear', 'interp_days': 32},
             model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
                         'et_reference_band': 'etr',
-                        'et_reference_factor': 0.5,
                         'et_reference_resample': 'nearest'},
         )
 
@@ -978,7 +998,9 @@ def test_from_scene_et_actual_t_interval_bad_value():
     with pytest.raises(ValueError):
         interpolate.from_scene_et_actual(
             scene_coll(['et']),
-            start_date='2017-07-01', end_date='2017-08-01', variables=['et'],
+            start_date='2017-07-01',
+            end_date='2017-08-01',
+            variables=['et'],
             interp_args={'interp_method': 'linear', 'interp_days': 32,
                          'interp_source': 'IDAHO_EPSCOR/GRIDMET',
                          'interp_band': 'etr', 'interp_resample': 'nearest'},
@@ -994,7 +1016,9 @@ def test_from_scene_et_actual_t_interval_no_value():
     with pytest.raises(TypeError):
         interpolate.from_scene_et_actual(
             scene_coll(['et']),
-            start_date='2017-07-01', end_date='2017-08-01', variables=['et'],
+            start_date='2017-07-01',
+            end_date='2017-08-01',
+            variables=['et'],
             interp_args={'interp_method': 'linear', 'interp_days': 32,
                          'interp_source': 'IDAHO_EPSCOR/GRIDMET',
                          'interp_band': 'etr',
@@ -1009,7 +1033,8 @@ def test_from_scene_et_fraction_interp_args_use_joins_true(tol=0.01):
     # Check that the use_joins interp_args parameter works
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32, 'use_joins': True},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -1028,7 +1053,8 @@ def test_from_scene_et_fraction_interp_args_use_joins_false(tol=0.01):
     # Check that the use_joins interp_args parameter works
     output_coll = interpolate.from_scene_et_fraction(
         scene_coll(['et_fraction']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32, 'use_joins': False},
         model_args={'et_reference_source': 'IDAHO_EPSCOR/GRIDMET',
@@ -1047,7 +1073,8 @@ def test_from_scene_et_actual_interp_args_use_joins_true(tol=0.01):
     # Check that the use_joins interp_args parameter works
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32,
                      'interp_source': 'IDAHO_EPSCOR/GRIDMET', 'interp_band': 'etr',
@@ -1068,7 +1095,8 @@ def test_from_scene_et_actual_interp_args_use_joins_false(tol=0.01):
     # Check that the use_joins interp_args parameter works
     output_coll = interpolate.from_scene_et_actual(
         scene_coll(['et']),
-        start_date='2017-07-01', end_date='2017-08-01',
+        start_date='2017-07-01',
+        end_date='2017-08-01',
         variables=['et', 'et_reference', 'count'],
         interp_args={'interp_method': 'linear', 'interp_days': 32,
                      'interp_source': 'IDAHO_EPSCOR/GRIDMET', 'interp_band': 'etr',
