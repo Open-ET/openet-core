@@ -89,7 +89,7 @@ def scene_coll(variables, etf=[0.4, 0.4, 0.4], et=[5, 5, 5], ndvi=[0.6, 0.6, 0.6
 
     # Don't add mask or time band to scene collection
     # since they are now added in the interpolation calls
-    scene_coll = ee.ImageCollection.fromImages([
+    coll = ee.ImageCollection.fromImages([
         ee.Image([img.add(etf[0]), img.add(et[0]), img.add(ndvi[0])])
             .rename(['et_fraction', 'et', 'ndvi'])
             .set({'system:index': 'LE07_044033_20170708', 'system:time_start': time1}),
@@ -101,7 +101,7 @@ def scene_coll(variables, etf=[0.4, 0.4, 0.4], et=[5, 5, 5], ndvi=[0.6, 0.6, 0.6
             .set({'system:index': 'LE07_044033_20170724', 'system:time_start': time3}),
     ])
 
-    return scene_coll.select(variables)
+    return coll.select(variables)
 
 
 @pytest.mark.parametrize(
