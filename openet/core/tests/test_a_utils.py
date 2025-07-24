@@ -128,6 +128,65 @@ def test_date_years(start_dt, end_dt, exclusive_end_dates, expected):
     assert list(utils.date_years(start_dt, end_dt, exclusive_end_dates)) == expected
 
 
+def test_dilate_default():
+    # Check that default dilate is for a single pixel
+    # -75.4375, 35.5125 is edge pixel of NLDAS mask
+    mask = ee.ImageCollection("NASA/NLDAS/FORA0125_H002").first().select([0], ['mask']).mask()
+    output = utils.dilate(mask)
+    assert utils.point_image_value(mask, [-75.4375, 35.5125], 14000)['mask'] == 1
+    assert utils.point_image_value(mask, [-75.4375 + 0.125, 35.5125], 14000)['mask'] == 0
+    assert utils.point_image_value(output, [-75.4375 + 0.125, 35.5125], 14000)['mask'] == 1
+    assert utils.point_image_value(output, [-75.4375 + 0.250, 35.5125], 14000)['mask'] == 0
+
+
+@pytest.mark.parametrize(
+    'pixels, xy, expected',
+    [
+        # Starting location is an active pixel on the edge of the mask
+        [1, [-75.4375 + (1 * 0.125), 35.5125], 1],
+        [1, [-75.4375 + (2 * 0.125), 35.5125], 0],
+        [2, [-75.4375 + (2 * 0.125), 35.5125], 1],
+        [2, [-75.4375 + (3 * 0.125), 35.5125], 0],
+        [10, [-75.4375 + (10 * 0.125), 35.5125], 1],
+        [10, [-75.4375 + (11 * 0.125), 35.5125], 0],
+    ]
+)
+def test_dilate_pixels_parameter(pixels, xy, expected):
+    mask = ee.ImageCollection("NASA/NLDAS/FORA0125_H002").first().select([0], ['mask']).mask()
+    output = utils.dilate(mask, pixels=pixels)
+    assert utils.point_image_value(output, xy, 14000)['mask'] == expected
+
+
+def test_erode_default():
+    # Check that default erode is for a single pixel
+    # -75.4375, 35.7075 is edge pixel of NLDAS mask
+    mask = ee.ImageCollection("NASA/NLDAS/FORA0125_H002").first().select([0], ['mask']).mask()
+    output = utils.erode(mask)
+    assert utils.point_image_value(mask, [-75.4375, 35.6875], 14000)['mask'] == 1
+    assert utils.point_image_value(mask, [-75.4375 - 0.125, 35.6875], 14000)['mask'] == 1
+    assert utils.point_image_value(output, [-75.4375, 35.6875], 14000)['mask'] == 0
+    assert utils.point_image_value(output, [-75.4375 - 0.125, 35.6875], 14000)['mask'] == 1
+
+
+@pytest.mark.parametrize(
+    'pixels, xy, expected',
+    [
+        # Starting location is an active pixel on the edge of the mask
+        # Higher pixel value don't work linearly at this test spot
+        [1, [-75.4375, 35.6875], 0],
+        [1, [-75.4375 - (1 * 0.125), 35.6875], 1],
+        [2, [-75.4375 - (1 * 0.125), 35.6875], 0],
+        [2, [-75.4375 - (2 * 0.125), 35.6875], 1],
+        [4, [-75.4375 - (3 * 0.125), 35.6875], 0],
+        [4, [-75.4375 - (4 * 0.125), 35.6875], 1],
+    ]
+)
+def test_erode_pixels_parameter(pixels, xy, expected):
+    mask = ee.ImageCollection("NASA/NLDAS/FORA0125_H002").first().select([0], ['mask']).mask()
+    output = utils.erode(mask, pixels=pixels)
+    assert utils.point_image_value(output, xy, 14000)['mask'] == expected
+
+
 # TODO: Write this test
 # def test_delay_task():
 #     assert False

@@ -526,7 +526,7 @@ def from_scene_et_fraction(
         )
     # elif isinstance(et_reference_source, computedobject.ComputedObject):
     #     # Interpret computed objects as image collections
-    #     daily_et_reference_coll = (
+    #     daily_et_ref_coll = (
     #         et_reference_source
     #         .filterDate(start_date, end_date)
     #         .select([et_reference_band], ['et_reference'])
@@ -750,7 +750,7 @@ def from_scene_et_fraction(
             output_img
             .set({
                 'system:index': ee.Date(agg_start_date).format(date_format),
-                'system:time_start': ee.Date(agg_start_date).millis()
+                'system:time_start': ee.Date(agg_start_date).millis(),
             })
         )
 
@@ -764,7 +764,7 @@ def from_scene_et_fraction(
         ))
     elif t_interval.lower() == 'daily':
         def agg_daily(daily_img):
-            # CGM - Double check that this time_start is a 0 UTC time.
+            # TODO: Double check that this time_start is a 0 UTC time.
             # It should be since it is coming from the interpolate source
             #   collection, but what if source is GRIDMET (+6 UTC)?
             agg_start_date = ee.Date(daily_img.get('system:time_start'))
@@ -1016,7 +1016,7 @@ def from_scene_et_actual(
             )
         # elif isinstance(et_reference_source, computedobject.ComputedObject):
         #     # Interpret computed objects as image collections
-        #     daily_et_reference_coll = (
+        #     daily_et_ref_coll = (
         #         et_reference_source
         #         .filterDate(start_date,end_date)
         #         .select([et_reference_band], ['et_reference'])

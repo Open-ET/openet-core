@@ -44,55 +44,167 @@ def c02_l2_sr(input_img):
     )
 
 
-def c02_sr_ndvi(sr_img, water_mask=None, gsw_extent_flag=False):
-    """Landsat Collection 2 normalized difference vegetation index (NDVI)
+def c02_sr_ndi(
+        sr_img,
+        b1_name,
+        b2_name,
+        refl_min=0.01,
+        refl_max=1.0,
+        water_mask=None,
+        water_value=None,
+        gsw_extent_flag=False,
+):
+    """Landsat Collection 2 normalized difference index (NDVI, NDWI, etc.)
 
-    A specialized function is needed for Collection 2 since the reflectance values can be both
-    negative and greater than 1, which causes problems in the gee .normalizedDifference() function.
+    A specialized function is needed for Collection 2 since the reflectance
+    values can be both negative and greater than 1, which causes problems in
+    the GEE .normalizedDifference() function.
 
     Parameters
     ----------
     sr_img : ee.Image
-        "Prepped" Landsat image with standardized band names of "nir" and "red".
+        "Prepped" Landsat image with standardized band names like "green",
+        "red", "nir", "swir1", etc.
+    b1_name : str
+        Band 1 name
+    b2_name : str
+        Band 2 name
+    refl_min : float
+        Reflectance values below this threshold will be considered "unreliable"
+        and will have adjusted normalized difference values.  The default is 0.01.
+    refl_max : float
+        Reflectance values above this threshold will be considered "unreliable"
+        and will have adjusted normalized difference values.  The default is 1.0.
     water_mask : ee.Image
-        Mask used to identify pixels with negative or very low reflectance that will be set to -0.1.
+        Mask used to identify pixels with negative or very low reflectance
+        that will be set to the water_value.
+    water_value : float
+        Value that will be assigned to low reflectance pixels flagged as water.
     gsw_extent_flag : bool
-        If True, apply the global surface water extent mask to the QA_PIXEL water mask
-        to help avoid misclassified shadows being included in the water mask.
+        If True, apply the JRC global surface water extent mask
+        (JRC/GSW1_4/GlobalSurfaceWater) to the water mask to help avoid
+        misclassified shadows being included in the water mask.
 
     Returns
     -------
     ee.Image
 
     """
-    # Force the input values to be at greater than or equal to zero
-    #   since C02 surface reflectance values can be negative
-    #   but the normalizedDifference function will return nodata
-    ndvi_img = sr_img.max(0).normalizedDifference(['nir', 'red'])
+    # Force the input values to be greater than or equal to zero since
+    #   collection 2 surface reflectance values can be negative but the
+    #   normalizedDifference function will return nodata for negative inputs
+    ndi_img = sr_img.max(0).normalizedDifference([b1_name, b2_name])
 
-    b1 = sr_img.select(['nir'])
-    b2 = sr_img.select(['red'])
+    b1 = sr_img.select([b1_name])
+    b2 = sr_img.select([b2_name])
 
     # Assume that very high reflectance values are unreliable for computing the index
     #   and set the output value to 0
     # Threshold value could be set lower, but for now only trying to catch saturated pixels
-    ndvi_img = ndvi_img.where(b1.gte(1).Or(b2.gte(1)), 0)
+    ndi_img = ndi_img.where(b1.gte(refl_max).Or(b2.gte(refl_max)), 0)
 
     # Assume that low reflectance values are unreliable for computing the index and set to 0
-    ndvi_img = ndvi_img.where(b1.lt(0.01).And(b2.lt(0.01)), 0)
+    ndi_img = ndi_img.where(b1.lt(refl_min).And(b2.lt(refl_min)), 0)
 
     # If both reflectance values are below the threshold, and if the pixel is flagged as water,
-    #   set the output to -0.1 (should this be -1?)
+    #   set the output the water_value parameter
     if water_mask:
         if gsw_extent_flag:
-            gsw_extent_mask = ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select(['max_extent']).gte(1)
-            water_mask = water_mask.And(gsw_extent_mask)
-        ndvi_img = ndvi_img.where(b1.lt(0.01).And(b2.lt(0.01)).And(water_mask), -0.1)
+            gsw_max_extent = ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select(['max_extent'])
+            water_mask = water_mask.And(gsw_max_extent.gte(1))
+        ndi_img = ndi_img.where(b1.lt(refl_min).And(b2.lt(refl_min)).And(water_mask), water_value)
 
     # Should there be an additional check for if either value was negative?
-    # ndvi_img = ndvi_img.where(b1.lt(0).Or(b2.lt(0)), 0)
+    # ndi_img = ndi_img.where(b1.lt(0).Or(b2.lt(0)), 0)
 
-    return ndvi_img.clamp(-1.0, 1.0).rename(['ndvi'])
+    return ndi_img.clamp(-1.0, 1.0).rename(['ndi'])
+
+
+def c02_sr_ndvi(sr_img, water_mask=None, water_value=-0.1, gsw_extent_flag=False):
+    """Landsat Collection 2 normalized difference vegetation index (NDVI)
+
+    This function calls the c02_sr_ndi() function with inputs for computing NDVI.
+
+    Parameters
+    ----------
+    sr_img : ee.Image
+        "Prepped" Landsat image with standardized band names of "nir" and "red".
+    water_mask : ee.Image
+        Mask used to identify pixels with negative or very low reflectance
+        that will be set to the water_value.
+    water_value : float
+        Value that will be assigned to low reflectance pixels flagged as water.
+        The default is -0.1.
+    gsw_extent_flag : bool
+        If True, apply the JRC global surface water extent mask
+        (JRC/GSW1_4/GlobalSurfaceWater) to the water mask to help avoid
+        misclassified shadows being included in the water mask.
+
+    Returns
+    -------
+    ee.Image
+
+    """
+    return c02_sr_ndi(
+        sr_img,
+        b1_name='nir',
+        b2_name='red',
+        refl_min=0.01,
+        refl_max=1.0,
+        water_mask=water_mask,
+        water_value=water_value,
+        gsw_extent_flag=gsw_extent_flag,
+    ).rename(['ndvi'])
+
+
+# def c02_sr_ndvi(sr_img, water_mask=None, gsw_extent_flag=False):
+#     """Landsat Collection 2 normalized difference vegetation index (NDVI)
+#
+#     A specialized function is needed for Collection 2 since the reflectance
+#     values can be both negative and greater than 1, which causes problems in
+#     the GEE .normalizedDifference() function.
+#
+#     Parameters
+#     ----------
+#     sr_img : ee.Image
+#         "Prepped" Landsat image with standardized band names of "nir" and "red".
+#     water_mask : ee.Image
+#         Mask used to identify pixels with negative or very low reflectance that
+#         will be set to -0.1.
+#     gsw_extent_flag : bool
+#         If True, apply the global surface water extent mask to the water mask
+#         to help avoid misclassified shadows being included in the water mask.
+#
+#     Returns
+#     -------
+#     ee.Image
+#
+#     """
+#     # Force the input values to be greater than or equal to zero since
+#     #   collection 2 surface reflectance values can be negative but the
+#     #   normalizedDifference function will return nodata for negative inputs
+#     ndvi_img = sr_img.max(0).normalizedDifference(['nir', 'red'])
+#
+#     b1 = sr_img.select(['nir'])
+#     b2 = sr_img.select(['red'])
+#
+#     # Assume that very high reflectance values are unreliable for computing the index
+#     #   and set the output value to 0
+#     # Threshold value could be set lower, but for now only trying to catch saturated pixels
+#     ndvi_img = ndvi_img.where(b1.gte(1).Or(b2.gte(1)), 0)
+#
+#     # Assume that low reflectance values are unreliable for computing the index and set to 0
+#     ndvi_img = ndvi_img.where(b1.lt(0.01).And(b2.lt(0.01)), 0)
+#
+#     # If both reflectance values are below the threshold, and if the pixel is flagged as water,
+#     #   set the output to -0.1 (should this be -1?)
+#     if water_mask:
+#         if gsw_extent_flag:
+#             gsw_max_extent = ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select(['max_extent'])
+#             water_mask = water_mask.And(gsw_max_extent.gte(1))
+#         ndvi_img = ndvi_img.where(b1.lt(0.01).And(b2.lt(0.01)).And(water_mask), -0.1)
+#
+#     return ndvi_img.clamp(-1.0, 1.0).rename(['ndvi'])
 
 
 def c02_qa_pixel_mask(

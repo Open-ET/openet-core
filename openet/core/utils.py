@@ -222,6 +222,60 @@ def delay_task(delay_time=0, task_max=-1, task_count=0):
     return ready_task_count
 
 
+def dilate(img, pixels=1, reproject_flag=True):
+    """Dilate (buffer) morphology function
+
+    Parameters
+    ----------
+    img : ee.Image
+        Input mask image with values of 0 and 1.
+    pixels : int
+        Number of pixels to dilate.  The default is 1.
+    reproject_flag : bool
+        If True, call reproject on the output image using the input image projection.
+        This must be set True for the calculation to be done in terms of "pixels",
+        but it could be set False if reproject is being applied later on to the image.
+        The default is True.
+
+    Returns
+    -------
+    ee.Image
+
+    """
+    output = img.fastDistanceTransform(pixels).sqrt().lte(pixels)
+    if reproject_flag:
+        output = output.reproject(img.projection())
+
+    return output.rename('mask')
+
+
+def erode(img, pixels=1, reproject_flag=True):
+    """Erode (shrink) morphology function
+
+    Parameters
+    ----------
+    img : ee.Image
+        Input mask image with values of 0 and 1.
+    pixels : int
+        Number of pixels to erode.  The default is 1.
+    reproject_flag : bool
+        If True, call reproject on the output image using the input image projection.
+        This must be set True for the calculation to be done in terms of "pixels",
+        but it could be set False if reproject is being applied later on to the image.
+        The default is True.
+
+    Returns
+    -------
+    ee.Image
+
+    """
+    output = img.Not().fastDistanceTransform(pixels).sqrt().gt(pixels)
+    if reproject_flag:
+        output = output.reproject(img.projection())
+
+    return output.rename('mask')
+
+
 def get_info(ee_obj, max_retries=4):
     """Make an exponential back off getInfo call on an Earth Engine object"""
     # output = ee_obj.getInfo()
