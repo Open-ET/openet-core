@@ -222,7 +222,7 @@ def delay_task(delay_time=0, task_max=-1, task_count=0):
     return ready_task_count
 
 
-def dilate(img, pixels=1, reproject_flag=True):
+def dilate(img, pixels=1, reproject_flag=False):
     """Dilate (buffer) morphology function
 
     Parameters
@@ -242,14 +242,14 @@ def dilate(img, pixels=1, reproject_flag=True):
     ee.Image
 
     """
-    output = img.fastDistanceTransform(pixels).sqrt().lte(pixels)
+    output = img.fastDistanceTransform(pixels).sqrt().lte(pixels).updateMask(img.mask())
     if reproject_flag:
         output = output.reproject(img.projection())
 
     return output.rename('mask')
 
 
-def erode(img, pixels=1, reproject_flag=True):
+def erode(img, pixels=1, reproject_flag=False):
     """Erode (shrink) morphology function
 
     Parameters
@@ -269,7 +269,7 @@ def erode(img, pixels=1, reproject_flag=True):
     ee.Image
 
     """
-    output = img.Not().fastDistanceTransform(pixels).sqrt().gt(pixels)
+    output = img.Not().fastDistanceTransform(pixels).sqrt().gt(pixels).updateMask(img.mask())
     if reproject_flag:
         output = output.reproject(img.projection())
 

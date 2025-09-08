@@ -132,7 +132,7 @@ def test_dilate_default():
     # Check that default dilate is for a single pixel
     # -75.4375, 35.5125 is edge pixel of NLDAS mask
     mask = ee.ImageCollection("NASA/NLDAS/FORA0125_H002").first().select([0], ['mask']).mask()
-    output = utils.dilate(mask)
+    output = utils.dilate(mask, reproject_flag=True)
     assert utils.point_image_value(mask, [-75.4375, 35.5125], 14000)['mask'] == 1
     assert utils.point_image_value(mask, [-75.4375 + 0.125, 35.5125], 14000)['mask'] == 0
     assert utils.point_image_value(output, [-75.4375 + 0.125, 35.5125], 14000)['mask'] == 1
@@ -153,7 +153,7 @@ def test_dilate_default():
 )
 def test_dilate_pixels_parameter(pixels, xy, expected):
     mask = ee.ImageCollection("NASA/NLDAS/FORA0125_H002").first().select([0], ['mask']).mask()
-    output = utils.dilate(mask, pixels=pixels)
+    output = utils.dilate(mask, pixels=pixels, reproject_flag=True)
     assert utils.point_image_value(output, xy, 14000)['mask'] == expected
 
 
@@ -161,7 +161,7 @@ def test_erode_default():
     # Check that default erode is for a single pixel
     # -75.4375, 35.7075 is edge pixel of NLDAS mask
     mask = ee.ImageCollection("NASA/NLDAS/FORA0125_H002").first().select([0], ['mask']).mask()
-    output = utils.erode(mask)
+    output = utils.erode(mask, reproject_flag=True)
     assert utils.point_image_value(mask, [-75.4375, 35.6875], 14000)['mask'] == 1
     assert utils.point_image_value(mask, [-75.4375 - 0.125, 35.6875], 14000)['mask'] == 1
     assert utils.point_image_value(output, [-75.4375, 35.6875], 14000)['mask'] == 0
@@ -183,7 +183,7 @@ def test_erode_default():
 )
 def test_erode_pixels_parameter(pixels, xy, expected):
     mask = ee.ImageCollection("NASA/NLDAS/FORA0125_H002").first().select([0], ['mask']).mask()
-    output = utils.erode(mask, pixels=pixels)
+    output = utils.erode(mask, pixels=pixels, reproject_flag=True)
     assert utils.point_image_value(output, xy, 14000)['mask'] == expected
 
 

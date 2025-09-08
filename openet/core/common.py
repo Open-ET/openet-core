@@ -14,7 +14,7 @@ def landsat_c2_sr_cloud_mask(
         cloud_score_flag=False,
         cloud_score_pct=100,
         buffer_flag=False,
-        buffer_dist=10,
+        buffer_pixels=10,
         filter_flag=False,
         saturated_flag=False,
         sr_cloud_qa_flag=False,
@@ -49,7 +49,7 @@ def landsat_c2_sr_cloud_mask(
         Number of buffer pixels to apply to the cloud mask when buffer_flag is set True.
         (the default is 10).
     filter_flag : bool
-        If true, filter QA_PIXEL cloud mask with a single pixel erode/dilate (the default is False).
+        If true, filter QA_PIXEL cloud mask with a single pixel erode (the default is False).
     saturated_flag : bool
         If true, mask pixels that are saturated in the RGB bands (the default is False).
     sr_cloud_qa_flag : bool
@@ -77,31 +77,23 @@ def landsat_c2_sr_cloud_mask(
         water_flag=water_flag,
     )
 
-    # TODO: Move to utils
-
-
-    # Erode/dilate 1 cell to remove standalone pixels
+    # Erode 1 cell to remove standalone pixels
     # This seems to mostly happen in the QA_PIXEL mask above,
     #   but it could be applied to the final mask before return
-    # Not sure if the extra pixel dilate is needed, but leaving for now
-    # Does this call need the reproject?  If applied in a map call it might be needed
+    # Does this call need a reproject?  If applied in a map call it might be needed
     if filter_flag:
-        mask_img = utils.dilate(utils.erode(mask_img, 1), 2)
-        # mask_img = (
-        #     mask_img
-        #     .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.circle(radius=1, units='pixels'))
-        #     .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.circle(radius=2, units='pixels'))
-        #     # .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.circle(radius=1, units='pixels'))
-        #     # .reproject(input_img.projection())
-        # )
+        filter_pixels = 1
+        mask_img = utils.erode(mask_img, filter_pixels, reproject_flag=False)
 
     # Apply other cloud masks
     if cloud_score_flag:
         mask_img = mask_img.Or(landsat.c02_cloud_score_mask(input_img, cloud_score_pct))
     if saturated_flag:
         mask_img = mask_img.Or(landsat.c02_qa_radsat_mask(input_img))
+
+    # This functionality will be deprecated and removed at some point
     if sr_cloud_qa_flag:
-        mask_img = mask_img.Or(landsat.c02_sr_cloud_qa_mask(input_img))
+        mask_img = mask_img.Or(landsat.c02_l2_sr_cloud_qa_mask(input_img))
         # # Should the QA_PIXEL flags be passed through to the function also?
         # sr_cloud_qa_mask = landsat.c02_l2_sr_cloud_qa_mask(
         #     input_img, adjacent_flag=dilate_flag, shadow_flag=shadow_flag, snow_flag=snow_flag
@@ -110,7 +102,7 @@ def landsat_c2_sr_cloud_mask(
 
     # Apply the buffer mask last
     if buffer_flag:
-        mask_img = utils.dilate(mask_img, buffer_dist)
+        mask_img = utils.dilate(mask_img, buffer_pixels, reproject_flag=False)
 
     # Flip to set cloudy pixels to 0 and clear to 1 for an updateMask() call
     return mask_img.Not().updateMask(input_img.select(['QA_PIXEL']).mask()).rename(['cloud_mask'])
