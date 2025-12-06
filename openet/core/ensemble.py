@@ -36,12 +36,13 @@ def mad(ensemble_img, made_scale=2):
     min_model_count = model_count.min(4)
 
     # Map the model index to a generic "BX" band name for the output images
-    output_bands = ee.List.sequence(1, model_count)\
+    output_bands = (
+        ee.List.sequence(1, model_count)
         .map(lambda x: ee.String('B').cat(ee.Number(x).format('%d')))
+    )
 
     ens_median = ensemble_img.reduce(ee.Reducer.median()).rename(["median"])
-    MADe = ensemble_img.subtract(ens_median).abs()\
-        .reduce(ee.Reducer.median()).multiply(1.4826)
+    MADe = ensemble_img.subtract(ens_median).abs().reduce(ee.Reducer.median()).multiply(1.4826)
 
     # Calculate upper and lower bounds for outlier, based on median
     upper = ens_median.add(MADe.multiply(made_scale)).rename(["upper"])
@@ -75,16 +76,16 @@ def mad(ensemble_img, made_scale=2):
         .reduce(ee.Reducer.mean()
                 .combine(ee.Reducer.min(), sharedInputs=True)
                 .combine(ee.Reducer.max(), sharedInputs=True)
-                .combine(ee.Reducer.count(), sharedInputs=True))\
-        .rename(["ensemble_mad", "ensemble_mad_min", "ensemble_mad_max",
-                 "ensemble_mad_count"])
+                .combine(ee.Reducer.count(), sharedInputs=True))
+        .rename(["ensemble_mad", "ensemble_mad_min", "ensemble_mad_max", "ensemble_mad_count"])
     )
 
     # Map the band names to the model index
     # The extra combine is to try and account for the ensemble images having
     #   band names that don't map to one of the model names/indexes
-    band_dict = ee.Dictionary(model_index).combine(ee.Dictionary.fromLists(
-        output_bands, ee.List.sequence(9, model_count.add(9).subtract(1))))
+    band_dict = ee.Dictionary(model_index).combine(
+        ee.Dictionary.fromLists(output_bands, ee.List.sequence(9, model_count.add(9).subtract(1)))
+    )
     band_index = model_names.map(lambda x: band_dict.get(x))
 
     # Bit encode the models using the model index values
@@ -102,8 +103,10 @@ def mad(ensemble_img, made_scale=2):
         .arrayFlatten([output_bands])
     )
     index_img = index_img.mask(index_img.neq(-9999))
-    index_img = index_img.multiply(0).add(2).pow(index_img.subtract(1))\
+    index_img = (
+        index_img.multiply(0).add(2).pow(index_img.subtract(1))
         .reduce(ee.Reducer.sum()).int().rename(['ensemble_mad_index'])
+    )
     output_img = output_img.addBands(index_img)
 
     return output_img
