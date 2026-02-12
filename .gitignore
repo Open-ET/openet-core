@@ -31,6 +31,9 @@ privatekey.b64
 .coveralls.yml
 coverage.xml
 
+# MacOS
+*.DS_Store
+
 # Miscellaneous files
 notes.txt
-*.DS_Store
+

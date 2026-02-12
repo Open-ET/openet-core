@@ -235,7 +235,7 @@ def dilate(img, pixels=1, reproject_flag=False):
         If True, call reproject on the output image using the input image projection.
         This must be set True for the calculation to be done in terms of "pixels",
         but it could be set False if reproject is being applied later on to the image.
-        The default is True.
+        The default is False.
 
     Returns
     -------
@@ -245,7 +245,6 @@ def dilate(img, pixels=1, reproject_flag=False):
     output = img.fastDistanceTransform(pixels).sqrt().lte(pixels).updateMask(img.mask())
     if reproject_flag:
         output = output.reproject(img.projection())
-
     return output.rename('mask')
 
 
@@ -262,7 +261,7 @@ def erode(img, pixels=1, reproject_flag=False):
         If True, call reproject on the output image using the input image projection.
         This must be set True for the calculation to be done in terms of "pixels",
         but it could be set False if reproject is being applied later on to the image.
-        The default is True.
+        The default is False.
 
     Returns
     -------
@@ -272,8 +271,34 @@ def erode(img, pixels=1, reproject_flag=False):
     output = img.Not().fastDistanceTransform(pixels).sqrt().gt(pixels).updateMask(img.mask())
     if reproject_flag:
         output = output.reproject(img.projection())
-
     return output.rename('mask')
+
+
+def fill(img, pixels=1, reproject_flag=True):
+    """Fill any masked pixels within a buffer of N pixels.
+
+    Parameters
+    ----------
+    img : ee.Image
+        Input image.
+    pixels : int
+        Number of pixels to buffer.  The default is 1.
+    reproject_flag : bool
+        If True, call reproject on the output image using the input image projection.
+        This must be set True for the calculation to be done in terms of "pixels",
+        but it could be set False if reproject is being applied later on to the image.
+        The default is True.
+
+    Returns
+    -------
+    ee.Image
+
+    """
+    # img = ee.Image(img)
+    output = img.reduceNeighborhood('mean', ee.Kernel.square(pixels), 'kernel', False)
+    if reproject_flag:
+        output = output.reproject(img.projection())
+    return img.unmask(output)
 
 
 def get_info(ee_obj, max_retries=4):
