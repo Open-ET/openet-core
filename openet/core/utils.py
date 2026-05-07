@@ -96,7 +96,7 @@ def date_0utc(date):
     return ee.Date.fromYMD(date.get('year'), date.get('month'), date.get('day'))
 
 
-def date_range(start_dt, end_dt, days=1, skip_leap_days=False):
+def date_range(start_dt, end_dt, days=1, exclusive_end_date=False, skip_leap_days=False):
     """Generate dates within a range (inclusive)
 
     Parameters
@@ -104,9 +104,12 @@ def date_range(start_dt, end_dt, days=1, skip_leap_days=False):
     start_dt : datetime
         Start date.
     end_dt : datetime
-        End date.
+        End date (inclusive).
     days : int, optional
         Step size (the default is 1).
+    exclusive_end_date : bool, optional
+        If True, treat the end date as an exclusive end date so it is not
+        included in the date range (the default is False).
     skip_leap_days : bool, optional
         If True, skip leap days while incrementing (the default is False).
 
@@ -116,11 +119,17 @@ def date_range(start_dt, end_dt, days=1, skip_leap_days=False):
 
     """
     import copy
-    curr_dt = copy.copy(start_dt)
-    while curr_dt <= end_dt:
-        if not skip_leap_days or curr_dt.month != 2 or curr_dt.day != 29:
-            yield curr_dt
-        curr_dt += timedelta(days=days)
+    test_date = copy.copy(start_dt)
+
+    if exclusive_end_date:
+        end_date = end_dt - timedelta(days=1)
+    else:
+        end_date = copy.copy(end_dt)
+
+    while test_date <= end_date:
+        if not skip_leap_days or test_date.month != 2 or test_date.day != 29:
+            yield test_date
+        test_date += timedelta(days=days)
 
 
 def date_years(start_dt, end_dt, exclusive_end_dates=False):

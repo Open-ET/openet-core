@@ -83,6 +83,19 @@ def test_date_range_days(start_dt, end_dt, days, expected):
 
 
 @pytest.mark.parametrize(
+    'start_dt, end_dt, exclusive_end_date, expected',
+    [
+        [datetime(2004, 1, 1), datetime(2004, 1, 31), False, 31],
+        [datetime(2004, 1, 1), datetime(2004, 1, 31), True, 30],
+        [datetime(2004, 1, 1), datetime(2004, 2, 1), True, 31],
+    ]
+)
+def test_date_range_exclusive_end_date(start_dt, end_dt, exclusive_end_date, expected):
+    assert len(list(utils.date_range(
+        start_dt, end_dt, exclusive_end_date=exclusive_end_date))) == expected
+
+
+@pytest.mark.parametrize(
     'start_dt, end_dt, skip_leap_days, expected',
     [
         [datetime(2004, 2, 28), datetime(2004, 3, 1), True, 2],
