@@ -20,6 +20,30 @@ def test_mgrs_export_tiles():
     assert 'p042r035' in output[0]['wrs2_tiles']
 
 
+def test_mgrs_export_tiles_coarse_cell_size_rounds_outward():
+    output = export.mgrs_export_tiles(
+        study_area_coll_id='TIGER/2018/States',
+        mgrs_coll_id='projects/openet/assets/mgrs/conus/gridmet/zones',
+        mgrs_tiles=['10S'],
+        cell_size=120,
+    )
+    assert output[0]['geo'] == [120, 0, 399975, 0, -120, 4399995]
+    assert output[0]['shape'] == [3167, 5834]
+
+
+def test_mgrs_export_tiles_rejects_nonpositive_cell_size():
+    try:
+        export.mgrs_export_tiles(
+            study_area_coll_id='TIGER/2018/States',
+            mgrs_coll_id='projects/openet/assets/mgrs/conus/gridmet/zones',
+            cell_size=0,
+        )
+    except ValueError as exc:
+        assert str(exc) == 'cell_size must be greater than zero'
+    else:
+        raise AssertionError('expected ValueError')
+
+
 def test_mgrs_export_tiles_study_area_features_param():
     output = export.mgrs_export_tiles(
         study_area_coll_id='TIGER/2018/States',

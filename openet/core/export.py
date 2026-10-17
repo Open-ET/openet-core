@@ -1,4 +1,5 @@
 import logging
+import math
 
 import ee
 
@@ -48,13 +49,20 @@ def mgrs_export_tiles(
     wrs2_property : str, optional
         WRS2 property in the MGRS feature collection (the default is 'wrs2').
     cell_size : float, optional
-        Cell size for transform and shape calculation (the default is 30).
+        Cell size in meters for transform and shape calculation (the default
+        is 30).  Must be greater than zero.  The grid origin is the MGRS tile
+        upper left corner for any cell size, and the shape is rounded up so a
+        cell size that does not divide the tile extent (e.g. 120) still
+        covers the full tile.
 
     Returns
     ------
     list of dicts: export information
 
     """
+    if cell_size <= 0:
+        raise ValueError('cell_size must be greater than zero')
+
     # Build and filter the study area feature collection
     logging.debug('Building study area collection')
     logging.debug(f'  {study_area_coll_id}')
@@ -117,9 +125,13 @@ def mgrs_export_tiles(
             int(tile_ftr['properties']['ymax'])
         ]
         tile_geo = [cell_size, 0, tile_extent[0], 0, -cell_size, tile_extent[3]]
+        # MGRS zone extents are aligned to the standard 30 m grid, but their
+        # dimensions are not necessarily divisible by coarser test scales.
+        # Round outward so a coarser export does not silently drop an edge
+        # strip; the downstream MGRS mask preserves the valid tile footprint.
         tile_shape = [
-            int((tile_extent[2] - tile_extent[0]) / cell_size),
-            int((tile_extent[3] - tile_extent[1]) / cell_size)
+            math.ceil((tile_extent[2] - tile_extent[0]) / cell_size),
+            math.ceil((tile_extent[3] - tile_extent[1]) / cell_size)
         ]
         tiles_list.append({
             'crs': 'EPSG:{:d}'.format(int(tile_ftr['properties']['epsg'])),

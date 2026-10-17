@@ -25,4 +25,4 @@ def test_init():
             f.write(content)
         ee.Initialize(ee.ServiceAccountCredentials('', key_file=EE_KEY_FILE))
     else:
-        ee.Initialize()
+        ee.Initialize(project=os.environ.get('EE_PROJECT'))
