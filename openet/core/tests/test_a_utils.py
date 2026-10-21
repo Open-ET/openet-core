@@ -377,10 +377,10 @@ def test_constant_image_value_multiband_bands(expected=10.123456789, tol=0.00000
 @pytest.mark.parametrize(
     'image_id, xy, scale, expected, tol',
     [
-        ['USGS/3DEP/10m', [-106.03249, 37.17777], 30, 2364.169, 0.001],
-        ['USGS/3DEP/10m', [-106.03249, 37.17777], 10, 2364.138, 0.001],
-        ['USGS/3DEP/10m', [-106.03249, 37.17777], 1, 2364.138, 0.001],
+        ['USGS/SRTMGL1_003', [-106.03249, 37.17777], 30, 2362, 0.001],
         ['NASA/NASADEM_HGT/001', [-106.03249, 37.17777], 30, 2361, 0.001],
+        ['NASA/NASADEM_HGT/001', [-106.03249, 37.17777], 10, 2361, 0.001],
+        ['NASA/NASADEM_HGT/001', [-106.03249, 37.17777], 1, 2361, 0.001],
     ]
 )
 def test_point_image_value(image_id, xy, scale, expected, tol):
@@ -391,10 +391,10 @@ def test_point_image_value(image_id, xy, scale, expected, tol):
 @pytest.mark.parametrize(
     'image_id, image_date, xy, scale, expected, tol',
     [
-        ['USGS/3DEP/10m', '2012-04-04', [-106.03249, 37.17777], 30, 2364.169, 0.001],
-        ['USGS/3DEP/10m', '2012-04-04', [-106.03249, 37.17777], 10, 2364.097, 0.001],
-        ['USGS/3DEP/10m', '2012-04-04', [-106.03249, 37.17777], 1, 2364.138, 0.001],
+        ['USGS/SRTMGL1_003', '2012-04-04', [-106.03249, 37.17777], 30, 2362, 0.001],
         ['NASA/NASADEM_HGT/001', '2012-04-04', [-106.03249, 37.17777], 30, 2361, 0.001],
+        ['NASA/NASADEM_HGT/001', '2012-04-04', [-106.03249, 37.17777], 10, 2361, 0.001],
+        ['NASA/NASADEM_HGT/001', '2012-04-04', [-106.03249, 37.17777], 1, 2361, 0.001],
     ]
 )
 def test_point_coll_value(image_id, image_date, xy, scale, expected, tol):
@@ -409,6 +409,6 @@ def test_point_coll_value(image_id, image_date, xy, scale, expected, tol):
 
 def test_point_coll_value_no_system_time_start_exception():
     # The function should raise an exception for images with no system:time_start
-    input_img = ee.Image('USGS/3DEP/10m').select(['elevation'], ['output'])
+    input_img = ee.Image('USGS/SRTMGL1_003').select(['elevation'], ['output'])
     with pytest.raises(Exception):
         utils.point_coll_value(ee.ImageCollection([input_img]), [-106, 37], 30)
