@@ -182,8 +182,8 @@ def sentinel2_sr_cloud_mask(input_img):
     return cloud_mask.Not().rename(['cloud_mask'])
 
 
-def landsat_c2_sr_lst_correct(input_img, ndvi=None):
-    """Apply correction to Collection 2 LST using adjusted ASTER emissivity
+def landsat_c2_sr_emissivity_correct(input_img):
+    """Compute corrected emissivity for a Landsat Collection 2 image
 
     Parameters
     ----------
@@ -192,13 +192,10 @@ def landsat_c2_sr_lst_correct(input_img, ndvi=None):
         with the SPACECRAFT_ID and LANDSAT_PRODUCT_ID metadata properties
         (e.g. LANDSAT/LC08/C02/T1_L2).  The image itself is not read in this
         function but is instead used to select from the Level 2 and TOA collections.
-    ndvi : ee.Image
-        This parameter is deprecated and NDVI will be computed internally in the function,
-        but leaving to support backwards compatibility.
 
     Returns
     -------
-    lst : ee.Image
+    emissivity : ee.Image
 
     Authors
     -------
@@ -217,6 +214,9 @@ def landsat_c2_sr_lst_correct(input_img, ndvi=None):
 
     """
     spacecraft_id = ee.String(input_img.get('SPACECRAFT_ID'))
+
+    veg_emis = 0.99
+    soil_emiss_fill = 0.97
 
     # Landsat image geometry for clipping ASTER GED
     image_geom = input_img.geometry()
@@ -239,19 +239,6 @@ def landsat_c2_sr_lst_correct(input_img, ndvi=None):
     # Aster Global Emissivity Dataset
     ged = ee.Image('NASA/ASTER_GED/AG100_003').clip(clip_extent)
 
-    veg_emis = 0.99
-    soil_emiss_fill = 0.97
-
-    # Set K1, K2 values
-    k1 = ee.Dictionary({
-        'LANDSAT_4': 607.76, 'LANDSAT_5': 607.76, 'LANDSAT_7': 666.09,
-        'LANDSAT_8': 774.8853, 'LANDSAT_9': 799.0284,
-    })
-    k2 = ee.Dictionary({
-        'LANDSAT_4': 1260.56, 'LANDSAT_5': 1260.56, 'LANDSAT_7': 1282.71,
-        'LANDSAT_8': 1321.0789, 'LANDSAT_9': 1329.0284,
-    })
-
     # Set c13, c14, and c regression coefficients from Malakar et al. (2018)
     # Landsat 9 coefficients are copied from L8
     c13 = ee.Dictionary({
@@ -267,111 +254,18 @@ def landsat_c2_sr_lst_correct(input_img, ndvi=None):
         'LANDSAT_8': 0.0584, 'LANDSAT_9': 0.0457,
     })
 
-    def get_matched_c2_t1_l2_image(input_img):
-        # Find matching Landsat Collection 2 Tier 1 Level 2 image
-        #   based on the "LANDSAT_PRODUCT_ID" property
-        # Build the system:index format scene ID from the LANDSAT_PRODUCT_ID
-        scene_id = ee.List(ee.String(input_img.get('LANDSAT_PRODUCT_ID')).split('_'))
-        scene_id = (
-            ee.String(scene_id.get(0)).cat('_').cat(ee.String(scene_id.get(2)))
-            .cat('_').cat(ee.String(scene_id.get(3)))
-        )
-
-        # Testing if it is any faster to filter each collection separately
-        # TODO: Test if adding an extra .filterDate() call helps
-        return ee.Image(
-            ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
-            .filter(ee.Filter.eq('system:index', scene_id))
-            .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
-                   .filter(ee.Filter.eq('system:index', scene_id)))
-            .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1_L2')
-                   .filter(ee.Filter.eq('system:index', scene_id)))
-            .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1_L2')
-                   .filter(ee.Filter.eq('system:index', scene_id)))
-            .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1_L2')
-                   .filter(ee.Filter.eq('system:index', scene_id)))
-            .first()
-        )
-
-    def get_matched_c2_t1_radiance_image(input_img):
-        # Find matching Landsat Collection 2 Tier 1 radiance image
-        #   based on the "LANDSAT_PRODUCT_ID" property
-        # Build the system:index format scene ID from the LANDSAT_PRODUCT_ID
-        satellite = ee.String(input_img.get('SPACECRAFT_ID'))
-        scene_id = ee.List(ee.String(input_img.get('LANDSAT_PRODUCT_ID')).split('_'))
-        scene_id = (
-            ee.String(scene_id.get(0)).cat('_').cat(ee.String(scene_id.get(2)))
-            .cat('_').cat(ee.String(scene_id.get(3)))
-        )
-
-        # TODO: Fix error when images that are in the T1_L2 collections but not in the T1,
-        #  will fail with a .get() error because matched_img is 'None',
-        #  could cause issues if trying to map over a collection
-
-        #  Testing if it is any faster to filter each collection separately
-        # TODO: Test if adding an extra .filterDate() call helps
-        matched_img = ee.Image(
-            ee.ImageCollection('LANDSAT/LC09/C02/T1')
-            .filter(ee.Filter.eq('system:index', scene_id))
-            .merge(ee.ImageCollection('LANDSAT/LC08/C02/T1_RT')
-                   .filter(ee.Filter.eq('system:index', scene_id)))
-            .merge(ee.ImageCollection('LANDSAT/LE07/C02/T1')
-                   .filter(ee.Filter.eq('system:index', scene_id)))
-            .merge(ee.ImageCollection('LANDSAT/LT05/C02/T1')
-                   .filter(ee.Filter.eq('system:index', scene_id)))
-            .merge(ee.ImageCollection('LANDSAT/LT04/C02/T1')
-                   .filter(ee.Filter.eq('system:index', scene_id)))
-            .first()
-        )
-
-        input_bands = ee.Dictionary({
-            'LANDSAT_4': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'B6'],
-            'LANDSAT_5': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'B6'],
-            'LANDSAT_7': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'B6_VCID_1'],
-            'LANDSAT_8': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B10'],
-            'LANDSAT_9': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B10'],
-        })
-        output_bands = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'thermal']
-
-        add_thermal_properties = ee.Dictionary({
-            'LANDSAT_4': 'RADIANCE_ADD_BAND_6',
-            'LANDSAT_5': 'RADIANCE_ADD_BAND_6',
-            'LANDSAT_7': 'RADIANCE_ADD_BAND_6_VCID_1',
-            'LANDSAT_8': 'RADIANCE_ADD_BAND_10',
-            'LANDSAT_9': 'RADIANCE_ADD_BAND_10',
-        })
-        mul_thermal_properties = ee.Dictionary({
-            'LANDSAT_4': 'RADIANCE_MULT_BAND_6',
-            'LANDSAT_5': 'RADIANCE_MULT_BAND_6',
-            'LANDSAT_7': 'RADIANCE_MULT_BAND_6_VCID_1',
-            'LANDSAT_8': 'RADIANCE_MULT_BAND_10',
-            'LANDSAT_9': 'RADIANCE_MULT_BAND_10',
-        })
-        add_thermal_prop = ee.String(add_thermal_properties.get(satellite))
-        mul_thermal_prop = ee.String(mul_thermal_properties.get(satellite))
-
-        return (
-            matched_img
-            .select(ee.List(input_bands.get(satellite)), output_bands)
-            .set({
-                'RADIANCE_ADD_BAND_thermal': ee.Number(matched_img.get(add_thermal_prop)),
-                'RADIANCE_MULT_BAND_thermal': ee.Number(matched_img.get(mul_thermal_prop)),
-            })
-        )
-
-    # Rebuilding the coll2 image here from the LANDSAT_PRODUCT_ID
+    # Rebuilding the Collection 2 image here from the LANDSAT_PRODUCT_ID
     #   since the extra bands needed for the calculation will likely
     #   have been dropped or excluded before getting to this function
-    c02_lvl2_img = get_matched_c2_t1_l2_image(input_img)
-    c02_rad_img = get_matched_c2_t1_radiance_image(input_img)
+    c02_l2_img = landsat.c02_matched_image(input_img, processing_level='T1_L2')
 
     # Compute NDVI from the Level 2 SR image
     # Including the global surface water maximum extent to limit the water mask
     # to only those areas that have been flagged as water at some point in time
     # which should help remove shadows that are misclassified as water
     ndvi = landsat.c02_sr_ndvi(
-        sr_img=landsat.c02_l2_sr(c02_lvl2_img),
-        water_mask=landsat.c02_qa_water_mask(c02_lvl2_img),
+        sr_img=landsat.c02_l2_sr(c02_l2_img),
+        water_mask=landsat.c02_qa_water_mask(c02_l2_img),
         gsw_extent_flag=True
     )
 
@@ -424,16 +318,92 @@ def landsat_c2_sr_lst_correct(input_img, ndvi=None):
     # calc_smoothed_em_soil
     ls_em = fc_landsat.multiply(-1).add(1).multiply(em_soil).add(fc_landsat.multiply(veg_emis))
 
+    return ls_em.rename('emissivity')
+
+
+def landsat_c2_sr_lst_correct(input_img):
+    """Apply correction to Collection 2 LST using adjusted ASTER emissivity
+
+    Parameters
+    ----------
+    input_img : ee.Image
+        Image from a Landsat Collection 2 SR image collection
+        with the SPACECRAFT_ID and LANDSAT_PRODUCT_ID metadata properties
+        (e.g. LANDSAT/LC08/C02/T1_L2).  The image itself is not read in this
+        function but is instead used to select from the Level 2 and TOA collections.
+
+    Returns
+    -------
+    lst : ee.Image
+
+    Authors
+    -------
+    Peter ReVelle, Richard Allen, Ayse Kilic
+
+    References
+    ----------
+    Malakar, N., Hulley, G., Hook, S., Laraby, K., Cook, M. and Schott, J., 2018.
+    An operational land surface temperature product for Landsat thermal data:
+    Methodology and validation.
+    IEEE Transactions on Geoscience and Remote Sensing, 56(10), pp.5717-5735.
+
+    Allen, R and Kilic, A. 2022.
+
+    Hulley, G. 2023.
+
+    """
+    spacecraft_id = ee.String(input_img.get('SPACECRAFT_ID'))
+
+    # Rebuilding the C02 image here from the LANDSAT_PRODUCT_ID
+    #   since the extra bands needed for the calculation may
+    #   have been dropped or excluded before getting to this function
+    c02_l2_img = landsat.c02_matched_image(input_img, processing_level='T1_L2')
+    c02_rad_img = landsat.c02_matched_image(input_img, processing_level='T1')
+
+    thermal_band = ee.Dictionary({
+        'LANDSAT_4': ['B6'],
+        'LANDSAT_5': ['B6'],
+        'LANDSAT_7': ['B6_VCID_1'],
+        'LANDSAT_8': ['B10'],
+        'LANDSAT_9': ['B10'],
+    })
+    radiance_add_thermal = ee.Dictionary({
+        'LANDSAT_4': 'RADIANCE_ADD_BAND_6',
+        'LANDSAT_5': 'RADIANCE_ADD_BAND_6',
+        'LANDSAT_7': 'RADIANCE_ADD_BAND_6_VCID_1',
+        'LANDSAT_8': 'RADIANCE_ADD_BAND_10',
+        'LANDSAT_9': 'RADIANCE_ADD_BAND_10',
+    })
+    radiance_mult_thermal = ee.Dictionary({
+        'LANDSAT_4': 'RADIANCE_MULT_BAND_6',
+        'LANDSAT_5': 'RADIANCE_MULT_BAND_6',
+        'LANDSAT_7': 'RADIANCE_MULT_BAND_6_VCID_1',
+        'LANDSAT_8': 'RADIANCE_MULT_BAND_10',
+        'LANDSAT_9': 'RADIANCE_MULT_BAND_10',
+    })
+
+    # Compute the corrected emissivity
+    ls_em = landsat_c2_sr_emissivity_correct(input_img)
+
     # Apply Eq. 8 to get thermal surface radiance, Rc, from C2 Real time band 10
     # (Eq. 7 of Malakar et al. but without the emissivity to produce actual radiance)
     rc = (
-        c02_rad_img.select(['thermal'])
-        .multiply(ee.Number(c02_rad_img.get('RADIANCE_MULT_BAND_thermal')))
-        .add(ee.Number(c02_rad_img.get('RADIANCE_ADD_BAND_thermal')))
-        .subtract(c02_lvl2_img.select(['ST_URAD']).multiply(0.001))
-        .divide(c02_lvl2_img.select(['ST_ATRAN']).multiply(0.0001))
-        .subtract(ls_em.multiply(-1).add(1).multiply(c02_lvl2_img.select(['ST_DRAD']).multiply(0.001)))
+        c02_rad_img.select(thermal_band.get(spacecraft_id))
+        .multiply(ee.Number(c02_rad_img.get(radiance_mult_thermal.get(spacecraft_id))))
+        .add(ee.Number(c02_rad_img.get(radiance_add_thermal.get(spacecraft_id))))
+        .subtract(c02_l2_img.select(['ST_URAD']).multiply(0.001))
+        .divide(c02_l2_img.select(['ST_ATRAN']).multiply(0.0001))
+        .subtract(ls_em.multiply(-1).add(1).multiply(c02_l2_img.select(['ST_DRAD']).multiply(0.001)))
     )
+
+    k1 = ee.Dictionary({
+        'LANDSAT_4': 607.76, 'LANDSAT_5': 607.76, 'LANDSAT_7': 666.09,
+        'LANDSAT_8': 774.8853, 'LANDSAT_9': 799.0284,
+    })
+    k2 = ee.Dictionary({
+        'LANDSAT_4': 1260.56, 'LANDSAT_5': 1260.56, 'LANDSAT_7': 1282.71,
+        'LANDSAT_8': 1321.0789, 'LANDSAT_9': 1329.0284,
+    })
 
     # Apply Eq. 7 to convert Rs to LST (similar to Malakar et al., but with emissivity)
     return (

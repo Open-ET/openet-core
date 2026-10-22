@@ -447,6 +447,168 @@ def c02_l2_sr_cloud_qa_mask(input_img, adjacent_flag=True, shadow_flag=True, sno
     ).rename(['mask'])
 
 
+def c02_matched_coll(
+        input_img,
+        processing_level='T1_L2',
+        image_property='LANDSAT_SCENE_ID',
+        match_property='LANDSAT_SCENE_ID',
+):
+    """Return the Landsat Collection 2 image collection matching an image property
+
+    Parameters
+    ----------
+    input_img : ee.Image
+        Image with the "image_property" metadata property.
+    processing_level : {'T1_L2', 'T1_TOA', 'T1'}
+        Landsat Collection 2 type (the default is 'T1_L2').
+    image_property : str
+        The metadata property name in input_img to use as a match criteria
+        (the default is "LANDSAT_SCENE_ID").
+    match_property : str
+        The metadata property name in the Landsat Collection 2 collections
+        to use as a match criteria (the default is "LANDSAT_SCENE_ID").
+
+    Returns
+    -------
+    ee.ImageCollection
+
+    """
+    # Filter collections to within +/- 1 day of the target image date
+    start_date = (
+        ee.Date(input_img.get('system:time_start'))
+        .update(hour=0, minute=0, second=0).advance(-1, 'day')
+    )
+    end_date = start_date.advance(3, 'day')
+
+    l4_coll = ee.ImageCollection('LANDSAT/LT04/C02/'+processing_level).filterDate(start_date, end_date)
+    l5_coll = ee.ImageCollection('LANDSAT/LT05/C02/'+processing_level).filterDate(start_date, end_date)
+    l7_coll = ee.ImageCollection('LANDSAT/LE07/C02/'+processing_level).filterDate(start_date, end_date)
+    l8_coll = ee.ImageCollection('LANDSAT/LC08/C02/'+processing_level).filterDate(start_date, end_date)
+    l9_coll = ee.ImageCollection('LANDSAT/LC09/C02/'+processing_level).filterDate(start_date, end_date)
+
+    # The default system:index gets modified when the collections are merged below,
+    #   so save the system:index to a new "scene_id" property and use that for matching
+    if match_property == 'system:index':
+        l4_coll = l4_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
+        l5_coll = l5_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
+        l7_coll = l7_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
+        l8_coll = l8_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
+        l9_coll = l9_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
+        match_property = 'scene_id'
+
+    return (
+        l9_coll.merge(l8_coll).merge(l7_coll).merge(l5_coll).merge(l4_coll)
+        .filter(ee.Filter.eq(match_property, ee.String(input_img.get(image_property))))
+    )
+
+
+def c02_matched_image(
+        input_img,
+        processing_level='T1_L2',
+        image_property='LANDSAT_PRODUCT_ID',
+        match_property='LANDSAT_PRODUCT_ID',
+):
+    """Return the Landsat Collection 2 image matching an image property
+
+    Parameters
+    ----------
+    input_img : ee.Image
+        Image with the "image_property" metadata property.
+    processing_level : {'T1_L2', 'T1_TOA', 'T1'}
+        Landsat Collection 2 processing_level (the default is 'T1_L2').
+    image_property : str
+        The metadata property name in input_img to use as a match criteria
+        (the default is "LANDSAT_PRODUCT_ID").
+    match_property : str
+        The metadata property name in the Landsat Collection 2 collections
+        to use as a match criteria (the default is "LANDSAT_PRODUCT_ID").
+
+    Returns
+    -------
+    ee.Image
+
+    """
+
+    # Convert image property values to a system:index like ID
+    if image_property == 'LANDSAT_PRODUCT_ID':
+        # LE07_L2SP_PPPRRR_YYYYMMDD_20200827_02_T1
+        product_id = ee.List(ee.String(input_img.get(match_property)).split('_'))
+        satellite_id = ee.String(product_id.get(0))
+        scene_id = (
+            satellite_id.cat("_").cat(ee.String(product_id.get(2)))
+            .cat("_").cat(ee.String(product_id.get(3)))
+        )
+    elif image_property == 'LANDSAT_SCENE_ID':
+        # LE7PPPRRRYYYYJJJEDC00
+        scene_id = ee.String(input_img.get(image_property))
+        satellite_id = scene_id.slice(0, 2).cat('0').cat(scene_id.slice(2, 3))
+        date = ee.Date.parse('YYYYDDD', ee.String(scene_id.slice(9, 16))).format('YYYYMMdd')
+        scene_id = satellite_id.cat('_').cat(scene_id.slice(3, 9)).cat('_').cat(date)
+    elif image_property == 'system:index':
+        # LE07_PPPRRR_YYYYMMDD
+        # Strip off any merge prefixes
+        scene_id = ee.List(ee.String(input_img.get(match_property)).split('_')).slice(-3).join('_')
+        satellite_id = scene_id.slice(0, 4)
+    # elif image_property == 'system:id':
+    #     # LANDSAT/LC09/C02/T1_l2/LE07_PPPRRR_YYYYMMDD'
+    #     satellite_id = ee.String(input_img.get(image_property)).slice(8, 12)
+    # elif image_property == 'scene_id':
+    #     # LE07_PPPRRR_YYYYMMDD
+    #     satellite_id = ee.String(input_img.get(image_property)).slice(0, 4)
+    else:
+        raise ValueError(f'Unsupported image property: {image_property}')
+
+    collections = ee.Dictionary({
+        'LT04': ee.ImageCollection('LANDSAT/LT04/C02/' + processing_level),
+        'LT05': ee.ImageCollection('LANDSAT/LT05/C02/' + processing_level),
+        'LE07': ee.ImageCollection('LANDSAT/LE07/C02/' + processing_level),
+        'LC08': ee.ImageCollection('LANDSAT/LC08/C02/' + processing_level),
+        'LC09': ee.ImageCollection('LANDSAT/LC09/C02/' + processing_level),
+    })
+    collection = ee.ImageCollection(collections.get(satellite_id))
+
+    # Filter collections to within +/- 1 day of the target image date
+    start_date = (
+        ee.Date(input_img.get('system:time_start'))
+        .update(hour=0, minute=0, second=0).advance(-1, 'day')
+    )
+    end_date = start_date.advance(3, 'day')
+    collection = collection.filterDate(start_date, end_date)
+
+    return collection.filter(ee.Filter.eq('system:index', scene_id)).first()
+
+
+def c02_matched_l2_coll(
+        input_img,
+        image_property='LANDSAT_SCENE_ID',
+        match_property='LANDSAT_SCENE_ID',
+):
+    """Return the Landsat Collection 2 SR collection matching an image property
+
+    Parameters
+    ----------
+    input_img : ee.Image
+        Image with the "image_property" metadata property.
+    image_property : str
+        The metadata property name in input_img to use as a match criteria
+        (the default is "LANDSAT_SCENE_ID").
+    match_property : str
+        The metadata property name in the Landsat Collection 2 TOA collections
+        to use as a match criteria (the default is "LANDSAT_SCENE_ID").
+
+    Returns
+    -------
+    ee.ImageCollection
+
+    """
+    return c02_matched_coll(
+        input_img,
+        processing_level='T1_L2',
+        image_property=image_property,
+        match_property=match_property,
+    )
+
+
 def c02_matched_toa_coll(
         input_img,
         image_property='LANDSAT_SCENE_ID',
@@ -469,87 +631,10 @@ def c02_matched_toa_coll(
     -------
     ee.ImageCollection
 
-    Todo
-    ----
-    Try using LinkCollection instead
-
     """
-
-    # Filter TOA collections to the target image UTC day
-    # This filter range could be a lot tighter but keeping it to the day makes it easier to test
-    #   and will hopefully not impact the performance too much
-    start_date = ee.Date(input_img.get('system:time_start')).update(hour=0, minute=0, second=0)
-    end_date = start_date.advance(1, 'day')
-
-    l5_coll = ee.ImageCollection('LANDSAT/LT05/C02/T1_TOA').filterDate(start_date, end_date)
-    l7_coll = ee.ImageCollection('LANDSAT/LE07/C02/T1_TOA').filterDate(start_date, end_date)
-    l8_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA').filterDate(start_date, end_date)
-    l9_coll = ee.ImageCollection('LANDSAT/LC09/C02/T1_TOA').filterDate(start_date, end_date)
-
-    # The default system:index gets modified when the collections are merged below,
-    #   so save the system:index to a new "scene_id" property and use that for matching
-    if match_property == 'system:index':
-        l5_coll = l5_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
-        l7_coll = l7_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
-        l8_coll = l8_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
-        l9_coll = l9_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
-        match_property = 'scene_id'
-
-    return (
-        l9_coll.merge(l8_coll).merge(l7_coll).merge(l5_coll)
-        .filter(ee.Filter.eq(match_property, ee.String(input_img.get(image_property))))
-    )
-
-
-def c02_matched_l2_coll(
+    return c02_matched_coll(
         input_img,
-        image_property='LANDSAT_SCENE_ID',
-        match_property='LANDSAT_SCENE_ID',
-):
-    """Return the Landsat Collection 2 Level 2 collection matching an image property
-
-    Parameters
-    ----------
-    input_img : ee.Image
-        Image with the "image_property" metadata property.
-    image_property : str
-        The metedata property name in input_img to use as a match criteria
-        (the default is "LANDSAT_SCENE_ID").
-    match_property : str
-        The metadata property name in the Landsat Collection 2 Level 2 collections
-        to use as a match criteria (the default is "LANDSAT_SCENE_ID").
-
-    Returns
-    -------
-    ee.ImageCollection
-
-    Todo
-    ----
-    Try using LinkCollection instead
-
-    """
-
-    # Filter TOA collections to the target to image UTC day
-    # This filter range could be a lot tighter but keeping it to the day makes it easier to test
-    #   and will hopefully not impact the performance too much
-    start_date = ee.Date(input_img.get('system:time_start')).update(hour=0, minute=0, second=0)
-    end_date = start_date.advance(1, 'day')
-
-    l5_coll = ee.ImageCollection('LANDSAT/LT05/C02/T1_L2').filterDate(start_date, end_date)
-    l7_coll = ee.ImageCollection('LANDSAT/LE07/C02/T1_L2').filterDate(start_date, end_date)
-    l8_coll = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2').filterDate(start_date, end_date)
-    l9_coll = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2').filterDate(start_date, end_date)
-
-    # The default system:index gets modified when the collections are merged below,
-    #   so save the system:index to a new "scene_id" property and use that for matching
-    if match_property == 'system:index':
-        l5_coll = l5_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
-        l7_coll = l7_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
-        l8_coll = l8_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
-        l9_coll = l9_coll.map(lambda img: img.set('scene_id', img.get('system:index')))
-        match_property = 'scene_id'
-
-    return (
-        l9_coll.merge(l8_coll).merge(l7_coll).merge(l5_coll)
-        .filter(ee.Filter.eq(match_property, ee.String(input_img.get(image_property))))
+        processing_level='T1_TOA',
+        image_property=image_property,
+        match_property=match_property,
     )
