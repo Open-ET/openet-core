@@ -380,15 +380,18 @@ def test_c02_l2_sr_cloud_qa_mask(sr_cloud_qa, spacecraft_id, expected):
 @pytest.mark.parametrize(
     "image_id, processing_level, match_property",
     [
+        # T1_L2
         ['LANDSAT/LC09/C02/T1_L2/LC09_035025_20230608', 'T1_L2', 'LANDSAT_PRODUCT_ID'],
         ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', 'T1_L2', 'LANDSAT_SCENE_ID'],
         ['LANDSAT/LE07/C02/T1_L2/LE07_043033_20190317', 'T1_L2', 'system:index'],
-        ['LANDSAT/LC09/C02/T1_L2/LC09_035025_20230608', 'T1_TOA', 'LANDSAT_PRODUCT_ID'],
-        ['LANDSAT/LC09/C02/T1_L2/LC09_035025_20230608', 'T1_TOA', 'LANDSAT_SCENE_ID'],
+        # T1_TOA
+        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', 'T1_TOA', 'LANDSAT_PRODUCT_ID'],
+        ['LANDSAT/LE07/C02/T1_L2/LE07_043033_20190317', 'T1_TOA', 'LANDSAT_SCENE_ID'],
         ['LANDSAT/LC09/C02/T1_L2/LC09_035025_20230608', 'T1_TOA', 'system:index'],
-        ['LANDSAT/LC09/C02/T1_L2/LC09_035025_20230608', 'T1', 'LANDSAT_PRODUCT_ID'],
+        # T1
+        ['LANDSAT/LE07/C02/T1_L2/LE07_043033_20190317', 'T1', 'LANDSAT_PRODUCT_ID'],
         ['LANDSAT/LC09/C02/T1_L2/LC09_035025_20230608', 'T1', 'LANDSAT_SCENE_ID'],
-        ['LANDSAT/LC09/C02/T1_L2/LC09_035025_20230608', 'T1', 'system:index'],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', 'T1', 'system:index'],
     ]
 )
 def test_c02_matched_l2_image(image_id, processing_level, match_property):
@@ -408,13 +411,18 @@ def test_c02_matched_l2_image_defaults():
 @pytest.mark.parametrize(
     "scene_id, time_start, processing_level, match_property",
     [
+        # T1_L2
         ['LE07_L2SP_043033_20190317_20200827_02_T1', '2019-03-17T17:20:21', 'T1_L2', 'LANDSAT_PRODUCT_ID'],
         ['LC80300362021206LGN00', '2021-07-25T17:20:21', 'T1_L2', 'LANDSAT_SCENE_ID'],
         ['LC08_030036_20210725', '2021-07-25T17:20:21', 'T1_L2', 'system:index'],
+        # T1_TOA
+        ['LC08_L1TP_030036_20210725_20210803_02_T1', '2021-07-25T17:20:21', 'T1_TOA', 'LANDSAT_PRODUCT_ID'],
+        ['LC80300362021206LGN00', '2021-07-25T17:20:21', 'T1_TOA', 'LANDSAT_SCENE_ID'],
         ['LC08_030036_20210725', '2021-07-25T17:20:21', 'T1_TOA', 'system:index'],
+        # T1
+        ['LC08_L1TP_030036_20210725_20210803_02_T1', '2021-07-25T17:20:21', 'T1', 'LANDSAT_PRODUCT_ID'],
+        ['LC80300362021206LGN00', '2021-07-25T17:20:21', 'T1', 'LANDSAT_SCENE_ID'],
         ['LC08_030036_20210725', '2021-07-25T17:20:21', 'T1', 'system:index'],
-        # This image does not have a corresponding TOA image
-        # ['LT05_044029_20000615', '2000-06-15T18:20:26', 'T1_TOA', 'system:index'],
     ]
 )
 def test_c02_matched_coll(scene_id, time_start, processing_level, match_property):
@@ -433,7 +441,39 @@ def test_c02_matched_coll(scene_id, time_start, processing_level, match_property
 @pytest.mark.parametrize(
     "scene_id, time_start, match_property",
     [
-        #['LE07_L2SP_043033_20190317_20200827_02_T1', '2020-08-27T17:20:21', 'LANDSAT_PRODUCT_ID'],
+        ['LE07_L2SP_043033_20190317_20200827_02_T1', '2019-03-17T17:20:21', 'LANDSAT_PRODUCT_ID'],
+        ['LC80300362021206LGN00', '2021-07-25T17:20:21', 'LANDSAT_SCENE_ID'],
+        ['LC08_030036_20210725', '2021-07-25T17:20:21', 'system:index'],
+    ]
+)
+def test_c02_matched_l2_coll(scene_id, time_start, match_property):
+    properties = {
+        match_property: scene_id,
+        'system:time_start': ee.Date(time_start),
+    }
+    output_coll = landsat.c02_matched_l2_coll(
+        ee.Image.constant([1]).rename(['QA_PIXEL']).set(properties),
+        image_property=match_property, match_property=match_property
+    )
+    assert utils.get_info(output_coll.size()) == 1
+
+
+def test_c02_matched_l2_coll_default_match_properties():
+    # The function currently defaults to using the LANDSAT_SCENE_ID for matching
+    properties = {
+        'LANDSAT_SCENE_ID': 'LC80300362021206LGN00',
+        'system:time_start': ee.Date('2021-07-25T17:20:21'),
+    }
+    output_coll = landsat.c02_matched_l2_coll(
+        ee.Image.constant(1).rename(['QA_PIXEL']).set(properties),
+    )
+    assert utils.get_info(output_coll.size()) == 1
+
+
+@pytest.mark.parametrize(
+    "scene_id, time_start, match_property",
+    [
+        ['LC08_L1TP_030036_20210725_20210803_02_T1', '2021-07-25T17:20:21', 'LANDSAT_PRODUCT_ID'],
         ['LC80300362021206LGN00', '2021-07-25T17:20:21', 'LANDSAT_SCENE_ID'],
         ['LC08_030036_20210725', '2021-07-25T17:20:21', 'system:index'],
     ]
@@ -475,33 +515,3 @@ def test_c02_matched_toa_coll_default_match_properties():
     assert utils.get_info(output_coll.size()) == 1
 
 
-@pytest.mark.parametrize(
-    "scene_id, time_start, match_property, expected",
-    [
-        #['LE07_L2SP_043033_20190317_20200827_02_T1', '2021-07-25T17:20:21', 'LANDSAT_PRODUCT_ID', 1],
-        ['LC80300362021206LGN00', '2021-07-25T17:20:21', 'LANDSAT_SCENE_ID', 1],
-        ['LC08_030036_20210725', '2021-07-25T17:20:21', 'system:index', 1],
-    ]
-)
-def test_c02_matched_l2_coll(scene_id, time_start, match_property, expected):
-    properties = {
-        match_property: scene_id,
-        'system:time_start': ee.Date(time_start),
-    }
-    output_coll = landsat.c02_matched_l2_coll(
-        ee.Image.constant([1]).rename(['QA_PIXEL']).set(properties),
-        image_property=match_property, match_property=match_property
-    )
-    assert utils.get_info(output_coll.size()) == expected
-
-
-def test_c02_matched_l2_coll_default_match_properties():
-    # The function currently defaults to using the LANDSAT_SCENE_ID for matching
-    properties = {
-        'LANDSAT_SCENE_ID': 'LC80300362021206LGN00',
-        'system:time_start': ee.Date('2021-07-25T17:20:21'),
-    }
-    output_coll = landsat.c02_matched_l2_coll(
-        ee.Image.constant(1).rename(['QA_PIXEL']).set(properties),
-    )
-    assert utils.get_info(output_coll.size()) == 1

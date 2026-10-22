@@ -361,11 +361,11 @@ def landsat_c2_sr_lst_correct(input_img):
     c02_rad_img = landsat.c02_matched_image(input_img, processing_level='T1')
 
     thermal_band = ee.Dictionary({
-        'LANDSAT_4': 'B6',
-        'LANDSAT_5': 'B6',
-        'LANDSAT_7': 'B6_VCID_1',
-        'LANDSAT_8': 'B10',
-        'LANDSAT_9': 'B10',
+        'LANDSAT_4': ['B6'],
+        'LANDSAT_5': ['B6'],
+        'LANDSAT_7': ['B6_VCID_1'],
+        'LANDSAT_8': ['B10'],
+        'LANDSAT_9': ['B10'],
     })
     radiance_add_thermal = ee.Dictionary({
         'LANDSAT_4': 'RADIANCE_ADD_BAND_6',
@@ -389,8 +389,8 @@ def landsat_c2_sr_lst_correct(input_img):
     # (Eq. 7 of Malakar et al. but without the emissivity to produce actual radiance)
     rc = (
         c02_rad_img.select(thermal_band.get(spacecraft_id))
-        .multiply(ee.Number(c02_rad_img.get(radiance_add_thermal.get(spacecraft_id))))
-        .add(ee.Number(c02_rad_img.get(radiance_mult_thermal.get(spacecraft_id))))
+        .multiply(ee.Number(c02_rad_img.get(radiance_mult_thermal.get(spacecraft_id))))
+        .add(ee.Number(c02_rad_img.get(radiance_add_thermal.get(spacecraft_id))))
         .subtract(c02_l2_img.select(['ST_URAD']).multiply(0.001))
         .divide(c02_l2_img.select(['ST_ATRAN']).multiply(0.0001))
         .subtract(ls_em.multiply(-1).add(1).multiply(c02_l2_img.select(['ST_DRAD']).multiply(0.001)))
