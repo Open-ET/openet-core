@@ -160,8 +160,8 @@ def test_landsat_c2_sr_emissivity_correct_defaults():
 )
 def test_landsat_emissivity_corrected_values(image_id, xy, expected, uncorrected, tol=0.0001):
     output_img = common.landsat_c2_sr_emissivity_correct(ee.Image(image_id))
-    # emissivty_img = input_img.select(['ST_EMIS']).multiply(0.0001)
-    # original = utils.point_image_value(emissivty_img, xy, scale=30)['ST_EMIS']
+    # emissivity_img = input_img.select(['ST_EMIS']).multiply(0.0001)
+    # original = utils.point_image_value(emissivity_img, xy, scale=30)['ST_EMIS']
     corrected = utils.point_image_value(output_img, xy, scale=30)
     if expected is None:
         assert corrected['emissivity'] is None
@@ -191,32 +191,52 @@ def test_landsat_c2_sr_lst_correct_defaults():
     "image_id, xy, expected, uncorrected",
     [
         # First two points are in the same field but the second one is in an
-        # area of bad emissivity data and needs correction
-        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.266679, 34.368470], 309.95, 310.0],
-        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.266754, 34.367682], 309.93, 312.1],
+        #   area of bad emissivity data and needs correction
+        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.266679, 34.368470], 310.10, 310.1],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.266754, 34.367682], 310.00, 312.2],
         # This point is just outside the field and should stay the same
-        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.269769, 34.366115], 317.75, 318.1],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.269769, 34.366115], 317.90, 318.1],
         # These two points are in the ASTER GED hole and have no L2 temperature
         # The first his a high NDVI field, the second is a low NDVI field
         ['LANDSAT/LC08/C02/T1_L2/LC08_031034_20160702', [-102.08284, 37.81728], 306.83, None],
         ['LANDSAT/LC08/C02/T1_L2/LC08_031034_20160702', [-102.04696, 37.81796], 297.88, None],
         # This scene (and path/row) is having issues when used in the LST sharpening
         # Test four points in each quadrant of the scene and one point outside
-        ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-107.4, 42.2], 321.0, 321.2],
-        ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-106.3, 42.0], 323.0, 323.2],
-        ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-107.4, 41.5], 318.0, 317.8],
-        ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-106.5, 41.3], 306.0, 305.9],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-107.4, 42.2], 321.04, 321.2],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-106.3, 42.0], 322.87, 323.2],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-107.4, 41.5], 317.94, 317.8],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-106.5, 41.3], 306.13, 305.9],
         ['LANDSAT/LC08/C02/T1_L2/LC08_035031_20160714', [-107.9, 42.6], None, None],
         # This scene will not run if matching collections are built using the LANDSAT_SCENE_ID
         # since the ID has a different version number in the TOA and radiance collections
         ['LANDSAT/LC09/C02/T1_L2/LC09_035025_20230608', [-103.5, 50.4], 306.55, 306.55],
     ]
 )
-def test_landsat_c2_sr_lst_correct_values(image_id, xy, expected, uncorrected, tol=0.25):
-    input_img = ee.Image(image_id)
-    # lst_img = input_img.select(['ST_B10']).multiply(0.00341802).add(149.0)
+def test_landsat_c2_sr_lst_correct_values(image_id, xy, expected, uncorrected, tol=0.01):
+    # lst_img = ee.Image(image_id).select(['ST_B10']).multiply(0.00341802).add(149.0)
     # original = utils.point_image_value(lst_img, xy, scale=30)['ST_B10']
-    output_img = common.landsat_c2_sr_lst_correct(input_img)
+    output_img = common.landsat_c2_sr_lst_correct(ee.Image(image_id))
+    corrected = utils.point_image_value(output_img, xy, scale=30)
+    if expected is None:
+        assert corrected['lst'] is None
+    else:
+        assert abs(corrected['lst'] - expected) <= tol
+
+
+@pytest.mark.parametrize(
+    "image_id, xy, emissivity, expected",
+    [
+        # First two points are in the same field but the second one is in an
+        #   area of bad emissivity data and needs correction
+        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.266679, 34.368470], 0.9824, 310.10],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.266679, 34.368470], 0.9511, 312.15],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.266754, 34.367682], 0.9844, 310.00],
+        ['LANDSAT/LC08/C02/T1_L2/LC08_030036_20210725', [-102.266754, 34.367682], 0.9511, 312.19],
+    ]
+)
+def test_landsat_c2_sr_lst_correct_custom_emissivity(image_id, xy, emissivity, expected, tol=0.01):
+    # Check that setting the emissivity value changes the LST
+    output_img = common.landsat_c2_sr_lst_correct(ee.Image(image_id), emissivity=emissivity)
     corrected = utils.point_image_value(output_img, xy, scale=30)
     if expected is None:
         assert corrected['lst'] is None

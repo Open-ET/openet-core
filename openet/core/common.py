@@ -321,7 +321,7 @@ def landsat_c2_sr_emissivity_correct(input_img):
     return ls_em.rename('emissivity')
 
 
-def landsat_c2_sr_lst_correct(input_img):
+def landsat_c2_sr_lst_correct(input_img, emissivity=None):
     """Apply correction to Collection 2 LST using adjusted ASTER emissivity
 
     Parameters
@@ -331,6 +331,9 @@ def landsat_c2_sr_lst_correct(input_img):
         with the SPACECRAFT_ID and LANDSAT_PRODUCT_ID metadata properties
         (e.g. LANDSAT/LC08/C02/T1_L2).  The image itself is not read in this
         function but is instead used to select from the Level 2 and TOA collections.
+    emissivity : ee.Image, ee.Number, optional
+        If not set, the emissivity will be computed using the
+        landsat_c2_sr_emissivity_correct() function.
 
     Returns
     -------
@@ -383,7 +386,10 @@ def landsat_c2_sr_lst_correct(input_img):
     })
 
     # Compute the corrected emissivity
-    ls_em = landsat_c2_sr_emissivity_correct(input_img)
+    if emissivity is None:
+        emissivity = landsat_c2_sr_emissivity_correct(input_img)
+    else:
+        emissivity = ee.Image(emissivity)
 
     # Apply Eq. 8 to get thermal surface radiance, Rc, from C2 Real time band 10
     # (Eq. 7 of Malakar et al. but without the emissivity to produce actual radiance)
@@ -393,7 +399,7 @@ def landsat_c2_sr_lst_correct(input_img):
         .add(ee.Number(c02_rad_img.get(radiance_add_thermal.get(spacecraft_id))))
         .subtract(c02_l2_img.select(['ST_URAD']).multiply(0.001))
         .divide(c02_l2_img.select(['ST_ATRAN']).multiply(0.0001))
-        .subtract(ls_em.multiply(-1).add(1).multiply(c02_l2_img.select(['ST_DRAD']).multiply(0.001)))
+        .subtract(emissivity.multiply(-1).add(1).multiply(c02_l2_img.select(['ST_DRAD']).multiply(0.001)))
     )
 
     k1 = ee.Dictionary({
@@ -406,9 +412,18 @@ def landsat_c2_sr_lst_correct(input_img):
     })
 
     # Apply Eq. 7 to convert Rs to LST (similar to Malakar et al., but with emissivity)
+    #   k2 / ln((k1 * em / rc) + 1)
+    # CGM - Reordered equation to have calculations be based off rc
+    #   instead of emissivity which could be a number of constant image
     return (
-        ls_em.multiply(ee.Number(k1.get(spacecraft_id)))
-        .divide(rc).add(1.0).log().pow(-1)
-        .multiply(ee.Number(k2.get(spacecraft_id)))
+        rc.divide(emissivity).divide(ee.Number(k1.get(spacecraft_id)))
+        .pow(-1).add(1.0).log().pow(-1).multiply(ee.Number(k2.get(spacecraft_id)))
         .rename('lst')
     )
+    # return (
+    #     emissivity.multiply(ee.Number(k1.get(spacecraft_id))).divide(rc)
+    #     .add(1.0).log().pow(-1).multiply(ee.Number(k2.get(spacecraft_id)))
+    #     .rename('lst')
+    # )
+
+
