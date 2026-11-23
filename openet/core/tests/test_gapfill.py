@@ -22,7 +22,7 @@ import openet.core.utils as utils
 )
 def test_veget_etf_climatology(month, xy, expected, tol=0.0001):
     output_img = gapfill.veget_etf_climatology(month=month)
-    output = utils.point_image_value(output_img, xy)['etf']
+    output = utils.point_image_value(output_img, xy)['et_fraction']
     assert abs(output - expected) <= 0.0001
 
 
@@ -37,7 +37,7 @@ def test_veget_etf_climatology(month, xy, expected, tol=0.0001):
 )
 def test_nalcms_etf(xy, expected, tol=0.0001):
     output_img = gapfill.nalcms_etf()
-    output = utils.point_image_value(output_img, xy)['etf']
+    output = utils.point_image_value(output_img, xy)['et_fraction']
     assert abs(output - expected) <= tol
 
 
@@ -63,7 +63,7 @@ def test_compute_monthly_et_fraction(tol=0.01):
         })
     ])
     output_coll = gapfill.compute_monthly_et_fraction(
-        et_coll=et_coll, et_reference_coll=eto_coll, et_band='et', et_reference_band='eto'
+        et_coll=et_coll, eto_coll=eto_coll, et_band='et', eto_band='eto'
     )
     output_img = output_coll.first()
     output = utils.constant_image_value(output_img)
@@ -194,7 +194,6 @@ def test_filled_monthly_et_fill_value_1month():
         fill_months=1,
     )
     output = utils.constant_image_value(ee.Image(output_img))
-    pprint.pprint(output)
     assert output['et_unfilled'] is None
     assert abs(output['et_filled'] - expected) < 0.01
     assert output['filled_mask'] == 2
@@ -240,7 +239,6 @@ def test_filled_monthly_et_fill_value_2months():
         fill_months=2,
     )
     output = utils.constant_image_value(ee.Image(output_img))
-    pprint.pprint(output)
     assert output['et_unfilled'] is None
     assert abs(output['et_filled'] - expected) < 0.01
     assert output['filled_mask'] == 2
@@ -294,7 +292,6 @@ def test_filled_monthly_et_fill_value_combo(etf_climo):
         fill_months=2,
     )
     output = utils.constant_image_value(ee.Image(output_img))
-    pprint.pprint(output)
     assert output['et_unfilled'] is None
     assert abs(output['et_filled'] - expected) < 0.01
     assert output['filled_mask'] == 2

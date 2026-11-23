@@ -9,11 +9,11 @@ def filled_monthly_et(
         etf_climo_img,
         etf_default_img,
         fill_months=4,
-        # etf_input_band='et_fraction',
-        # et_input_band='et',
-        # eto_input_band='et_reference',
-        # etf_climo_band='et_fraction',
-        # etf_default_band='et_fraction',
+        etf_input_band='et_fraction',
+        eto_input_band='et_reference',
+        et_input_band='et',
+        etf_climo_band='et_fraction',
+        #etf_default_band='et_fraction',
 ):
     """Filled Monthly ET using Conor's Method
 
@@ -30,6 +30,18 @@ def filled_monthly_et(
     fill_months : int
         Number of months to use for filling before and after the target image date.
         The default is 4.
+    etf_input_band : str
+        Name of the band in the input collection containing the ET fraction image.
+        The default is "et_fraction".
+    eto_input_band : str
+        Name of the band in the input collection containing the reference ET image.
+        The default is "et_reference".
+    et_input_band : str
+        Name of the band in the input collection containing the ET image.
+        The default is "et".
+    etf_climo_band : str
+        Name of the band in the climatology image containing the ET fraction image.
+        The default is "et_fraction".
 
     Returns
     -------
@@ -43,7 +55,11 @@ def filled_monthly_et(
     img_date = ee.Date(img_date)
 
     # Note, filtering this way would need to be adjusted for daily data
-    source_img = input_coll.filterDate(img_date.advance(-1, 'day'), img_date.advance(1, 'day')).first()
+    source_img = (
+        input_coll
+        .filterDate(img_date.advance(-1, 'day'), img_date.advance(1, 'day'))
+        .first()
+    )
 
     # Number of months to use for filling before and after the target image date
     fill_start_date = img_date.advance(-fill_months, 'months')
@@ -61,12 +77,17 @@ def filled_monthly_et(
         img_date = ee.Date(img.get('system:time_start'))
 
         # TODO: Check if this should be a constant image or mapped onto the source image
-        index_img = ee.Image.constant(img_date.difference(ee.Date.fromYMD(2016, 1, 1), 'month').round())
-        # index_img = img.select([0]).multiply(0).add(img_date.difference(ee.Date.fromYMD(2016, 1, 1), 'month').round())
+        index_img = ee.Image.constant(
+            img_date.difference(ee.Date.fromYMD(2016, 1, 1), 'month').round()
+        )
+        # index_img = (
+        #     img.select([0]).multiply(0)
+        #     .add(img_date.difference(ee.Date.fromYMD(2016, 1, 1), 'month').round())
+        # )
 
         return (
-            img.select(['et_fraction'])
-            .addBands([climo_img.select(['et_fraction'], ['climo']), index_img.rename('index')])
+            img.select([etf_input_band])
+            .addBands([climo_img.select([etf_climo_band], ['climo']), index_img.rename('index')])
             .double()
             .updateMask(climo_mask.And(img.select(['et_fraction']).mask()))
             .set({
@@ -83,7 +104,7 @@ def filled_monthly_et(
     # Place a zero image at the back of the previous and next collections
     # Using the source image climo so that the mask for the end images will match the source
     blank_img = (
-        climo_img.select(['et_fraction'] * 3, ['et_fraction', 'climo', 'index'])
+        climo_img.select([etf_climo_band] * 3, [etf_input_band, 'climo', 'index'])
         .double().multiply(0)
     )
     prev_coll = prev_coll.merge(ee.ImageCollection(
@@ -97,18 +118,17 @@ def filled_monthly_et(
     prev_img = ee.Image(ee.ImageCollection(prev_coll).sort('system:time_start', True).mosaic())
     next_img = ee.Image(ee.ImageCollection(next_coll).sort('system:time_start', False).mosaic())
 
-    value_prev = prev_img.select(['et_fraction'])
-    value_next = next_img.select(['et_fraction'])
+    value_prev = prev_img.select([etf_input_band])
+    value_next = next_img.select([etf_input_band])
     climo_prev = prev_img.select(['climo'])
     climo_next = next_img.select(['climo'])
 
     index_prev = prev_img.select(['index'])
     index_next = next_img.select(['index'])
 
-    # Testing building the index as a constant image
-    # This should be okay since this index is being subtracted from the prev and next images below
+    # Building the index as a constant image since this index is being subtracted
+    #   from the prev and next images below
     index_tgt = ee.Image.constant(img_date.difference(ee.Date.fromYMD(2016, 1, 1), 'month').round().int())
-    # index_tgt = mask_img.add(img_date.difference(ee.Date.fromYMD(2016, 1, 1), 'month').round().int())
 
     # Swapping the order in the previous weight calculation
     #   so that target index is being subtracted from the previous image
@@ -118,7 +138,7 @@ def filled_monthly_et(
 
     # Compute the filled ETf using Conor's Method
     etf_filled_img = (
-        climo_img.select(['et_fraction'])
+        climo_img.select([etf_climo_band])
         .add(value_prev.subtract(climo_prev).multiply(w_prev))
         .add(value_next.subtract(climo_next).multiply(w_next))
     )
@@ -129,13 +149,13 @@ def filled_monthly_et(
     # # etf_filled_img = etf_filled_img.min(maximum_etf)
 
     # Get the ETo for computing ET
-    eto_img = ee.Image(source_img.select('et_reference'))
+    eto_img = ee.Image(source_img.select(eto_input_band))
 
     # Compute the filled ET
     et_filled_img = etf_filled_img.multiply(eto_img).round().int().max(0).rename(['et_filled'])
 
     # Get the original unfilled ET for computing a filled mask and returning with the filled ET image
-    et_unfilled_img = source_img.select(['et'], ['et_unfilled'])
+    et_unfilled_img = source_img.select([et_input_band], ['et_unfilled'])
 
     # Default ET image
     et_default_img = etf_default_img.multiply(eto_img).round().int().max(0)
@@ -166,10 +186,7 @@ def filled_monthly_et(
 
 
 def compute_monthly_et_fraction(
-        et_coll,
-        et_reference_coll,
-        et_band='et',
-        et_reference_band='et_reference',
+        et_coll, eto_coll, et_band='et', eto_band='et_reference',
 ):
     """Compute ET fraction for each ET image
 
@@ -177,11 +194,11 @@ def compute_monthly_et_fraction(
     ----------
     et_coll : ee.ImageCollection
         The source ET collection.
-    et_reference_coll : ee.ImageCollection
+    eto_coll : ee.ImageCollection
         Reference ET collection for computing ET fraction.
     et_band : str
         Name of the band in the ET collection that contains the ET image.
-    et_reference_band : str
+    eto_band : str
         Name of the band in the reference ET collection that contains the
         reference ET image.
 
@@ -201,7 +218,7 @@ def compute_monthly_et_fraction(
     })
     join_coll = (
         ee.Join.saveFirst(**{'matchKey': 'match'})
-        .apply(et_coll, et_reference_coll.select([et_reference_band]), max_diff_filter)
+        .apply(et_coll, eto_coll.select([eto_band]), max_diff_filter)
     )
 
     def image_etf(img):
@@ -211,7 +228,7 @@ def compute_monthly_et_fraction(
 
         eto_img = (
             ee.Image(img.get('match'))
-            .select([et_reference_band], ['et_reference'])
+            .select([eto_band], ['et_reference'])
             .resample('bilinear')
         )
         etf_img = img.select([et_band]).divide(eto_img).rename(['et_fraction'])
@@ -243,13 +260,18 @@ def compute_monthly_climatology(
     ----------
     input_coll : ee.ImageCollection
     month : int
+        Climatology target month.
     climo_start_year : int
+        Climatology start year passed to ee.Filter.calendarRange().
     climo_end_year : int
+        Climatology end year (inclusive) passed to ee.Filter.calendarRange().
     climo_min_count : int
         Minimum number of years required to compute a filled value.
         Pixels with fewer years will be masked.  The default is 3.
     input_band : str
+        Name of the band in the input collection that contains the ET fraction.
     output_band : str
+        Name of the ET fraction band in the output image.
 
     Returns
     -------
@@ -299,7 +321,8 @@ def veget_etf_climatology(month):
         .filterMetadata('month_i', 'equals', month)
         .first()
         .resample('bilinear')
-        # .set({'default_etf_source': veget_coll_id})
+        .rename(['et_fraction'])
+        .set({'default_etf_source': veget_coll_id})
     )
 
 
@@ -337,6 +360,6 @@ def nalcms_etf():
     return (
         ee.Image(nalcms_image_id)
         .remap([x[0] for x in naclms_etf_remap], [x[1] for x in naclms_etf_remap])
-        .rename(['etf'])
-        #.set({'default_etf_source': nalcms_image_id})
+        .rename(['et_fraction'])
+        .set({'default_etf_source': nalcms_image_id})
     )
